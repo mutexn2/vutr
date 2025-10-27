@@ -62,7 +62,7 @@ async function createSettingsMenu(buttonElement) {
         </button>
         <button class="menu-item" data-route="contact">
           <span class="item-icon">💬</span>
-          <span class="item-text">Chat</span>
+          <span class="item-text">Feedback</span>
         </button>
         <button id="theme-toggle-menu" class="menu-item">
           <span class="item-icon">${currentTheme === 'light' ? '🌒' : '☀️'}</span>

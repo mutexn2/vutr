@@ -319,7 +319,7 @@ if (about) {
 }
 
 
-  createProfileLinks(kindZeroContent, profile);
+  createProfileLinks(kindZeroContent, profile, profile);
     createEditButton(profile, kindZeroContent);
     
     populateTechnicalInfo(profile, profileNpub);

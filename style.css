@@ -69,8 +69,6 @@ header a span {
   color: var(--text);
 }
 
-
-
 .nav-links {
   display: flex;
   flex-direction: row;
@@ -202,11 +200,9 @@ header a span {
   background-color: var(--surface);
 }
 
-
 nostr-user-search {
   width: 100%;
   display: block;
-
 }
 
 /* Input styling */
@@ -332,7 +328,7 @@ nostr-user-search.searching::part(input) {
     margin-top: 40px;
     padding: 0 12px;
   }
-  
+
   .search-content {
     padding: 16px;
     border-radius: 12px 12px 0 0;
@@ -344,9 +340,9 @@ nostr-user-search.searching::part(input) {
     overflow: hidden;
   }
 
-nostr-user-search::part(wrapper) {
-  max-width: 380px;
-}
+  nostr-user-search::part(wrapper) {
+    max-width: 380px;
+  }
 
   nostr-user-search::part(results) {
     max-height: 50vh;
@@ -364,8 +360,8 @@ nostr-user-search::part(wrapper) {
 
 @media (max-width: 480px) {
   nostr-user-search::part(wrapper) {
-  max-width: 320px;
-}
+    max-width: 320px;
+  }
 }
 /*****************/
 
@@ -470,12 +466,11 @@ h1 {
 .searchToggle svg,
 #toggleTheme svg,
 .video-action-tabs svg {
-  width: 24px; 
+  width: 24px;
   height: 24px;
   fill: var(--text);
   stroke: var(--primary);
 }
-
 
 .light-theme #notify-menu-btn svg,
 .light-theme #colorPicker svg,
@@ -487,8 +482,8 @@ h1 {
 }
 
 .sidebar svg {
-  width: 24px; 
-  height: 24px;  
+  width: 24px;
+  height: 24px;
   fill: var(--text);
   stroke: var(--text-secondary);
 }
@@ -501,10 +496,10 @@ h1 {
 } */
 
 #create-button svg {
-  width: 24px; 
+  width: 24px;
   height: 24px;
   stroke: var(--text-secondary);
-  fill: var(--background);  
+  fill: var(--background);
 }
 
 .like-icon {
@@ -571,12 +566,10 @@ h1 {
 }
 
 .settings-btn.warning {
-
   border-color: #856404;
 }
 
 .settings-btn.danger {
-
   border-color: #721c24;
 }
 
@@ -790,7 +783,7 @@ h1 {
   left: 0;
   width: 100%;
   height: 100%;
-  background:  rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.5);
   z-index: 9999;
   pointer-events: none;
   opacity: 0;
@@ -1542,8 +1535,6 @@ main {
   padding: 4px;
 }
 
-
-
 @media (max-width: 480px) {
   .video-card {
     margin: 0;
@@ -1551,10 +1542,9 @@ main {
     margin-top: 8px;
     border-radius: 0;
   }
- 
-  .video-card:hover {
-        border: 1px solid var(--background);
 
+  .video-card:hover {
+    border: 1px solid var(--background);
   }
 
   .video-card .creator {
@@ -1563,14 +1553,12 @@ main {
     background-color: var(--background);
   }
 
-
   .videos-grid {
     padding: 0;
     margin: 0;
     margin-top: 4px;
   }
 }
-
 
 .video-card:hover {
   border: 1px solid var(--primary);
@@ -1596,7 +1584,6 @@ main {
   color: var(--primary);
 }
 
-
 .duration {
   position: absolute;
   bottom: 8px;
@@ -1616,7 +1603,6 @@ main {
   justify-content: space-between;
   gap: 8px;
   flex: 1;
-  
 }
 
 .video-info .title {
@@ -1668,7 +1654,6 @@ main {
   transition: background-color 0.2s ease;
   margin: -4px; /* Negative margin to expand clickable area */
   text-overflow: ellipsis;
-
 }
 
 .creator:hover {
@@ -1712,19 +1697,15 @@ main {
   justify-content: flex-start;
   margin: 4px;
   padding: 4px;
- 
 }
-
-
 
 .file-size,
 .blossom-indicator,
 .time {
   font-size: 12px;
   color: var(--text);
- 
+
   background-color: var(--background);
-  
 
   font-weight: 500;
 }
@@ -2181,12 +2162,12 @@ main {
     padding: 10px;
   }
 
-/*   .blocked-video-icon,
+  /*   .blocked-video-icon,
   .blocked-video-title {
     display: none;
   } */
 
-/*   .blocked-video-actions {
+  /*   .blocked-video-actions {
     flex-direction: column;
     gap: 8px;
   } */
@@ -2280,8 +2261,6 @@ main {
     font-size: 13px;
   }
 }
-
-
 
 .video-action-tab-button.saved,
 .video-action-tab-button.liked {
@@ -2664,7 +2643,6 @@ main {
   .comment-card {
     padding: 0.7rem;
   }
-
 }
 
 @media (min-width: 769px) {
@@ -3598,7 +3576,6 @@ main {
   }
 }
 
-
 /*******************************************************************/
 /************************************************/
 /******************faqPage******************/
@@ -4015,7 +3992,7 @@ main {
 }
 
 @media (max-width: 480px) {
-/*   .profile-links-row {
+  /*   .profile-links-row {
     flex-direction: column;
     align-items: stretch;
   } */
@@ -4291,7 +4268,6 @@ main {
   color: var(--text);
   font-size: larger;
 }
-
 
 .relay-url {
   flex: 1;
@@ -4677,7 +4653,6 @@ main {
     padding: 4px;
     margin-bottom: 60px;
     height: 100%;
-   
   }
 
   .page-container {
@@ -4765,10 +4740,8 @@ main {
     display: none;
   }
 
-
   .nav-links {
     justify-content: flex-end;
-    
   }
 
   .nav-links a,
@@ -4882,8 +4855,6 @@ main {
     font-size: 24px;
     margin-bottom: 16px;
   }
-
-
 
   .sidebar-item {
     padding: 4px;
@@ -5760,8 +5731,6 @@ noscript {
   cursor: pointer;
 }
 
-
-
 /* Enhanced chip section header */
 .chip-section-header {
   display: flex;
@@ -6579,8 +6548,6 @@ noscript {
   transition: all 0.2s ease;
 }
 
-
-
 /* Relay header section */
 .relay-header {
   display: flex;
@@ -6595,9 +6562,6 @@ noscript {
   padding-bottom: 12px;
 }
 
-
-
-
 .relay-main-info {
   display: flex;
   flex-direction: column;
@@ -6610,7 +6574,11 @@ noscript {
 
 .relay-identity {
   display: flex;
- background: linear-gradient(135deg, var(--surface) 0%, var(--background) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--surface) 0%,
+    var(--background) 100%
+  );
   width: inherit;
   gap: 12px;
   margin: 2px;
@@ -6625,7 +6593,7 @@ noscript {
   height: 48px;
   border-radius: 8px;
   object-fit: cover;
-  
+
   flex-shrink: 0;
 }
 
@@ -6649,7 +6617,8 @@ noscript {
 .relay-url {
   font-size: 0.85em;
   color: var(--text-secondary);
-  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+  font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas,
+    "Courier New", monospace;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -6664,10 +6633,8 @@ noscript {
 
 /* Status indicators */
 .relay-status {
-
   width: 99%;
   max-width: 600px;
-
 }
 
 .status-checking {
@@ -6692,9 +6659,18 @@ noscript {
 }
 
 @keyframes ellipsis {
-  0%, 33% { content: "..."; }
-  34%, 66% { content: ""; }
-  67%, 100% { content: "..."; }
+  0%,
+  33% {
+    content: "...";
+  }
+  34%,
+  66% {
+    content: "";
+  }
+  67%,
+  100% {
+    content: "...";
+  }
 }
 
 /* Badges */
@@ -6767,8 +6743,6 @@ noscript {
   background: var(--primary);
   opacity: 0.9;
 }
-
-
 
 .btn-danger {
   border-color: #ef4444;
@@ -6859,12 +6833,24 @@ noscript {
 }
 
 /* Utility classes for status values */
-.status-yes { color: #22c55e; }
-.status-no { color: #6b7280; }
-.speed-fast { color: #22c55e; }
-.speed-medium { color: #eab308; }
-.speed-slow { color: #f97316; }
-.speed-very-slow { color: #ef4444; }
+.status-yes {
+  color: #22c55e;
+}
+.status-no {
+  color: #6b7280;
+}
+.speed-fast {
+  color: #22c55e;
+}
+.speed-medium {
+  color: #eab308;
+}
+.speed-slow {
+  color: #f97316;
+}
+.speed-very-slow {
+  color: #ef4444;
+}
 
 /* Empty state */
 .no-relays {
@@ -6882,52 +6868,44 @@ noscript {
   .relay-item {
     padding: 8px;
   }
-  
 
-  
   .relay-icon {
     width: 40px;
     height: 40px;
   }
-  
+
   .relay-name {
     font-size: 1em;
   }
-
 }
 
 @media (max-width: 600px) {
   .relay-actions {
     padding: 12px;
   }
-  
+
   .btn {
     flex: 1;
     min-width: 0;
     justify-content: center;
   }
-  
-
 }
 
 @media (max-width: 480px) {
   .btn span {
     display: none; /* Show only icons on very small screens */
   }
-  
+
   .btn {
     padding: 10px;
     min-width: 44px; /* Minimum touch target */
     justify-content: center;
   }
-  
+
   .relay-identity {
     gap: 8px;
   }
-  
-
 }
-
 
 /***/
 
@@ -7164,7 +7142,6 @@ noscript {
   border: none;
   margin: 4px;
 }
-
 
 /* All Sets Tab */
 .all-sets-header {
@@ -7470,12 +7447,9 @@ noscript {
   color: var(--surface);
 }
 
-
-
 .current-relay-section {
   margin-bottom: 16px;
 }
-
 
 .relay-actions {
   display: flex;
@@ -7563,10 +7537,8 @@ noscript {
   border: 1px solid black;
 }
 
-
 .block-relay-btn.blocked:hover {
   background-color: var(--surface);
-
 }
 
 .block-relay-btn.unblocked:hover {
@@ -7668,7 +7640,6 @@ noscript {
 }
 
 .relay-icon {
-
   border-radius: 3px;
   flex-shrink: 0;
   object-fit: cover;
@@ -7833,8 +7804,6 @@ noscript {
   .connect-btn {
     width: 100%;
   }
-
-
 
   .operator-container {
     justify-content: center;
@@ -8558,7 +8527,6 @@ noscript {
   height: 40px;
 }
 
-
 #messages-container {
   display: flex;
   flex-direction: column;
@@ -8594,7 +8562,7 @@ noscript {
   display: flex;
   align-items: center;
   gap: 4px;
-    background-color: transparent;
+  background-color: transparent;
   color: var(--text-secondary);
 }
 
@@ -8639,7 +8607,6 @@ noscript {
   gap: 8px;
 }
 
-
 .message-timestamp {
   color: var(--text-secondary);
   font-size: 0.7em;
@@ -8652,7 +8619,6 @@ noscript {
   color: var(--text);
   white-space: pre-wrap;
   word-wrap: break-word;
-  
 }
 
 .message-tags {
@@ -8682,28 +8648,21 @@ noscript {
 
 /* Mobile responsiveness */
 @media (max-width: 768px) {
-
-.message {
-  padding: 8px;
-  
+  .message {
+    padding: 8px;
+  }
 }
-
-}
-
 
 @media (max-width: 480px) {
+  .message {
+    padding: 4px;
+    width: 99%;
+  }
 
-.message {
-  padding: 4px;
-  width: 99%;
+  .chat-input-wrapper {
+    width: 99%;
+  }
 }
-
-.chat-input-wrapper {
-  width: 99%;
-}
-
-}
-
 
 .see-more-section {
   margin-top: 8px;
@@ -8832,8 +8791,6 @@ noscript {
   background: var(--border);
 }
 
-
-
 .loading-indicator {
   position: relative;
   text-align: center;
@@ -8847,10 +8804,13 @@ noscript {
   transform-origin: center;
 }
 @keyframes radar-spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
-
 
 /* .loading-indicator::after {
   content: "...";
@@ -8901,10 +8861,9 @@ noscript {
     flex-direction: column;
     align-items: flex-start;
     gap: 4px;
-      margin: 4px;
-  padding: 4px;
+    margin: 4px;
+    padding: 4px;
   }
-
 }
 .reference-click-to-load .reference-action {
   color: var(--accent);
@@ -8912,17 +8871,19 @@ noscript {
   background-color: transparent;
 }
 
-
 .fetched-message {
   box-shadow: 0 0 0 3px var(--primary);
-  background: linear-gradient(135deg, var(--background) 0%, var(--surface) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--background) 0%,
+    var(--surface) 100%
+  );
   transition: all 0.3s ease;
 }
 
 .fetched-message:hover {
   box-shadow: 0 0 0 3px var(--primary);
 }
-
 
 .reference-loading .reference-spinner {
   display: inline-block;
@@ -8932,8 +8893,12 @@ noscript {
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .reference-clickable {
@@ -8986,10 +8951,13 @@ noscript {
 }
 
 .message.highlighted {
-  background: linear-gradient(135deg, var(--surface) 0%, var(--background) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--surface) 0%,
+    var(--background) 100%
+  );
   transition: background-color 0.3s ease;
 }
-
 
 /****chat messages publishing****/
 .reply-indicator {
@@ -9025,11 +8993,6 @@ noscript {
 #cancel-reply-btn:hover {
   color: var(--text-secondary);
 }
-
-
-
-
-
 
 /*****************/
 #upload-video {
@@ -9208,7 +9171,6 @@ noscript {
 .close-modal-btn:hover {
   color: var(--text);
 }
-
 
 .modal-open {
   overflow: hidden;
@@ -9438,7 +9400,12 @@ noscript {
 .progress-bar.indeterminate .progress-fill {
   width: 30%;
   animation: indeterminate 2s infinite linear;
-  background: linear-gradient(90deg, var(--primary) 0%, var(--primary) 50%, var(--primary) 100%);
+  background: linear-gradient(
+    90deg,
+    var(--primary) 0%,
+    var(--primary) 50%,
+    var(--primary) 100%
+  );
 }
 
 @keyframes indeterminate {
@@ -9451,12 +9418,12 @@ noscript {
 }
 
 .result.loading {
-  border-left: 4px solid #2196F3;
+  border-left: 4px solid #2196f3;
   background-color: var(--surface);
 }
 
 .result.success {
-  border-left: 4px solid #4CAF50;
+  border-left: 4px solid #4caf50;
   background-color: var(--surface);
 }
 
@@ -10031,8 +9998,6 @@ noscript {
 }
 
 @media (max-width: 480px) {
-
-
   .videos-listview .relay-set-title {
     font-size: 1em;
     padding: 10px 12px;
@@ -10278,12 +10243,6 @@ noscript {
   border: 1px solid var(--primary);
 }
 
-
-
-
-
-
-
 /***************************************************/
 /* WebSocket Page Styles */
 #websocketsPage-container {
@@ -10307,15 +10266,17 @@ noscript {
 }
 
 .stat-item {
-  background: linear-gradient(135deg, var(--surface) 0%, var(--background) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--surface) 0%,
+    var(--background) 100%
+  );
   color: var(--text);
   padding: 20px 15px;
   border-radius: 12px;
   text-align: center;
   border: 1px solid var(--border);
-
 }
-
 
 .stat-value {
   display: block;
@@ -10355,7 +10316,6 @@ noscript {
 
 #controls button:hover {
   border-color: var(--primary);
-
 }
 
 #refresh-btn {
@@ -10438,7 +10398,7 @@ noscript {
 }
 
 .connection-item::before {
-  content: '';
+  content: "";
   position: absolute;
   left: 0;
   top: 0;
@@ -10518,7 +10478,7 @@ noscript {
 
 .connection-details small {
   color: var(--text-secondary);
-  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace;
+  font-family: "SF Mono", "Monaco", "Cascadia Code", "Roboto Mono", monospace;
   font-size: 13px;
   line-height: 1.5;
 }
@@ -10669,52 +10629,52 @@ noscript {
   #websocketsPage-container {
     padding: 15px;
   }
-  
+
   .stats-grid {
     grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
     gap: 12px;
   }
-  
+
   .stat-item {
     padding: 16px 12px;
   }
-  
+
   .connection-item {
     padding: 20px 16px;
   }
-  
+
   .connection-header {
     flex-direction: column;
     align-items: flex-start;
     gap: 12px;
   }
-  
+
   .connection-meta {
     width: 100%;
     justify-content: space-between;
   }
-  
+
   .tabs-header {
     margin-bottom: 20px;
   }
-  
+
   .tab-btn {
     padding: 14px 20px;
     font-size: 13px;
   }
-  
+
   #controls {
     flex-direction: column;
   }
-  
+
   #controls button {
     min-width: unset;
   }
-  
+
   .connection-actions {
     flex-direction: column;
   }
-  
+
   .action-btn {
     text-align: center;
   }
@@ -10724,34 +10684,32 @@ noscript {
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
   }
-  
+
   .connection-details {
     padding: 12px;
   }
-  
+
   .connection-details small {
     font-size: 12px;
   }
-  
+
   .connection-url {
     font-size: 14px;
   }
 }
 
-
-
 /***************************nak****************/
 .subscription-dashboard {
   display: flex;
   flex-direction: column;
-  
+
   justify-content: start;
   max-width: 800px;
- 
+
   padding: 20px;
   color: var(--text);
   background-color: var(--background);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
 .subscription-dashboard .section-header {
@@ -10766,7 +10724,9 @@ noscript {
   font-size: 1.2em;
 }
 
-.subscription-dashboard .filter-section, .subscriptions-section, .events-section {
+.subscription-dashboard .filter-section,
+.subscriptions-section,
+.events-section {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -10796,7 +10756,8 @@ noscript {
   font-weight: 600;
 }
 
-.subscription-dashboard .form-field input, .form-field textarea {
+.subscription-dashboard .form-field input,
+.form-field textarea {
   padding: 8px 12px;
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -10805,7 +10766,8 @@ noscript {
   font-size: 14px;
 }
 
-.subscription-dashboard .form-field input:focus, .form-field textarea:focus {
+.subscription-dashboard .form-field input:focus,
+.form-field textarea:focus {
   outline: none;
   border-color: #0a84ff;
 }
@@ -10849,13 +10811,10 @@ noscript {
   gap: 4px;
 }
 
-
-
 .subscription-dashboard .sub-stats {
   display: flex;
   gap: 12px;
   font-size: 12px;
-
 }
 
 .subscription-dashboard .sub-controls {
@@ -10863,7 +10822,8 @@ noscript {
   gap: 8px;
 }
 
-.subscription-dashboard .btn-toggle, .btn-close {
+.subscription-dashboard .btn-toggle,
+.btn-close {
   background: none;
 
   padding: 4px 8px;
@@ -10906,15 +10866,12 @@ noscript {
   font-size: 12px;
 }
 
-
-
 .subscription-dashboard .relay-status {
   padding: 2px 8px;
   border-radius: 10px;
   font-weight: 600;
   text-transform: uppercase;
 }
-
 
 .subscription-dashboard .events-controls {
   display: flex;
@@ -10948,7 +10905,10 @@ noscript {
   flex-wrap: wrap;
 }
 
-.subscription-dashboard .kind-badge, .time-badge, .relay-badge, .sub-badge {
+.subscription-dashboard .kind-badge,
+.time-badge,
+.relay-badge,
+.sub-badge {
   padding: 2px 8px;
   border-radius: 10px;
   font-size: 11px;
@@ -10984,7 +10944,8 @@ noscript {
   margin-top: 8px;
 }
 
-.subscription-dashboard .no-subscriptions, .no-events {
+.subscription-dashboard .no-subscriptions,
+.no-events {
   text-align: center;
   color: var(--text);
   padding: 40px 20px;
@@ -10995,13 +10956,13 @@ noscript {
   .subscription-dashboard .form-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .subscription-dashboard .sub-header {
     flex-direction: column;
     gap: 12px;
     align-items: flex-start;
   }
-  
+
   .subscription-dashboard .event-meta {
     flex-direction: column;
     gap: 4px;
@@ -11046,8 +11007,6 @@ noscript {
   font-size: 0.8em;
   text-transform: uppercase;
 }
-
-
 
 .subscription-dashboard .relay-events {
   font-weight: bold;

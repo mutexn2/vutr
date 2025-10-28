@@ -287,6 +287,7 @@ function createSkeletonRelaySetCard(event) {
 
   let wsUrls = extractWebSocketUrls(event);
   let title = getValueFromTags(event.tags, "title");
+  let description = getValueFromTags(event.tags, "description"); // Get description
   
   // Create the skeleton card element
   let card = document.createElement('div');
@@ -299,9 +300,16 @@ function createSkeletonRelaySetCard(event) {
     titleHtml = `<div class="relay-set-title">${escapeHtml(title)}</div>`;
   }
   
+  // Create description section if description exists
+  let descriptionHtml = '';
+  if (description) {
+    descriptionHtml = `<div class="relay-set-description">${escapeHtml(description)}</div>`;
+  }
+  
   // Skeleton state
   card.innerHTML = `
     ${titleHtml}
+    ${descriptionHtml}
     <div class="relay-set-main">
       <div class="relay-set-info">
         <div class="publisher-section">
@@ -357,6 +365,7 @@ function createRelaySetCard(event) {
 
   let wsUrls = extractWebSocketUrls(event);
   let title = getValueFromTags(event.tags, "title");
+  let description = getValueFromTags(event.tags, "description"); // Get description
   
   // Create the card element
   let card = document.createElement('div');
@@ -369,12 +378,19 @@ function createRelaySetCard(event) {
     titleHtml = `<div class="relay-set-title">${escapeHtml(title)}</div>`;
   }
 
+  // Create description section if description exists
+  let descriptionHtml = '';
+  if (description) {
+    descriptionHtml = `<div class="relay-set-description">${escapeHtml(description)}</div>`;
+  }
+
   // Convert pubkey to npub for consistency with your following page
   const npub = window.NostrTools.nip19.npubEncode(event.pubkey);
   
   // Real card with all the information
   card.innerHTML = `
     ${titleHtml}
+    ${descriptionHtml}
     <div class="relay-set-main">
       <div class="relay-set-info">
         <div class="publisher-section clickable-publisher" data-npub="${npub}">

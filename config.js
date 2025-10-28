@@ -11,6 +11,7 @@ let config = {
       tags: [
         ["d", "asdasdasdadasdas"],
         ["title", "Default"],
+        ["description", "Default Set"],
         ["relay", "wss://nos.lol"],
         ["relay", "wss://relay.nostr.band"],
         ["relay", "wss://relay.damus.io"],

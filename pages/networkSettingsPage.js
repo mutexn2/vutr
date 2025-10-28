@@ -14,8 +14,8 @@ async function networkSettingsPageHandler() {
     <button class="network-tab-button active" data-tab="active-set">
       Active Set
     </button>
-    <button class="network-tab-button" data-tab="all-sets">All Sets</button>
-    <button class="network-tab-button" data-tab="create-set">Create</button>
+    <button class="network-tab-button" data-tab="placeholder-1">Placeholder 1</button>
+    <button class="network-tab-button" data-tab="placeholder-2">Placeholder 2</button>
 
   </div>
 
@@ -29,10 +29,16 @@ async function networkSettingsPageHandler() {
     </select>
   </div>
   <div class="set-actions">
-    <button id="editActiveSetNameBtn" class="btn-secondary" ${isGlobalSet(app.activeRelayList) ? 'style="display:none"' : ''}>Rename</button>
+    <button id="createNewSetBtn" class="btn-primary">Create New Set</button>
+    <button id="editActiveSetMetadataBtn" class="btn-secondary" ${isGlobalSet(app.activeRelayList) ? 'style="display:none"' : ''}>Edit Metadata</button>
     <button id="shareActiveSetBtn" class="btn-primary" ${isGlobalSet(app.activeRelayList) ? 'style="display:none"' : ''}>Share Set</button>
   </div>
 </div>
+
+    <!-- Set Info Section -->
+    <div class="set-info-section" id="setInfoSection">
+      <!-- Will be populated dynamically -->
+    </div>
 
     <!-- Active Relay List -->
     <div class="active-relay-list">
@@ -56,33 +62,17 @@ async function networkSettingsPageHandler() {
     </div>
   </div>
 
-  <!-- All Sets Tab -->
-  <div class="network-tab-content" id="all-sets-tab">
-    <div class="all-sets-header">
-      <h3>All Relay Sets</h3>
-    </div>
-    <div id="allRelaySets" class="relay-sets-list">
-      <!-- Dynamic content will be inserted here -->
+  <!-- Placeholder Tab 1 -->
+  <div class="network-tab-content" id="placeholder-1-tab">
+    <div class="placeholder-content">
+      <p>Placeholder for future features</p>
     </div>
   </div>
 
-  <!-- Create Tab -->
-  <div class="network-tab-content" id="create-set-tab">
-    <div class="create-options">
-      <!-- Create New Set Option -->
-      <div class="create-option">
-        <h4>Create New Set</h4>
-        <p>Start with a blank relay set</p>
-        <div class="create-empty-form">
-          <input
-            type="text"
-            id="newSetNameInput"
-            placeholder="Set name"
-            class="relay-input"
-          />
-          <button id="createEmptySetBtn" class="btn-primary">Create</button>
-        </div>
-      </div>
+  <!-- Placeholder Tab 2 -->
+  <div class="network-tab-content" id="placeholder-2-tab">
+    <div class="placeholder-content">
+      <p>Placeholder for future features</p>
     </div>
   </div>
 </div>
@@ -93,9 +83,9 @@ async function networkSettingsPageHandler() {
 
     // Initialize the page
     populateActiveSetDropdown();
+    renderSetInfo();
     renderActiveRelaySet();
-    renderAllRelaySets();
-    setupEventListeners();
+    setupNetworkPageEventListeners();
 
 
 
@@ -129,61 +119,41 @@ function populateActiveSetDropdown() {
     .join('');
 }
 
-
-function renderAllRelaySets() {
-  const container = document.getElementById("allRelaySets");
+// New function to render set info (relay count and description)
+function renderSetInfo() {
+  const container = document.getElementById("setInfoSection");
   if (!container) return;
   
-  const listsWithGlobal = getRelayListsWithGlobal();
+  let activeSet;
+  if (isGlobalSet(app.activeRelayList)) {
+    activeSet = generateGlobalRelaySet();
+  } else {
+    activeSet = app.relayLists[app.activeRelayList];
+  }
   
-  // Sort regular sets, then add global set at the end
-  const regularEntries = Object.entries(app.relayLists).sort(([a], [b]) => a.localeCompare(b));
-  const globalEntry = [GLOBAL_SET_NAME, listsWithGlobal[GLOBAL_SET_NAME]];
-  const allEntries = [...regularEntries, globalEntry];
+  if (!activeSet) {
+    container.innerHTML = '';
+    return;
+  }
   
-  container.innerHTML = allEntries
-    .map(([setName, setData]) => {
-      const relayCount = setData.tags.filter(tag => tag[0] === "relay").length;
-      const relays = setData.tags.filter(tag => tag[0] === "relay");
-      const isActive = setName === app.activeRelayList;
-      const isGlobal = isGlobalSet(setName);
-      
-      return `
-        <details class="relay-set-details ${isActive ? "active-set" : ""} ${isGlobal ? "global-set" : ""}" data-set-name="${setName}">
-          <summary class="set-summary">
-            <div class="set-info">
-              <h4>${setName} ${isActive ? "(Active)" : ""}</h4>
-              <span class="relay-count">${relayCount} relays</span>
-            </div>
-            <div class="set-actions">
-              ${!isGlobal ? '<button class="btn-small btn-danger delete-set-btn">Delete</button>' : ''}
-            </div>
-          </summary>
-          <div class="set-relays">
-            ${relays.length > 0 ? 
-              relays.map(relay => `<div class="relay-url-item">${relay[1]}</div>`).join('') : 
-              '<div class="no-relays">No relays in this set</div>'
-            }
-          </div>
-        </details>
-      `;
-    })
-    .join('');
-
-  // Only add delete listeners to non-global sets
-  container.querySelectorAll('.delete-set-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const setName = btn.closest(".relay-set-details").dataset.setName;
-      if (!isGlobalSet(setName)) {
-        deleteRelaySet(setName);
-      }
-    });
-  });
+  const relayCount = activeSet.tags.filter(tag => tag[0] === "relay").length;
+  const descriptionTag = activeSet.tags.find(tag => tag[0] === "description");
+  const description = descriptionTag ? descriptionTag[1] : "No description";
+  
+  container.innerHTML = `
+    <div class="set-metadata">
+      <div class="set-stat">
+        <strong>Relays:</strong> <span>${relayCount}</span>
+      </div>
+      <div class="set-description-display">
+        <strong>Description:</strong> <span>${escapeHtml(description)}</span>
+      </div>
+    </div>
+  `;
 }
 
 
-function setupEventListeners() {
+function setupNetworkPageEventListeners() {
 
 document.getElementById("relay-set-discovery-btn").addEventListener("click", function () {
   window.location.hash = "relaysetsdiscover";
@@ -208,8 +178,6 @@ document.getElementById("shareActiveSetBtn").addEventListener("click", () => {
   shareActiveRelaySet();
 });
 
-
-
   // Add relay button
   document.getElementById("addRelayBtn").addEventListener("click", addRelay);
   
@@ -218,20 +186,13 @@ document.getElementById("shareActiveSetBtn").addEventListener("click", () => {
     if (e.key === "Enter") addRelay();
   });
   
-  // Edit active set name
-  document.getElementById("editActiveSetNameBtn").addEventListener("click", () => {
-    editSetName(app.activeRelayList);
+  // Edit active set metadata (name + description)
+  document.getElementById("editActiveSetMetadataBtn").addEventListener("click", () => {
+    editSetMetadata(app.activeRelayList);
   });
   
-
-  
-  // Create new set (moved to new tab)
-  document.getElementById("createEmptySetBtn").addEventListener("click", createNewSetFromInput);
-  
-  // Create new set on Enter key
-  document.getElementById("newSetNameInput").addEventListener("keypress", (e) => {
-    if (e.key === "Enter") createNewSetFromInput();
-  });
+  // Create new set button
+  document.getElementById("createNewSetBtn").addEventListener("click", createNewEmptySet);
 
 // Delegate events for dynamic content
 const networkContainer = document.querySelector('.network-container-container');
@@ -326,18 +287,6 @@ else if (buttonText === "Block" || buttonText === "Unblock") {
         removeRelay(index);
       }
     }
-    // Make Active buttons for relay sets
-    else if (buttonText === "Make Active") {
-      e.stopPropagation();
-      const setName = e.target.closest(".relay-set-details").dataset.setName;
-      setActiveRelaySet(setName);
-    }
-    // Delete buttons for relay sets (in All Sets tab)
-    else if (e.target.classList.contains("btn-danger") && buttonText === "Delete") {
-      e.stopPropagation();
-      const setName = e.target.closest(".relay-set-details").dataset.setName;
-      deleteRelaySet(setName);
-    }
   });
 }
 }
@@ -355,21 +304,6 @@ function switchTab(targetTab) {
   });
   document.getElementById(`${targetTab}-tab`).classList.add('active');
 }
-
-// Helper function to normalize relay URLs
-function normalizeRelayUrl(url) {
-  if (!url.startsWith("wss://") && !url.startsWith("ws://")) {
-    return "wss://" + url;
-  }
-  return url;
-}
-
-// Save relay lists to localStorage
-function saveRelayLists() {
-  localStorage.setItem("relayLists", JSON.stringify(app.relayLists));
-  localStorage.setItem("activeRelayList", app.activeRelayList);
-}
-
 
 function renderActiveRelaySet() {
   const container = document.getElementById("activeRelayList");
@@ -401,6 +335,18 @@ function renderActiveRelaySet() {
   relays.forEach((relay, index) => {
     fetchRelayDocumentAndUpdate(relay[1], index);
   });
+}
+
+
+
+
+
+
+
+// Save relay lists to localStorage
+function saveRelayLists() {
+  localStorage.setItem("relayLists", JSON.stringify(app.relayLists));
+  localStorage.setItem("activeRelayList", app.activeRelayList);
 }
 
 function createRelayItemHTML(relayUrl, index, relayDoc) {
@@ -525,6 +471,17 @@ async function fetchRelayDocumentAndUpdate(relayUrl, index) {
     checkRelayStatus(relayUrl, index);
   }
 }
+// Helper function to normalize relay URLs
+function normalizeRelayUrl(url) {
+  if (!url.startsWith("wss://") && !url.startsWith("ws://")) {
+    return "wss://" + url;
+  }
+  return url;
+}
+function truncateText(text, maxLength) {
+  if (!text || text.length <= maxLength) return text;
+  return text.substring(0, maxLength) + '...';
+}
 // Helper functions
 function extractSoftwareName(softwareUrl) {
   try {
@@ -538,12 +495,6 @@ function extractSoftwareName(softwareUrl) {
     return softwareUrl;
   }
 }
-
-function truncateText(text, maxLength) {
-  if (!text || text.length <= maxLength) return text;
-  return text.substring(0, maxLength) + '...';
-}
-
 // Fetch relay icon
 async function fetchRelayIcon(relayUrl, index) {
   const iconElement = document.getElementById(`icon-${index}`);
@@ -1165,35 +1116,30 @@ async function fetchRelayInfo(relayUrl) {
 
 
 /////////////////////////////////////////
-async function createNewSetFromInput() {
-  const input = document.getElementById("newSetNameInput");
-  const setName = input.value.trim();
+// New function to create an empty set automatically
+function createNewEmptySet() {
+  // Generate a unique placeholder name
+  let counter = 1;
+  let setName = `New Set ${counter}`;
   
-  if (!setName) {
-    showTemporaryNotification("Please enter a set name");
-    return;
+  while (app.relayLists[setName]) {
+    counter++;
+    setName = `New Set ${counter}`;
   }
   
-  if (app.relayLists[setName]) {
-    showTemporaryNotification("A set with this name already exists");
-    return;
-  }
-  
-app.relayLists[setName] = {
-  kind: 30002,
-  tags: [
-    ["d", crypto.randomUUID().replace(/-/g, '').slice(0,15)],
-    ["title", setName]
-  ],
-};
-
+  app.relayLists[setName] = {
+    kind: 30002,
+    tags: [
+      ["d", crypto.randomUUID().replace(/-/g, '').slice(0,15)],
+      ["title", setName],
+      ["description", ""]
+    ],
+  };
   
   saveRelayLists();
+  app.activeRelayList = setName;
   updateAllNetworkUI();
-  input.value = "";
-  
-  switchTab("active-set");
-  showTemporaryNotification(`New set "${setName}" created`);
+  showTemporaryNotification(`New set "${setName}" created and activated`);
 }
 
 
@@ -1254,15 +1200,8 @@ async function publishRelaySetToNostr(setData) {
     
     const signedEvent = await handleEventSigning(eventData);
     console.log("Relay set event signed successfully!");
+  //  console.log(JSON.stringify(signedEvent, null, 4));
 
-    // Publish to selected relays
-    const pool = new window.NostrTools.SimplePool();
-
-/*     try {
-      await Promise.any(pool.publish(app.relays, signedEvent));
-      console.log("Relay set published successfully to relays:", app.relays);
-      
-      showTemporaryNotification("✅ Relay set shared successfully!"); */
     try {
       const result = await publishEvent(signedEvent, app.globalRelays, {
         successMessage: "✅ Relay set shared successfully!",
@@ -1308,20 +1247,30 @@ function buildRelaySetEventData(setData) {
 
 let currentEditingSet = null;
 
-async function editSetName(setName) {
-
-    if (isGlobalSet(setName)) {
-    showTemporaryNotification("Cannot rename the global relay set");
+// Modified to edit metadata (name + description)
+async function editSetMetadata(setName) {
+  if (isGlobalSet(setName)) {
+    showTemporaryNotification("Cannot edit the global relay set");
     return;
   }
   
-
   currentEditingSet = setName;
+  const setData = app.relayLists[setName];
   
-  const title = setName === app.activeRelayList ? "Edit Active Set Name" : "Edit Set Name";
+  const descriptionTag = setData.tags.find(tag => tag[0] === "description");
+  const currentDescription = descriptionTag ? descriptionTag[1] : "";
+  
+  const title = "Edit Set Metadata";
   const content = `
     <div class="edit-set-modal">
-      <input type="text" id="modalInput" class="relay-input" value="${escapeHtml(setName)}">
+      <div class="form-group">
+        <label for="modalNameInput">Name:</label>
+        <input type="text" id="modalNameInput" class="relay-input" value="${escapeHtml(setName)}">
+      </div>
+      <div class="form-group">
+        <label for="modalDescriptionInput">Description:</label>
+        <textarea id="modalDescriptionInput" class="relay-input" rows="3" placeholder="Enter a description for this relay set">${escapeHtml(currentDescription)}</textarea>
+      </div>
       <div class="modal-actions">
         <button class="btn-secondary" id="modalCancelBtn">Cancel</button>
         <button class="btn-primary" id="modalSaveBtn">Save</button>
@@ -1332,21 +1281,49 @@ async function editSetName(setName) {
   const modal = openModal({
     title,
     content,
-    size: "small"
+    size: "medium"
   });
 
-  // Focus input
-  modal.querySelector("#modalInput").focus();
+  // Helper function to clean up event listeners
+  const cleanup = () => {
+    saveBtn?.removeEventListener("click", saveHandler);
+    cancelBtn?.removeEventListener("click", cancelHandler);
+  };
 
-  // Setup handlers
-  modal.querySelector("#modalSaveBtn").addEventListener("click", saveModalEdit);
-  modal.querySelector("#modalCancelBtn").addEventListener("click", closeModal);
+  const saveHandler = () => {
+    cleanup();
+    saveModalMetadata();
+  };
+
+  const cancelHandler = () => {
+    cleanup();
+    closeModal();
+  };
+
+  const saveBtn = modal.querySelector("#modalSaveBtn");
+  const cancelBtn = modal.querySelector("#modalCancelBtn");
+
+  if (saveBtn) saveBtn.addEventListener("click", saveHandler);
+  if (cancelBtn) cancelBtn.addEventListener("click", cancelHandler);
+
+  // Also handle Enter key in the name input
+  const nameInput = modal.querySelector("#modalNameInput");
+  if (nameInput) {
+    nameInput.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") {
+        saveHandler();
+      }
+    });
+  }
 }
 
 
-async function saveModalEdit() {
-  const input = document.querySelector("#modalInput");
-  const newName = input?.value.trim();
+async function saveModalMetadata() {
+  const nameInput = document.querySelector("#modalNameInput");
+  const descriptionInput = document.querySelector("#modalDescriptionInput");
+  
+  const newName = nameInput?.value.trim();
+  const newDescription = descriptionInput?.value.trim() || "";
   
   if (!newName) {
     showTemporaryNotification("Please enter a name");
@@ -1354,41 +1331,47 @@ async function saveModalEdit() {
   }
 
   if (currentEditingSet) {
-    // Editing existing set
-    if (newName !== currentEditingSet && app.relayLists[newName]) {
-      showTemporaryNotification("A set with this name already exists");
-      return;
-    }
+    let setData = app.relayLists[currentEditingSet]; // Use 'let' instead of 'const'
     
+    // Check if renaming
     if (newName !== currentEditingSet) {
+      if (app.relayLists[newName]) {
+        showTemporaryNotification("A set with this name already exists");
+        return;
+      }
+      
       // Rename the set
-      app.relayLists[newName] = { ...app.relayLists[currentEditingSet] };
-      app.relayLists[newName].tags = app.relayLists[newName].tags.map(tag =>
-        tag[0] === "title" ? ["title", newName] : tag
-      );
+      app.relayLists[newName] = { ...setData };
       delete app.relayLists[currentEditingSet];
       
       if (app.activeRelayList === currentEditingSet) {
         app.activeRelayList = newName;
       }
-    }
-  } else {
-    // Creating new set
-    if (app.relayLists[newName]) {
-      showTemporaryNotification("A set with this name already exists");
-      return;
+      
+      setData = app.relayLists[newName]; // Now update the reference
     }
     
-    app.relayLists[newName] = {
-      kind: 30002,
-      tags: [["title", newName]],
-    };
+    // Update title tag
+    const titleTagIndex = setData.tags.findIndex(tag => tag[0] === "title");
+    if (titleTagIndex !== -1) {
+      setData.tags[titleTagIndex] = ["title", newName];
+    } else {
+      setData.tags.push(["title", newName]);
+    }
+    
+    // Update or add description tag
+    const descTagIndex = setData.tags.findIndex(tag => tag[0] === "description");
+    if (descTagIndex !== -1) {
+      setData.tags[descTagIndex] = ["description", newDescription];
+    } else {
+      setData.tags.push(["description", newDescription]);
+    }
   }
 
   saveRelayLists();
   updateAllNetworkUI();
   closeModal();
-  showTemporaryNotification(currentEditingSet ? "Set renamed" : "New set created");
+  showTemporaryNotification("Metadata updated");
 }
 
 async function showConfirmDialog(title, message, callback) {
@@ -1420,8 +1403,8 @@ function deleteRelaySet(setName) {
 
 function updateAllNetworkUI() {
   populateActiveSetDropdown();
+  renderSetInfo();
   renderActiveRelaySet();
-  renderAllRelaySets();
   updateButtonVisibility();
   updateSidebar();
   updateDrawerContent();
@@ -1453,6 +1436,7 @@ function generateGlobalRelaySet() {
     tags: [
       ["d", "global-relay-set"],
       ["title", GLOBAL_SET_NAME],
+      ["description", "Aggregated view of all relays from all sets"],
       ...Array.from(allRelays).map(relay => ["relay", relay])
     ],
     isGlobal: true // Flag to identify this as the global set
@@ -1468,7 +1452,7 @@ function getRelayListsWithGlobal() {
 }
 
 function updateButtonVisibility() {
-  const editBtn = document.getElementById("editActiveSetNameBtn");
+  const editBtn = document.getElementById("editActiveSetMetadataBtn");
   const shareBtn = document.getElementById("shareActiveSetBtn");
   
   if (editBtn && shareBtn) {

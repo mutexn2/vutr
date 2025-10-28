@@ -728,7 +728,7 @@ function initializePostingPage() {
       console.log("Event data:", eventData);
       const signedVideoEvent = await handleEventSigning(eventData);
       console.log("Event signed successfully!");
-
+    //  console.log(JSON.stringify(signedVideoEvent, null, 4));
       // Show confirmation modal with the signed event
       const shouldPublish = await confirmModal(
         "Published events can't be edited.",
@@ -837,6 +837,7 @@ function initializePostingPage() {
       isHashValid,
       dimensions: `${videoMetadata.width}x${videoMetadata.height}`,
       duration: videoMetadata.duration,
+
       uploaded: Math.floor(Date.now() / 1000),
       isLightweight: isLightweightMode,
     };
@@ -1066,13 +1067,9 @@ function initializePostingPage() {
       `m ${video.type}`,
       `image ${video.thumbnail}`,
       `fallback ${video.url}`,
+      `duration ${video.duration}`,
     ]);
 
-    // Build duration tags for each video
-    const durationTags = window.videoMetadataList.map((video) => [
-      "duration",
-      video.duration.toString(),
-    ]);
 
     // Build custom field tags
     const customFields = Array.from(document.querySelectorAll(".custom-field"))
@@ -1103,10 +1100,10 @@ function initializePostingPage() {
       ["title", document.getElementById("title").value],
       ["published_at", now.toString()],
       ["alt", document.getElementById("summary").value],
+     
+      ...imetaTags,
       ...Array.from(selectedTags).map((tag) => ["t", tag]),
       ...relayTags,
-      ...imetaTags,
-      ...durationTags,
       ...customFields,
     ];
 

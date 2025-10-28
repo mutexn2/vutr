@@ -159,68 +159,6 @@ async function processStep1(videoData) {
   }
 }
 
-/* async function processStep1(videoData) {
-  showStatus('Processing video... Please wait', 'loading');
-  
-  try {
-    // Check accessibility
-    const accessibility = await checkVideoAccessibility(videoData.url);
-    if (!accessibility.accessible) {
-      showStatus(`Video not accessible: ${accessibility.error || 'Unknown error'}`, 'error');
-      return;
-    }
-
-    // Fetch the video blob
-    const response = await fetch(videoData.url);
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    videoData.blob = await response.blob();
-    
-    // Create basic info elements
-    const basicInfoContainer = document.getElementById('basicInfo');
-    basicInfoContainer.innerHTML = '';
-    
-    const infoGrid = document.createElement('div');
-    infoGrid.className = 'info-grid';
-    
-    const infoItems = [
-      { label: 'URL', value: videoData.url },
-      { label: 'File Size', value: formatBytes(videoData.blob.size) },
-      { label: 'MIME Type', value: videoData.blob.type },
-      { label: 'Status', value: '✓ Video accessible', className: 'success' }
-    ];
-    
-    infoItems.forEach(item => {
-      const div = document.createElement('div');
-      const strong = document.createElement('strong');
-      strong.textContent = `${item.label}: `;
-      div.appendChild(strong);
-      
-      const span = document.createElement('span');
-      span.textContent = item.value;
-      if (item.className) {
-        span.className = item.className;
-      }
-      div.appendChild(span);
-      
-      infoGrid.appendChild(div);
-    });
-    
-    basicInfoContainer.appendChild(infoGrid);
-
-    // Show preview
-    showVideoPreview(videoData.blob);
-    
-    document.getElementById('stepsContainer').style.display = 'block';
-    document.getElementById('nextStep1').disabled = false;
-    showStatus('Completed successfully', 'success');
-
-  } catch (error) {
-    showStatus(`Error processing video: ${error.message}`, 'error');
-  }
-} */
 
 async function processStep2(videoData) {
   showStatus('Generating hash and validating...', 'loading');
@@ -593,4 +531,39 @@ function formatBytes(bytes, decimals = 2) {
   const sizes = ['Bytes', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+}
+
+
+async function validateBlossomInPlace(videoUrl, onProgress = null) {
+  try {
+    console.log('📥 Downloading video from URL:', videoUrl);
+    
+    // Download with progress
+    const videoBlob = await fetchVideoWithProgress(videoUrl, onProgress);
+    console.log('✅ Download complete, size:', formatBytes(videoBlob.size));
+    
+    // Generate SHA-256 hash
+    console.log('🔐 Generating SHA-256 hash...');
+    const hash = await generateSHA256Hash(videoBlob);
+    console.log('✅ Hash generated:', hash);
+    
+    // Validate against URL
+    console.log('🌸 Validating hash against URL filename...');
+    const validation = validateHashAgainstUrl(videoUrl, hash);
+    console.log('✅ Validation complete:', validation.isValid ? 'VALID BLOSSOM 🌸🌸🌸' : 'Hash mismatch');
+    
+    return {
+      success: true,
+      hash: hash,
+      isValid: validation.isValid,
+      urlHash: validation.urlHash,
+      blobHash: validation.blobHash
+    };
+  } catch (error) {
+    console.error('❌ Validation error:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
 }

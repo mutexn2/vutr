@@ -44,8 +44,11 @@ function createVideoCard(video) {
     "https://i.postimg.cc/wB2qSW-MM/tn.jpg"
    
   );
-  
-  let formattedDuration = formatDuration(getValueFromTags(video.tags, "duration", "142"));
+
+let duration = extractFromImeta(imetaTags, "duration")[0] || "1";
+
+  let formattedDuration = formatDuration(duration);
+
   let dimensions = extractFromImeta(imetaTags, "dim")[0] || "";
   let description = truncateText(content);
 
@@ -184,7 +187,6 @@ card.innerHTML = `
   creatorName.setAttribute('pubkey', video.pubkey);
   creatorNameContainer.appendChild(creatorName);
 
-  // Make only the creator section clickable
   creatorSection.addEventListener('click', (e) => {
     e.stopPropagation();
     window.location.hash = `#profile/${video.pubkey}`;

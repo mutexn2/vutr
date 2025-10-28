@@ -40,7 +40,7 @@ async function playlistsPageHandler() {
     playlists = playlists.map(sanitizeNostrEvent).filter((v) => v !== null);
 
     // Filter to only include playlists with valid kind-21 references
-    //playlists = filterValidPlaylists(playlists);
+    playlists = filterValidPlaylists(playlists);
 
     if (playlists.length === 0) {
       pageContainer.innerHTML = `
@@ -83,7 +83,7 @@ async function playlistsPageHandler() {
     });
 
     grid.addEventListener("click", async (event) => {
-      let card = event.target.closest(".playlist-card");
+      let card = event.target.closest(".video-card");
       if (card && card.dataset.playlistId) {
         const discoveryRelays = app.relays.slice(0, 3).map(cleanRelayUrl);
         const uniqueDiscoveryRelays = [...new Set(discoveryRelays)];
@@ -109,7 +109,6 @@ async function playlistsPageHandler() {
     pageContainer.replaceChildren(errorDiv);
   }
 }
-
 
 function filterValidPlaylists(playlists) {
   return playlists.filter(playlist => {

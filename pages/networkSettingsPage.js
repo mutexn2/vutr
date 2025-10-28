@@ -14,8 +14,8 @@ async function networkSettingsPageHandler() {
     <button class="network-tab-button active" data-tab="active-set">
       Active Set
     </button>
-    <button class="network-tab-button" data-tab="placeholder-1">Placeholder 1</button>
-    <button class="network-tab-button" data-tab="placeholder-2">Placeholder 2</button>
+    <button class="network-tab-button" data-tab="placeholder-1">1</button>
+    <button class="network-tab-button" data-tab="placeholder-2">2</button>
 
   </div>
 
@@ -28,11 +28,12 @@ async function networkSettingsPageHandler() {
       <!-- Options will be populated dynamically -->
     </select>
   </div>
-  <div class="set-actions">
-    <button id="createNewSetBtn" class="btn-primary">Create New Set</button>
-    <button id="editActiveSetMetadataBtn" class="btn-secondary" ${isGlobalSet(app.activeRelayList) ? 'style="display:none"' : ''}>Edit Metadata</button>
-    <button id="shareActiveSetBtn" class="btn-primary" ${isGlobalSet(app.activeRelayList) ? 'style="display:none"' : ''}>Share Set</button>
-  </div>
+<div class="set-actions">
+  <button id="createNewSetBtn" class="btn-primary">Create New Set</button>
+  <button id="editActiveSetMetadataBtn" class="btn-secondary" ${isGlobalSet(app.activeRelayList) ? 'style="display:none"' : ''}>Edit Metadata</button>
+  <button id="shareActiveSetBtn" class="btn-primary" ${isGlobalSet(app.activeRelayList) ? 'style="display:none"' : ''}>Share Set</button>
+  <button id="deleteActiveSetBtn" class="btn-danger" ${isGlobalSet(app.activeRelayList) ? 'style="display:none"' : ''}>Delete Set</button>
+</div>
 </div>
 
     <!-- Set Info Section -->
@@ -177,7 +178,7 @@ document.getElementById("relay-set-discovery-btn").addEventListener("click", fun
 document.getElementById("shareActiveSetBtn").addEventListener("click", () => {
   shareActiveRelaySet();
 });
-
+document.getElementById("deleteActiveSetBtn").addEventListener("click", deleteActiveSet);
   // Add relay button
   document.getElementById("addRelayBtn").addEventListener("click", addRelay);
   
@@ -1142,6 +1143,46 @@ function createNewEmptySet() {
   showTemporaryNotification(`New set "${setName}" created and activated`);
 }
 
+function deleteActiveSet() {
+  const currentSet = app.activeRelayList;
+  
+  // Prevent deleting the global set
+  if (isGlobalSet(currentSet)) {
+    showTemporaryNotification("Cannot delete the global relay set");
+    return;
+  }
+  
+  // Prevent deleting if it's the only set (besides global)
+  const regularSets = Object.keys(app.relayLists).filter(set => !isGlobalSet(set));
+  if (regularSets.length <= 1) {
+    showTemporaryNotification("Cannot delete the only relay set");
+    return;
+  }
+  
+  showConfirmDialog(
+    "Delete Relay Set",
+    `Are you sure you want to delete the "${currentSet}" relay set? This action cannot be undone.`,
+    () => {
+      // Find a new active set (pick the first available set that's not the one being deleted)
+      const availableSets = Object.keys(app.relayLists).filter(set => 
+        set !== currentSet && !isGlobalSet(set)
+      );
+      
+      const newActiveSet = availableSets[0]; // Pick the first available set
+      
+      // Delete the current set
+      delete app.relayLists[currentSet];
+      
+      // Set the new active set
+      app.activeRelayList = newActiveSet;
+      
+      // Save and update UI
+      saveRelayLists();
+      updateAllNetworkUI();
+      showTemporaryNotification(`Set "${currentSet}" deleted. Active set is now "${newActiveSet}"`);
+    }
+  );
+}
 
 async function shareActiveRelaySet() {
 //  if (!app.isLoggedIn) {
@@ -1454,10 +1495,18 @@ function getRelayListsWithGlobal() {
 function updateButtonVisibility() {
   const editBtn = document.getElementById("editActiveSetMetadataBtn");
   const shareBtn = document.getElementById("shareActiveSetBtn");
+  const deleteBtn = document.getElementById("deleteActiveSetBtn");
   
-  if (editBtn && shareBtn) {
+  if (editBtn && shareBtn && deleteBtn) {
     const shouldHide = isGlobalSet(app.activeRelayList);
     editBtn.style.display = shouldHide ? 'none' : '';
     shareBtn.style.display = shouldHide ? 'none' : '';
+    deleteBtn.style.display = shouldHide ? 'none' : '';
+    
+    // Also hide delete button if it's the only regular set
+    const regularSets = Object.keys(app.relayLists).filter(set => !isGlobalSet(set));
+    if (regularSets.length <= 1) {
+      deleteBtn.style.display = 'none';
+    }
   }
 }

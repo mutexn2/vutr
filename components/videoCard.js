@@ -431,7 +431,7 @@ function setupVideoCardMenuEvents(menuElement, video) {
   
   menuElement.querySelector('.video-show-json')?.addEventListener('click', () => {
     console.log('Show JSON clicked for video:', video.id);
-    showVideoJsonModal(video); // Keep your existing function
+    showVideoJsonModal(video);
     videoCardMenuControls?.close();
   });
 }

@@ -660,12 +660,3 @@ function showVideoJsonModal(videoData) {
 }
 
 
-
-
-
-///////////////////
-
-
-//////////////////////
-// bottom modal for option menu on mobile
-/////////////

@@ -14,9 +14,7 @@ let app = {
   mediaServerWhitelist: JSON.parse(
     localStorage.getItem("mediaServerWhitelist") || "[]"
   ),    
-//  mediaServerWhitelist: JSON.parse(
-//    localStorage.getItem("mediaServerWhitelist") || JSON.stringify(config.defaultMediaServerWhitelist)
-//  ),  
+
   // ========== NAVIGATION ==========
   currentPage: null,
   currentSidebar: null,
@@ -55,15 +53,6 @@ let app = {
   //  videoQueue: [],
 
   // ========== FOLLOWED PROFILES ==========
-//  followSet: JSON.parse(
-//    localStorage.getItem("followSet") || "[]"
-//  ),
-//
-//  favoriteChannels: JSON.parse(
-//    localStorage.getItem("favoriteChannels") ||
-//      "[]"
-//  ),
-
   followSet: JSON.parse(
     localStorage.getItem("followSet") || JSON.stringify(config.defaultFollowSet)
   ),
@@ -144,18 +133,11 @@ let app = {
   },
 
 
-/*   get relays() {
-    let activeList = this.relayLists[this.activeRelayList];
-    return activeList.tags
-      .filter((tag) => tag[0] === "relay")
-      .map((tag) => tag[1]);
-  }, */
 chatRelays: ["wss://nos.lol", "wss://nostr.mom"],
   
 };
 
 let routes = {
-//  "#": homePageHandler,
   "#home": homePageHandler,
   "#shorts": shortsPageHandler,
   "#list": listPageHandler,
@@ -650,7 +632,7 @@ async function someEventHandler() {
   }
 }
 
-// to clear guest account
+
 function clearGuestAccount() {
   localStorage.removeItem("nostr_guest_data");
   updateApp({

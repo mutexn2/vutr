@@ -80,10 +80,6 @@ function initializeVideoProcessor(prefilledUrl = '') {
       return;
     }
 
-/*     if (!isValidVideoUrl(url)) {
-      showStatus('Please enter a valid video URL (.mp4, .webm, .ogg, .mov)', 'error');
-      return;
-    } */
 
     videoData.url = url;
     await processStep1(videoData);
@@ -476,17 +472,7 @@ function showStatus(message, type, progressData = null) {
   statusEl.appendChild(resultDiv);
 }
 
-/* function showStatus(message, type) {
-  const statusEl = document.getElementById('processingStatus');
-  statusEl.innerHTML = '';
-  
-  const resultDiv = document.createElement('div');
-  resultDiv.className = `result ${type}`;
-  resultDiv.textContent = message;
-  
-  statusEl.appendChild(resultDiv);
-}
- */
+
 // Shared utility functions
 async function fetchVideoWithProgress(url, onProgress) {
   const response = await fetch(url);

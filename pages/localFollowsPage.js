@@ -257,11 +257,6 @@ function removeFollowedPubkey(pubkey) {
   return false;
 }
 
-// Check if pubkey is followed
-/* function isProfileFollowed(pubkey) {
-  return app.followSet.tags.some((tag) => tag[0] === "p" && tag[1] === pubkey);
-}
- */
 
 function isProfileFollowed(pubkey) {
   return app.followSet?.tags?.some((tag) => tag[0] === "p" && tag[1] === pubkey) || false;

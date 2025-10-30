@@ -39,11 +39,12 @@ let app = {
 
  // ========== VIDEO PLAYER STATE ==========
   videoPlayer: {
-    currentVideo: null,        // The video DOM element
-    currentVideoId: null,      // The video ID from URL
-    currentVideoData: null,    // The Nostr video data
+    currentVideo: null,
+    currentVideoId: null,
+    currentVideoData: null,
     isMiniplayerVisible: false,
-    isPlaying: false
+    isPlaying: false,
+    temporarilyAllowedVideos: new Set() // Track videos allowed "once"
   },
 
   // ========== FOLLOWED PROFILES ==========

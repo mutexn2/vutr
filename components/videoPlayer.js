@@ -22,21 +22,197 @@ function createVideoPlayer(video) {
 function initVideoManager() {
   const miniplayer = document.getElementById('miniplayer');
   const miniplayerVideoContainer = miniplayer.querySelector('.miniplayer-video-container');
+  const dragHandle = miniplayer.querySelector('.miniplayer-drag-handle');
   
-  // Setup event listeners
+  // Setup event listeners - be more specific about what gets click handlers
   miniplayer.querySelector('.miniplayer-close').addEventListener('click', stopVideoPlayback);
   miniplayer.querySelector('.miniplayer-expand').addEventListener('click', expandToVideoPage);
-  miniplayerVideoContainer.addEventListener('click', expandToVideoPage);
+  
+  // Only make the video itself (not controls) clickable to expand
+  miniplayerVideoContainer.addEventListener('click', (e) => {
+    // Only expand if clicking directly on the video container (not on controls or drag handle)
+    if (e.target === miniplayerVideoContainer || e.target.tagName === 'VIDEO') {
+      expandToVideoPage(e);
+    }
+  });
+  
+  // Initialize dragging
+  initMiniplayerDrag(miniplayer, dragHandle);
   
   console.log("Video manager initialized");
 }
+function initMiniplayerDrag(miniplayer, dragHandle) {
+  let isDragging = false;
+  let startX, startY, initialLeft, initialTop;
+  let clickStartTime = 0;
+  const DRAG_THRESHOLD = 5; // pixels movement to consider it a drag
+  const CLICK_MAX_DURATION = 200; // ms to consider it a click vs drag
 
-function expandToVideoPage() {
+  // Load saved position from localStorage
+  loadMiniplayerPosition(miniplayer);
+
+  dragHandle.addEventListener('mousedown', startDrag);
+  dragHandle.addEventListener('touchstart', startDragTouch);
+
+  function startDrag(e) {
+    isDragging = false; // Start as not dragging
+    clickStartTime = Date.now();
+    
+    const rect = miniplayer.getBoundingClientRect();
+    startX = e.clientX;
+    startY = e.clientY;
+    initialLeft = rect.left;
+    initialTop = rect.top;
+    
+    document.addEventListener('mousemove', handleDragMove);
+    document.addEventListener('mouseup', handleDragEnd);
+    
+    e.preventDefault();
+    e.stopPropagation(); // Prevent event from bubbling to video container
+  }
+
+  function startDragTouch(e) {
+    if (e.touches.length === 1) {
+      isDragging = false;
+      clickStartTime = Date.now();
+      
+      const touch = e.touches[0];
+      const rect = miniplayer.getBoundingClientRect();
+      startX = touch.clientX;
+      startY = touch.clientY;
+      initialLeft = rect.left;
+      initialTop = rect.top;
+      
+      document.addEventListener('touchmove', handleDragMoveTouch);
+      document.addEventListener('touchend', handleDragEnd);
+      
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }
+
+  function handleDragMove(e) {
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    
+    // Check if movement exceeds threshold to consider it a drag
+    if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
+      if (!isDragging) {
+        // First time exceeding threshold - start dragging
+        isDragging = true;
+        miniplayer.classList.add('dragging');
+      }
+      
+      updatePosition(miniplayer, initialLeft + dx, initialTop + dy);
+    }
+  }
+
+  function handleDragMoveTouch(e) {
+    if (e.touches.length !== 1) return;
+    
+    const touch = e.touches[0];
+    const dx = touch.clientX - startX;
+    const dy = touch.clientY - startY;
+    
+    if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
+      if (!isDragging) {
+        isDragging = true;
+        miniplayer.classList.add('dragging');
+      }
+      
+      updatePosition(miniplayer, initialLeft + dx, initialTop + dy);
+    }
+  }
+
+  function handleDragEnd(e) {
+    const wasDragging = isDragging;
+    const clickDuration = Date.now() - clickStartTime;
+    
+    // Clean up
+    isDragging = false;
+    miniplayer.classList.remove('dragging');
+    
+    document.removeEventListener('mousemove', handleDragMove);
+    document.removeEventListener('touchmove', handleDragMoveTouch);
+    document.removeEventListener('mouseup', handleDragEnd);
+    document.removeEventListener('touchend', handleDragEnd);
+    
+    // Only save position if it was a drag, not a click
+    if (wasDragging) {
+      saveMiniplayerPosition(miniplayer);
+    } else if (clickDuration < CLICK_MAX_DURATION) {
+      // It was a quick click on the drag handle - you could add handle-specific behavior here
+      console.log("Quick click on drag handle");
+    }
+    
+    e.stopPropagation();
+  }
+
+  function updatePosition(element, left, top) {
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const elementWidth = element.offsetWidth;
+    const elementHeight = element.offsetHeight;
+    
+    left = Math.max(0, Math.min(left, viewportWidth - elementWidth));
+    top = Math.max(0, Math.min(top, viewportHeight - elementHeight));
+    
+    element.style.left = left + 'px';
+    element.style.top = top + 'px';
+    element.style.right = 'auto';
+    element.style.bottom = '11vh';
+  }
+
+  // Double-click to reset position
+  dragHandle.addEventListener('dblclick', () => {
+    resetMiniplayerPosition();
+  });  
+}
+
+function saveMiniplayerPosition(miniplayer) {
+  const position = {
+    left: miniplayer.style.left,
+    top: miniplayer.style.top
+  };
+  localStorage.setItem('miniplayerPosition', JSON.stringify(position));
+}
+
+function loadMiniplayerPosition(miniplayer) {
+  try {
+    const saved = localStorage.getItem('miniplayerPosition');
+    if (saved) {
+      const position = JSON.parse(saved);
+      if (position.left && position.top) {
+        miniplayer.style.left = position.left;
+        miniplayer.style.top = position.top;
+        miniplayer.style.right = 'auto';
+        miniplayer.style.bottom = 'auto';
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to load miniplayer position:', e);
+  }
+}
+
+function resetMiniplayerPosition() {
+  const miniplayer = document.getElementById('miniplayer');
+  miniplayer.style.left = '';
+  miniplayer.style.top = '';
+  miniplayer.style.right = '20px';
+  miniplayer.style.bottom = '11vh';
+  localStorage.removeItem('miniplayerPosition');
+}
+
+function expandToVideoPage(e) {
+  // If this was triggered from a drag operation, don't navigate
+  if (e && (e.defaultPrevented || e.target.closest('.miniplayer-drag-handle'))) {
+    return;
+  }
+  
   if (app.videoPlayer.currentVideoId) {
     window.location.hash = `#watch/${app.videoPlayer.currentVideoId}`;
   }
 }
-
 function playVideo(videoElement, videoId, videoData) {
   // Stop any existing video first
   if (app.videoPlayer.currentVideo && app.videoPlayer.currentVideo !== videoElement) {

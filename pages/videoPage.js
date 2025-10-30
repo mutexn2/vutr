@@ -234,8 +234,6 @@ function renderVideoPage(video, videoId, useExistingVideo = false) {
   let relativeTime = escapeHtml(getRelativeTime(video.created_at));
   let pubkey = escapeHtml(video.pubkey);
 
-  // Check if we should use default player (from URL hash or toggle state)
-  let useDefaultPlayer = true;
 
   // Create static skeleton
   mainContent.innerHTML = `
@@ -338,9 +336,6 @@ function renderVideoPage(video, videoId, useExistingVideo = false) {
 
 
 
-    <div class="player-toggle">
-      <button class="toggle-player-btn"></button>
-    </div>
     <div class="comments-container"></div>
   </div>
 </div>
@@ -355,7 +350,6 @@ let videoDescription = mainContent.querySelector(".video-description");
 let videoTags = mainContent.querySelector(".video-tags");
 let videoRelays = mainContent.querySelector(".video-relays");
 let videoTime = mainContent.querySelector(".video-time");
-let toggleBtn = mainContent.querySelector(".toggle-player-btn");
 
 // Technical info references
 let technicalSummary = mainContent.querySelector(".technical-summary");
@@ -380,21 +374,11 @@ let technicalHash = mainContent.querySelector(".technical-hash");
     
   } else {
     // Normal rendering for new video
-    renderVideoPlayer(videoContainer, video, false); // Always use custom player now
+    renderVideoPlayer(videoContainer, video);
   }
 
 
 
-// Set toggle button text and handler
-updateToggleButton(toggleBtn, useDefaultPlayer);
-toggleBtn.addEventListener("click", () => {
-  let newPlayerState = !useDefaultPlayer;
-  sessionStorage.setItem(`useDefaultPlayer_${videoId}`, newPlayerState.toString());
-  renderVideoPlayer(videoContainer, video, newPlayerState);
-  updateToggleButton(toggleBtn, newPlayerState);
-  useDefaultPlayer = newPlayerState;
-  console.log(`Switched to ${newPlayerState ? "default" : "custom"} video player`);
-});
 
 // Channel info with custom elements
 let channelImage = document.createElement("nostr-picture");
@@ -1504,8 +1488,7 @@ function handleMoreOption(optionType, video, videoId) {
 
 ////////////////////
 // video player
-function renderVideoPlayer(container, video, useDefault) {
-  // Always use custom player now, ignore useDefault parameter
+function renderVideoPlayer(container, video) {
   container.innerHTML = `
     <div class="loading-spinner">
       <p>Loading video...</p>
@@ -1549,81 +1532,11 @@ function renderVideoPlayer(container, video, useDefault) {
     });
 
     // Track play state
-    videoElement.addEventListener('play', () => {
-      app.videoPlayer.isPlaying = true;
-    });
-    
-    videoElement.addEventListener('pause', () => {
-      app.videoPlayer.isPlaying = false;
-    });
+    setupVideoEventListeners(videoElement);
     
   }, 100);
 }
 
-
-/* function renderVideoPlayer(container, video, useDefault) {
-  // Show loading state first
-  container.innerHTML = `
-    <div class="loading-spinner">
-      <p>Loading video...</p>
-    </div>
-  `;
-  
-  // Get the URL
-  let url = getValueFromTags(video, "url", "");
-  
-  // Add a small delay to show loading (optional)
-  setTimeout(() => {
-    if (!url) {
-      container.innerHTML = '<div class="video-error">No video URL provided</div>';
-      return;
-    }
-    
-    // Rest of your existing logic...
-    if (!isDomainWhitelisted(url)) {
-      container.innerHTML = createBlockedVideoUI(url, container, video, useDefault);
-      setupBlockedVideoInteractions(container, url, video, useDefault);
-      return;
-    }
-    
-    // Clear loading and render player
-    container.innerHTML = '';
-    
-    if (useDefault) {
-      let mimeType = getValueFromTags(video, "m", "video/mp4");
-      container.innerHTML = `
-        <video controls class="default-video-player">
-          <source src="${escapeHtml(url)}" type="${escapeHtml(mimeType)}">
-          Your browser does not support the video tag.
-        </video>
-      `;
-    } else {
-      container.innerHTML = createVideoPlayer(video);
-    }
-    
-    // Add error handling
-    const videoElement = container.querySelector('video');
-    if (videoElement) {
-      videoElement.addEventListener('error', (e) => {
-        console.error('Video failed to load:', e);
-        container.innerHTML = `
-          <div class="video-error">
-            <p>Failed to load video</p>
-            <p>URL: ${escapeHtml(url)}</p>
-          </div>
-        `;
-      });
-    }
-  }, 100);
-}
- */
-
-// Helper function to update toggle button text
-function updateToggleButton(button, useDefault) {
-  button.textContent = useDefault
-    ? "🎬 Switch to Custom Player"
-    : "📺 Switch to Default Player";
-}
 ////////////////////
 // Utility functions for media server whitelist
 function extractDomain(url) {
@@ -1663,7 +1576,7 @@ function isValidDomain(domain) {
   return domainRegex.test(domain) && domain.length <= 253;
 }
 
-function createBlockedVideoUI(url, container, video, useDefault) {
+function createBlockedVideoUI() {
   return `
     <div class="blocked-video-container">
       <div class="blocked-video-icon">🔒</div>
@@ -1682,8 +1595,22 @@ function createBlockedVideoUI(url, container, video, useDefault) {
   `;
 }
 
+
+// Helper to check if a video is temporarily allowed
+function isVideoTemporarilyAllowed(videoId) {
+  return app.videoPlayer.temporarilyAllowedVideos.has(videoId);
+}
+
+// Helper to mark video as temporarily allowed
+function markVideoAsTemporarilyAllowed(videoId) {
+  app.videoPlayer.temporarilyAllowedVideos.add(videoId);
+}
+
+// Update the allowVideoOnce function to mark the video
 function allowVideoOnce(url, container, video, useDefault) {
   // Simply render the video player without adding to whitelist
+  let videoElement;
+  
   if (useDefault) {
     let mimeType = getValueFromTags(video, "m", "video/mp4");
     container.innerHTML = `
@@ -1692,9 +1619,21 @@ function allowVideoOnce(url, container, video, useDefault) {
         Your browser does not support the video tag.
       </video>
     `;
+    videoElement = container.querySelector('video');
   } else {
     container.innerHTML = createVideoPlayer(video);
+    videoElement = container.querySelector('video');
   }
+  
+  // IMPORTANT: Register this video with VideoManager
+  const videoId = window.location.hash.split('/')[1];
+  if (videoElement && videoId) {
+    // Mark this video as temporarily allowed
+    markVideoAsTemporarilyAllowed(videoId);
+    playVideo(videoElement, videoId, video);
+  }
+  
+  return videoElement;
 }
 
 function addToWhitelistAndPlay(url, container, video, useDefault) {
@@ -1712,10 +1651,10 @@ function addToWhitelistAndPlay(url, container, video, useDefault) {
     console.log(`Added ${domain} to media server whitelist`);
   }
   
-  // Play the video
-  allowVideoOnce(url, container, video, useDefault);
+  // Play the video and register with VideoManager
+  const videoElement = allowVideoOnce(url, container, video, useDefault);
+  return videoElement;
 }
-
 
 function setupBlockedVideoInteractions(container, url, video, useDefault) {
   const domain = extractDomain(url);
@@ -1732,13 +1671,23 @@ function setupBlockedVideoInteractions(container, url, video, useDefault) {
   
   if (allowOnceBtn) {
     allowOnceBtn.addEventListener('click', () => {
-      allowVideoOnce(url, container, video, useDefault);
+      const videoElement = allowVideoOnce(url, container, video, useDefault);
+      
+      // Setup event listeners for the newly created video
+      if (videoElement) {
+        setupVideoEventListeners(videoElement);
+      }
     });
   }
   
   if (addToWhitelistBtn) {
     addToWhitelistBtn.addEventListener('click', () => {
-      addToWhitelistAndPlay(url, container, video, useDefault);
+      const videoElement = addToWhitelistAndPlay(url, container, video, useDefault);
+      
+      // Setup event listeners for the newly created video
+      if (videoElement) {
+        setupVideoEventListeners(videoElement);
+      }
     });
   }
 }
@@ -1780,11 +1729,10 @@ function blockMediaServer(video) {
                         document.querySelector('video')?.parentElement;
 
   if (videoContainer) {
-    // Determine if we're using default player (you may need to adjust this logic)
-    const useDefault = videoContainer.querySelector('.default-video-player') !== null;
+
     
     // Re-render the video player which will now show the blocked UI
-    renderVideoPlayer(videoContainer, video, useDefault);
+    renderVideoPlayer(videoContainer, video);
   } else {
     console.warn("Could not find video container to re-render");
     // Optionally show a message to the user

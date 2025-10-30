@@ -1,6 +1,6 @@
 const PROFILE_LOAD_TIMEOUT = 5000;
 const RETRY_ATTEMPTS = 3;
-const RETRY_DELAY = 1000; // 1 second
+const RETRY_DELAY = 1000;
 
 async function profilePageHandler() {
   mainContent.innerHTML = `
@@ -150,7 +150,6 @@ async function profilePageHandler() {
     </div>
   `;
 
-  // Populate all data after DOM is ready
   populateProfileData(kindZeroContent, profile, profileNpub);
 
     // Setup all event listeners
@@ -173,7 +172,6 @@ async function profilePageHandler() {
     </div>
   `;
 
-  // Add event listener programmatically
   const retryButton = document.querySelector(".retry-button");
   if (retryButton) {
     retryButton.addEventListener("click", () => window.location.reload());
@@ -181,7 +179,6 @@ async function profilePageHandler() {
   }
 }
 
-// New helper function to load profile with retry logic
 async function loadProfileWithRetry(profile, attempts = 0) {
   try {
     const timeoutPromise = new Promise((_, reject) => {
@@ -313,7 +310,6 @@ if (about) {
   const content = kindZeroContent.about || "No description provided.";
   const processedContent = processMessageContent(content);
   
-  // Clear existing content and append the processed div
   about.innerHTML = '';
   about.appendChild(processedContent);
 }
@@ -328,7 +324,6 @@ if (about) {
   }
 }
 
-// NIP-05 verification function - modified to return more detailed result
 async function verifyNip05(nip05, pubkey) {
   try {
     // Split the identifier into local-part and domain
@@ -362,7 +357,7 @@ async function verifyNip05(nip05, pubkey) {
   }
 }
 
-// Helper function to create the CORS test URL
+
 function createCorsTestUrl(nip05) {
   const [localPart, domain] = nip05.split('@');
   const wellKnownUrl = `https://${domain}/.well-known/nostr.json?name=${localPart.toLowerCase()}`;
@@ -373,18 +368,18 @@ async function createProfileLinks(kindZeroContent, pubkey, profile) {
   const linksContainer = document.querySelector(".profile-links");
   if (!linksContainer) return;
   
-  // Clear existing content
+
   linksContainer.innerHTML = '';
   
-  // Create main row container
+
   const linksRow = document.createElement('div');
   linksRow.className = 'profile-links-row';
   
   const links = [];
   
-  // Follow button
+
   const followBtn = createProfileButton({
-    icon: '👥', // Will be replaced with SVG
+    icon: FOLLOW_ICON,
     text: isProfileFollowed(profile) ? "Following" : "Follow",
     className: isProfileFollowed(profile) ? "profile-btn following" : "profile-btn",
     onClick: () => handleFollowClick(followBtn, profile)
@@ -394,7 +389,7 @@ async function createProfileLinks(kindZeroContent, pubkey, profile) {
   // Website link
   if (kindZeroContent.website) {
     const websiteBtn = createProfileButton({
-      icon: '🌐',
+      icon: WEBSITE_ICON,
       text: "Website",
       className: "profile-btn",
       href: kindZeroContent.website,
@@ -406,7 +401,7 @@ async function createProfileLinks(kindZeroContent, pubkey, profile) {
   // NIP-05 verification
   if (kindZeroContent.nip05) {
     const nip05Btn = createProfileButton({
-      icon: '⏳',
+      icon: VERIFICATION_ICON, // Your SVG string here
       text: kindZeroContent.nip05,
       className: "profile-btn nip05-btn pending",
       isVerification: true
@@ -419,54 +414,63 @@ async function createProfileLinks(kindZeroContent, pubkey, profile) {
     });
   }
   
-// Lightning address
-function truncateText(text, maxLength = 40) {
-  if (text.length <= maxLength) {
-    return text;
+  // Lightning address
+  function truncateText(text, maxLength = 40) {
+    if (text.length <= maxLength) {
+      return text;
+    }
+    const charsToShow = 13;
+    return `${text.substring(0, charsToShow)}...${text.substring(text.length - charsToShow)}`;
   }
-  const charsToShow = 13;
-  return `${text.substring(0, charsToShow)}...${text.substring(text.length - charsToShow)}`;
-}
 
-if (kindZeroContent.lud16) {
-  const lightningBtn = createProfileButton({
-    icon: '⚡',
-    text: truncateText(kindZeroContent.lud16, 40), // Display truncated version
-    className: "profile-btn lightning-btn",
-    onClick: () => handleLightningClick(kindZeroContent.lud16) // Still uses full address
-  });
-  links.push(lightningBtn);
-}
+  if (kindZeroContent.lud16) {
+    const lightningBtn = createProfileButton({
+      icon: LIGHTNING_ICON,
+      text: truncateText(kindZeroContent.lud16, 40),
+      className: "profile-btn lightning-btn",
+      onClick: () => handleLightningClick(kindZeroContent.lud16)
+    });
+    links.push(lightningBtn);
+  }
   
-  // Share profile link
   const shareBtn = createProfileButton({
-    icon: '📋',
+    icon: SHARE_ICON,
     text: "Copy Link",
     className: "profile-btn share-btn",
     onClick: () => handleShareClick()
   });
   links.push(shareBtn);
   
-  // Add all buttons to row
   links.forEach(btn => linksRow.appendChild(btn));
   linksContainer.appendChild(linksRow);
 }
 
-
-// Unified button creation function
 function createProfileButton({ icon, text, className, href = null, isExternal = false, isVerification = false, onClick = null }) {
   const button = document.createElement(href ? 'a' : 'button');
   button.className = className;
   
-  // Create icon container (ready for SVG replacement)
+  // Create icon container for SVG
   const iconContainer = document.createElement('span');
   iconContainer.className = 'profile-btn-icon';
   
-  // For now use emoji, but structure is ready for SVG
-  if (typeof icon === 'string') {
+  // Handle SVG insertion
+  if (typeof icon === 'string' && icon.includes('<svg')) {
+    // If it's an SVG string, parse and insert it
+    const parser = new DOMParser();
+    const svgDoc = parser.parseFromString(icon, 'image/svg+xml');
+    const svgElement = svgDoc.documentElement;
+    
+    // Ensure SVG inherits styles properly
+    svgElement.setAttribute('width', '16');
+    svgElement.setAttribute('height', '16');
+    svgElement.classList.add('profile-btn-svg');
+    
+    iconContainer.appendChild(svgElement);
+  } else if (typeof icon === 'string') {
+    // Fallback for emoji or text icons
     iconContainer.textContent = icon;
   } else {
-    // When you pass SVG element instead of emoji string
+    // If you pass an actual SVG element
     iconContainer.appendChild(icon);
   }
   
@@ -495,27 +499,35 @@ function createProfileButton({ icon, text, className, href = null, isExternal = 
   
   return button;
 }
+const FOLLOW_ICON = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+  <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
+</svg>
+`;
+const WEBSITE_ICON = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+  <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418" />
+</svg>
+`;
+const VERIFICATION_ICON = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+  <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+</svg>
+`;
+const VERIFIED_ICON = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+  <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 0 1-1.043 3.296 3.745 3.745 0 0 1-3.296 1.043A3.745 3.745 0 0 1 12 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 0 1-3.296-1.043 3.745 3.745 0 0 1-1.043-3.296A3.745 3.745 0 0 1 3 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 0 1 1.043-3.296 3.746 3.746 0 0 1 3.296-1.043A3.746 3.746 0 0 1 12 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 0 1 3.296 1.043 3.746 3.746 0 0 1 1.043 3.296A3.745 3.745 0 0 1 21 12Z" />
+</svg>
+`;
+const FAILED_ICON = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+  <path stroke-linecap="round" stroke-linejoin="round" d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+</svg>
+`;
+const LIGHTNING_ICON = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+  <path stroke-linecap="round" stroke-linejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z" />
+</svg>
+`;
+const SHARE_ICON = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+  <path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
+</svg>
+`;
 
-// Helper function to create SVG icon (placeholder)
-function createSvgIcon(type) {
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.setAttribute("width", "16");
-  svg.setAttribute("height", "16");
-  svg.setAttribute("viewBox", "0 0 16 16");
-  svg.setAttribute("fill", "currentColor");
-  svg.classList.add('profile-icon');
-  
-  // Placeholder circle - replace with actual icon paths
-  const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-  circle.setAttribute("cx", "8");
-  circle.setAttribute("cy", "8");
-  circle.setAttribute("r", "6");
-  svg.appendChild(circle);
-  
-  return svg;
-}
-
-// Handle follow button click
 function handleFollowClick(button, profile) {
   const currentlyFollowed = isProfileFollowed(profile);
   let success;
@@ -540,7 +552,16 @@ function handleFollowClick(button, profile) {
   }
 }
 
-// Update NIP-05 button after verification
+
+function setButtonIcon(iconContainer, svgString) {
+  iconContainer.innerHTML = '';
+  const svg = new DOMParser().parseFromString(svgString, 'image/svg+xml').documentElement;
+  svg.setAttribute('width', '16');
+  svg.setAttribute('height', '16');
+  svg.classList.add('profile-btn-svg');
+  iconContainer.appendChild(svg);
+}
+
 function updateNip05Button(button, result, nip05Text) {
   const iconContainer = button.querySelector('.profile-btn-icon');
   const textContainer = button.querySelector('.profile-btn-text');
@@ -548,11 +569,11 @@ function updateNip05Button(button, result, nip05Text) {
   button.classList.remove('pending');
   
   if (result.verified) {
-    iconContainer.textContent = "✅";
+    setButtonIcon(iconContainer, VERIFIED_ICON);
     button.classList.add('verified');
     textContainer.title = "NIP-05 verified";
   } else {
-    iconContainer.textContent = "❌";
+    setButtonIcon(iconContainer, FAILED_ICON);
     button.classList.add('failed');
     textContainer.title = "NIP-05 verification failed";
     
@@ -575,7 +596,7 @@ function updateNip05Button(button, result, nip05Text) {
   }
 }
 
-// Handle lightning button click
+
 function handleLightningClick(lud16) {
   openQrModal({
     title: "Lightning Address QR Code",
@@ -586,7 +607,6 @@ function handleLightningClick(lud16) {
   });
 }
 
-// Handle share button click
 function handleShareClick() {
   openQrModal({
     title: "Profile QR Code",
@@ -745,7 +765,6 @@ function handleProfileClicks(event) {
   }
 }
 
-// Helper function to build discovery relays
 function buildDiscoveryRelays(isExtendedTab, extendedRelays) {
   let discoveryRelays = [];
 
@@ -822,7 +841,6 @@ async function loadProfileVideos(profile) {
   }
 }
 
-// Helper function to fetch and process videos
 async function fetchAndProcessVideos(profile, kinds, limit) {
   const channelVideos = await NostrClient.getEvents({
     kinds: kinds,
@@ -1031,7 +1049,6 @@ async function loadExtendedProfileVideos(profile, extendedRelays) {
   }
 }
 
-// Helper function to fetch extended videos
 async function fetchAndProcessExtendedVideos(
   profile,
   extendedRelays,
@@ -1092,7 +1109,6 @@ function renderExtendedProfileVideos(channelVideos) {
 
 
 
-// function to populate technical info section
 async function populateTechnicalInfo(profile, profileNpub) {
   // Set profile identifiers
   const npubValue = document.querySelector(".npub-value");
@@ -1133,7 +1149,10 @@ function populateRelayHints(relayHints) {
       
       relayButton.innerHTML = `
         <span class="relay-url">${relay}</span>
-        <span>🡕</span>
+        <span><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+  <path stroke-linecap="round" stroke-linejoin="round" d="M15.59 14.37a6 6 0 0 1-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 0 0 6.16-12.12A14.98 14.98 0 0 0 9.631 8.41m5.96 5.96a14.926 14.926 0 0 1-5.841 2.58m-.119-8.54a6 6 0 0 0-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 0 0-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 0 1-2.448-2.448 14.9 14.9 0 0 1 .06-.312m-2.24 2.39a4.493 4.493 0 0 0-1.757 4.306 4.493 4.493 0 0 0 4.306-1.758M16.5 9a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z" />
+</svg>
+</span>
       `;
       
       relayHintsList.appendChild(relayButton);

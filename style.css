@@ -485,7 +485,9 @@ h1 {
 #toggleTheme svg,
 .video-action-tabs svg,
 .relay-set-discovery-btn svg,
-.settings-section svg {
+.settings-section svg,
+.relay-set-card svg,
+.profile-container svg {
   width: 24px;
   height: 24px;
   fill: var(--text);
@@ -498,7 +500,9 @@ h1 {
 .light-theme #toggleTheme svg,
 .light-theme .video-action-tabs svg,
 .light-theme .relay-set-discovery-btn svg,
-.light-theme .settings-section svg {
+.light-theme .settings-section svg,
+.light-theme .relay-set-card svg,
+.light-theme .profile-container svg {
   fill: var(--primary);
   stroke: var(--text);
 }

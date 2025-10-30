@@ -68,34 +68,39 @@ function setupRelaySetEventDelegation(container, sets) {
     const event = sets.find(s => s.id === eventId);
     if (!event) return;
 
-    // Handle import button clicks
-    if (target.classList.contains('import-relay-set-btn')) {
+    // Handle import button clicks - check for button OR any child elements
+    if (target.classList.contains('import-relay-set-btn') || 
+        target.closest('.import-relay-set-btn')) {
       showImportPreviewModal(event);
       return;
     }
 
-    // Handle relay action buttons
-    if (target.classList.contains('relay-action-btn')) {
-      const url = target.dataset.url;
+    // Handle relay action buttons - check for button OR any child elements
+    if (target.classList.contains('relay-action-btn') || 
+        target.closest('.relay-action-btn')) {
+      const button = target.classList.contains('relay-action-btn') ? target : target.closest('.relay-action-btn');
+      const url = button.dataset.url;
       console.log('WebSocket URL:', url);
       const cleanUrl = url.replace(/^(wss?:\/\/|https?:\/\/)/, '');
       window.location.hash = `#singlerelay/${cleanUrl}`;
       return;
     }
 
-    // Handle show JSON button
-    if (target.classList.contains('show-json-btn')) {
+    // Handle show JSON button - check for button OR any child elements
+    if (target.classList.contains('show-json-btn') || 
+        target.closest('.show-json-btn')) {
+      const button = target.classList.contains('show-json-btn') ? target : target.closest('.show-json-btn');
       const jsonSection = card.querySelector('.relay-set-json');
       const jsonContainer = card.querySelector('.json-content');
       const isHidden = jsonSection.classList.contains('hidden');
       
       if (isHidden) {
         jsonSection.classList.remove('hidden');
-        target.textContent = 'Hide JSON';
+        button.textContent = 'Hide JSON';
         renderJson(event, jsonContainer);
       } else {
         jsonSection.classList.add('hidden');
-        target.textContent = 'Show JSON';
+        button.textContent = 'Show JSON';
         jsonContainer.innerHTML = '';
       }
       return;
@@ -110,13 +115,17 @@ function setupRelaySetEventDelegation(container, sets) {
     }
 
     // Handle more relays / collapse functionality
-    if (target.classList.contains('clickable-more')) {
-      handleMoreRelaysClick(target, card);
+    if (target.classList.contains('clickable-more') || 
+        target.closest('.clickable-more')) {
+      const moreBtn = target.classList.contains('clickable-more') ? target : target.closest('.clickable-more');
+      handleMoreRelaysClick(moreBtn, card);
       return;
     }
 
-    if (target.classList.contains('clickable-collapse')) {
-      handleCollapseRelaysClick(target, card);
+    if (target.classList.contains('clickable-collapse') || 
+        target.closest('.clickable-collapse')) {
+      const collapseBtn = target.classList.contains('clickable-collapse') ? target : target.closest('.clickable-collapse');
+      handleCollapseRelaysClick(collapseBtn, card);
       return;
     }
   });
@@ -131,7 +140,10 @@ function handleMoreRelaysClick(moreRelaysBtn, card) {
   ` + allUrls.map(url => `
     <div class="relay-item">
       <span class="relay-url">${escapeHtml(url)}</span>
-      <button class="relay-action-btn" data-url="${escapeHtml(url)}" title="Visit relay">⍆</button>
+      <button class="relay-action-btn" data-url="${escapeHtml(url)}" title="Visit relay"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+  <path stroke-linecap="round" stroke-linejoin="round" d="M15.59 14.37a6 6 0 0 1-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 0 0 6.16-12.12A14.98 14.98 0 0 0 9.631 8.41m5.96 5.96a14.926 14.926 0 0 1-5.841 2.58m-.119-8.54a6 6 0 0 0-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 0 0-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 0 1-2.448-2.448 14.9 14.9 0 0 1 .06-.312m-2.24 2.39a4.493 4.493 0 0 0-1.757 4.306 4.493 4.493 0 0 0 4.306-1.758M16.5 9a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z" />
+</svg>
+</button>
     </div>
   `).join('');
 }
@@ -145,7 +157,10 @@ function handleCollapseRelaysClick(collapseBtn, card) {
   ` : '') + allUrls.slice(0, 3).map(url => `
     <div class="relay-item">
       <span class="relay-url">${escapeHtml(url)}</span>
-      <button class="relay-action-btn" data-url="${escapeHtml(url)}" title="Visit relay">⍆</button>
+      <button class="relay-action-btn" data-url="${escapeHtml(url)}" title="Visit relay"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+  <path stroke-linecap="round" stroke-linejoin="round" d="M15.59 14.37a6 6 0 0 1-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 0 0 6.16-12.12A14.98 14.98 0 0 0 9.631 8.41m5.96 5.96a14.926 14.926 0 0 1-5.841 2.58m-.119-8.54a6 6 0 0 0-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 0 0-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 0 1-2.448-2.448 14.9 14.9 0 0 1 .06-.312m-2.24 2.39a4.493 4.493 0 0 0-1.757 4.306 4.493 4.493 0 0 0 4.306-1.758M16.5 9a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z" />
+</svg>
+</button>
     </div>
   `).join('');
 }
@@ -329,7 +344,10 @@ function createSkeletonRelaySetCard(event) {
         ${wsUrls.slice(0, 3).map(url => `
           <div class="relay-item">
             <span class="relay-url">${escapeHtml(url)}</span>
-            <button class="relay-action-btn" data-url="${escapeHtml(url)}" title="Visit relay">⍆</button>
+            <button class="relay-action-btn" data-url="${escapeHtml(url)}" title="Visit relay"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+  <path stroke-linecap="round" stroke-linejoin="round" d="M15.59 14.37a6 6 0 0 1-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 0 0 6.16-12.12A14.98 14.98 0 0 0 9.631 8.41m5.96 5.96a14.926 14.926 0 0 1-5.841 2.58m-.119-8.54a6 6 0 0 0-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 0 0-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 0 1-2.448-2.448 14.9 14.9 0 0 1 .06-.312m-2.24 2.39a4.493 4.493 0 0 0-1.757 4.306 4.493 4.493 0 0 0 4.306-1.758M16.5 9a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z" />
+</svg>
+</button>
           </div>
         `).join('')}
       </div>
@@ -410,13 +428,19 @@ function createRelaySetCard(event) {
         ${wsUrls.slice(0, 3).map(url => `
           <div class="relay-item">
             <span class="relay-url">${escapeHtml(url)}</span>
-            <button class="relay-action-btn" data-url="${escapeHtml(url)}" title="Visit relay">⍆</button>
+            <button class="relay-action-btn" data-url="${escapeHtml(url)}" title="Visit relay"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+  <path stroke-linecap="round" stroke-linejoin="round" d="M15.59 14.37a6 6 0 0 1-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 0 0 6.16-12.12A14.98 14.98 0 0 0 9.631 8.41m5.96 5.96a14.926 14.926 0 0 1-5.841 2.58m-.119-8.54a6 6 0 0 0-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 0 0-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 0 1-2.448-2.448 14.9 14.9 0 0 1 .06-.312m-2.24 2.39a4.493 4.493 0 0 0-1.757 4.306 4.493 4.493 0 0 0 4.306-1.758M16.5 9a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z" />
+</svg>
+</button>
           </div>
         `).join('')}
       </div>
     </div>
     <div class="relay-set-footer">
-      <button class="import-relay-set-btn" data-event-id="${event.id}">⚼ Add set to local</button>
+      <button class="import-relay-set-btn" data-event-id="${event.id}"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+  <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 7.5h-.75A2.25 2.25 0 0 0 4.5 9.75v7.5a2.25 2.25 0 0 0 2.25 2.25h7.5a2.25 2.25 0 0 0 2.25-2.25v-7.5a2.25 2.25 0 0 0-2.25-2.25h-.75m-6 3.75 3 3m0 0 3-3m-3 3V1.5m6 9h.75a2.25 2.25 0 0 1 2.25 2.25v7.5a2.25 2.25 0 0 1-2.25 2.25h-7.5a2.25 2.25 0 0 1-2.25-2.25v-.75" />
+</svg>
+ Add set to local</button>
       <button class="show-json-btn">Show JSON</button>
     </div>
     <div class="relay-set-json hidden">

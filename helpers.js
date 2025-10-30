@@ -789,7 +789,7 @@ function formatErrorForDisplay(error) {
 
 //////////////////////////////
 // cleaners
-function cleanupVideoResources() {
+/* function cleanupVideoResources() {
   let videos = document.querySelectorAll("video");
   videos.forEach(cleanupVideo);
 }
@@ -807,7 +807,7 @@ function cleanupVideo(video) {
     console.warn("Error cleaning up video:", e);
   }
 }
-
+ */
 function cleanupChatResources() {
   if (app.chatSubscription) {
     app.chatSubscription.close();

@@ -12,7 +12,37 @@ async function videoPageHandler() {
     return;
   }
 
-  // Check if the videoId contains URL parameters (new format)
+  // Check if this is the same video that's already playing in miniplayer
+  if (app.videoPlayer.currentVideoId === videoId && app.videoPlayer.currentVideo) {
+    console.log("Same video already playing - moving from miniplayer to main player");
+    
+    // IMPORTANT: Call handleVideoRouteChange to ensure miniplayer hides
+    handleVideoRouteChange(window.location.hash);
+    
+    // Show loading state briefly
+    mainContent.innerHTML = `
+      <div id="videoPage-container">
+        <h1>Loading Video</h1>
+        <div class="loading-indicator">
+          <p>Resuming video...</p>
+        </div>
+      </div>
+    `;
+    
+    let videoPageContainer = document.getElementById("videoPage-container");
+    
+    // Small delay to ensure DOM is ready, then render with existing video
+    setTimeout(() => {
+      renderVideoPageWithExistingVideo(videoPageContainer, app.videoPlayer.currentVideoData, videoId);
+    }, 50);
+    
+    return;
+  }
+  
+  
+  
+
+  // Check if the videoId contains URL parameters
   if (videoId && videoId.includes("?")) {
     const [baseId, queryString] = videoId.split("?");
 
@@ -195,7 +225,7 @@ function showError(message) {
   `;
 }
 
-function renderVideoPage(video, videoId) {
+function renderVideoPage(video, videoId, useExistingVideo = false) {
   // Extract and sanitize data
   let url = getValueFromTags(video, "url", "No URL found");
   let mimeType = getValueFromTags(video, "m", "Unknown MIME type");
@@ -333,8 +363,27 @@ let technicalUrl = mainContent.querySelector(".technical-url");
 let technicalFilename = mainContent.querySelector(".technical-filename");
 let technicalHash = mainContent.querySelector(".technical-hash");
 
-// Render the appropriate video player
-renderVideoPlayer(videoContainer, video, useDefaultPlayer);
+
+  // Special handling for existing video
+  if (useExistingVideo && app.videoPlayer.currentVideo) {
+    console.log("Using existing video element for seamless transition");
+    
+    // Just move the existing video to the main container
+    videoContainer.appendChild(app.videoPlayer.currentVideo);
+    
+    // Make sure it has the right classes
+    app.videoPlayer.currentVideo.className = 'custom-video-element';
+    app.videoPlayer.currentVideo.controls = true;
+    
+    // Update app state to reflect we're in main player now
+    app.videoPlayer.isMiniplayerVisible = false;
+    
+  } else {
+    // Normal rendering for new video
+    renderVideoPlayer(videoContainer, video, false); // Always use custom player now
+  }
+
+
 
 // Set toggle button text and handler
 updateToggleButton(toggleBtn, useDefaultPlayer);
@@ -823,6 +872,13 @@ moreBtn?.addEventListener("click", (e) => {
   }, 1000);
 }
 
+function renderVideoPageWithExistingVideo(container, videoData, videoId) {
+  // Hide miniplayer here too as a backup
+  hideMiniplayer();
+  
+  // Use the same render function but tell it to use existing video
+  renderVideoPage(videoData, videoId, true);
+}
 //////////////////////////
 ////////////////////////////
 
@@ -1448,9 +1504,64 @@ function handleMoreOption(optionType, video, videoId) {
 
 ////////////////////
 // video player
-
-// Enhanced renderVideoPlayer with loading state
 function renderVideoPlayer(container, video, useDefault) {
+  // Always use custom player now, ignore useDefault parameter
+  container.innerHTML = `
+    <div class="loading-spinner">
+      <p>Loading video...</p>
+    </div>
+  `;
+
+  let url = getValueFromTags(video, "url", "");
+
+  setTimeout(() => {
+    if (!url) {
+      container.innerHTML = '<div class="video-error">No video URL provided</div>';
+      return;
+    }
+
+    if (!isDomainWhitelisted(url)) {
+      container.innerHTML = createBlockedVideoUI(url, container, video, false);
+      setupBlockedVideoInteractions(container, url, video, false);
+      return;
+    }
+
+    // Always use custom player
+    container.innerHTML = createVideoPlayer(video);
+    const videoElement = container.querySelector('video');
+    
+    // Register with video manager - get videoId from current hash
+    const videoId = window.location.hash.split('/')[1];
+    playVideo(videoElement, videoId, video);
+
+    // Error handling
+    videoElement.addEventListener('error', (e) => {
+      console.error('Video failed to load:', e);
+      container.innerHTML = `
+        <div class="video-error">
+          <p>Failed to load video</p>
+          <p>URL: ${escapeHtml(url)}</p>
+        </div>
+      `;
+      if (app.videoPlayer.currentVideo === videoElement) {
+        stopVideoPlayback();
+      }
+    });
+
+    // Track play state
+    videoElement.addEventListener('play', () => {
+      app.videoPlayer.isPlaying = true;
+    });
+    
+    videoElement.addEventListener('pause', () => {
+      app.videoPlayer.isPlaying = false;
+    });
+    
+  }, 100);
+}
+
+
+/* function renderVideoPlayer(container, video, useDefault) {
   // Show loading state first
   container.innerHTML = `
     <div class="loading-spinner">
@@ -1505,7 +1616,7 @@ function renderVideoPlayer(container, video, useDefault) {
     }
   }, 100);
 }
-
+ */
 
 // Helper function to update toggle button text
 function updateToggleButton(button, useDefault) {

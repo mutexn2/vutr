@@ -105,7 +105,7 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         self.end_headers()
 
-def run(port=8000):
+def run(port=8081):
     with socketserver.TCPServer(("", port), CustomHandler) as httpd:
         print(f"Serving at http://localhost:{port}")
         httpd.serve_forever()
@@ -141,9 +141,9 @@ WATCHER_PID=$!
 
 # Open default browser
 echo -e "${BLUE}Opening application in default browser...${NC}"
-xdg-open "http://localhost:8000" 2>/dev/null || \
-    open "http://localhost:8000" 2>/dev/null || \
-    start "http://localhost:8000" 2>/dev/null
+xdg-open "http://localhost:8081" 2>/dev/null || \
+    open "http://localhost:8081" 2>/dev/null || \
+    start "http://localhost:8081" 2>/dev/null
 
 echo -e "${GREEN}Development environment is running!${NC}"
 echo -e "${YELLOW}Server PID: $SERVER_PID${NC}"

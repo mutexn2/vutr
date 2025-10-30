@@ -37,20 +37,14 @@ let app = {
   ),
   playlists: JSON.parse(localStorage.getItem("playlists") || "[]"),
 
-  //  preferLowQuality: true,
-  //  currentVideo: null,
-  //  videoPlayer: {
-  //    isPlaying: false,
-  //    currentTime: 0,
-  //    duration: 0,
-  //    volume: 1,
-  //    isMuted: false,
-  //    quality: "auto",
-  //    playbackRate: 1,
-  //    isFullscreen: false,
-  //    showControls: true,
-  //  },
-  //  videoQueue: [],
+ // ========== VIDEO PLAYER STATE ==========
+  videoPlayer: {
+    currentVideo: null,        // The video DOM element
+    currentVideoId: null,      // The video ID from URL
+    currentVideoData: null,    // The Nostr video data
+    isMiniplayerVisible: false,
+    isPlaying: false
+  },
 
   // ========== FOLLOWED PROFILES ==========
   followSet: JSON.parse(
@@ -194,6 +188,8 @@ function initializeApp() {
   `;
 
   ////////////////////////////////////////////////
+  // Initialize VideoManager
+  initVideoManager();
   ////////////////////////////////////////////////
   if (!window.NostrTools) {
     console.log("Could not load NostrTools....");
@@ -264,6 +260,9 @@ function handleRoute() {
   let baseHash = hash.split("/")[0];
 
   console.log("Route:", baseHash);
+
+  // Handle video state BEFORE route change
+  handleVideoRouteChange(hash);
 
   let handler = routes[baseHash] || routes["*"];
 

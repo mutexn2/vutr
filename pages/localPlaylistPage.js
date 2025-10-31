@@ -47,14 +47,24 @@ async function fetchVideoEvents(videoTags) {
   
   try {
     // Fetch all events at once
-    const events = await NostrClient.getEvents({
+/*     const events = await NostrClient.getEvents({
       ids: videoIds,
       kinds: [21, 22],
       limit: videoIds.length,
       maxWait: 3000,
       timeout: 5000
-    });
+    }); */
+
+const events = await NostrClient.getEventsFromRelays(app.globalRelays, {
+      ids: videoIds,
+      kinds: [21, 22],
+      limit: videoIds.length,
+      maxWait: 3000,
+      timeout: 5000
+    });    
     
+
+
     console.log(`Found ${events?.length || 0} video events out of ${videoIds.length} requested`);
     
     // Create a map for quick lookup

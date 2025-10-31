@@ -154,7 +154,7 @@ let NostrClient = {
       author = null,
       authors = null,
       id = null,
-      ids = null, // Add this parameter
+      ids = null,
       tags = null,
       maxWait = 5000,
       timeout = 7000,
@@ -168,7 +168,7 @@ let NostrClient = {
       if (author) filter.authors = [author];
       if (authors) filter.authors = authors;
       if (id) filter.ids = [id];
-      if (ids) filter.ids = ids; // Add this line
+      if (ids) filter.ids = ids;
       if (tags) {
         for (let [tag, values] of Object.entries(tags)) {
           filter[`#${tag}`] = Array.isArray(values) ? values : [values];

@@ -56,6 +56,10 @@ let app = {
     localStorage.getItem("favoriteChannels") ||
       JSON.stringify(config.favoriteChannels)
   ),  
+
+  // home sub
+  homeSubscription: null,
+  homePool: null,  
   // ========== CHAT ==========
   chatSubscription: null,
   chatPool: null,
@@ -134,6 +138,7 @@ chatRelays: ["wss://nos.lol", "wss://nostr.mom"],
 
 let routes = {
   "#home": homePageHandler,
+//  "#newhome": newHomePageHandler,
   "#shorts": shortsPageHandler,
   "#list": listPageHandler,
   "#liked": likedPageHandler,

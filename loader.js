@@ -197,6 +197,7 @@
       "components/videoComments.js",
       "components/zapButton.js",
       "config.js",
+ //     "indexeddb.js",
     ],
 
     // page handlers and nostr
@@ -229,6 +230,7 @@
       "pages/nakPage.js",
       "pages/shortsPage.js",
       "pages/homePage.js",
+ //     "pages/newHomePage.js",
       "pages/offlinePage.js",
       "pages/aboutPage.js",
       "nostr.js",

@@ -27,7 +27,7 @@ async function homePageHandler() {
 
     pageContainer.innerHTML = `
 <button id="shorts-btn" class="shorts-button">
-  <svg viewBox="0 0 24 24" class="shorts-icon">
+  <svg viewBox="0 24 24" class="shorts-icon">
     <rect x="8" y="4" width="8" height="16" rx="2" fill="currentColor"/>
     <polygon points="10,9 10,15 14,12" fill="white"/>
   </svg>
@@ -291,11 +291,34 @@ async function homePageHandler() {
       }
     }
 
+    // ========== SET UP EVENT LISTENERS BEFORE LOADING DATA ==========
+    
+    // Video card click handler - MOVED BEFORE loadMoreEvents()
+    grid.addEventListener("click", (event) => {
+      let card = event.target.closest(".video-card");
+      if (card && card.dataset.videoId) {
+        const discoveryRelays = app.relays.slice(0, 3).map(cleanRelayUrl);
+        const uniqueDiscoveryRelays = [...new Set(discoveryRelays)];
+        const discoveryParam = uniqueDiscoveryRelays.join(",");
+        const watchUrl = `#watch/params?v=${card.dataset.videoId}&discovery=${discoveryParam}`;
+
+        console.log("Navigating to watch URL:", watchUrl);
+        window.location.hash = watchUrl;
+      }
+    });
+
+    // Shorts button click handler
+    document.getElementById("shorts-btn").addEventListener("click", () => {
+      window.location.hash = "#shorts";
+    });
+
     // Load More button click handler
     loadMoreBtn.addEventListener('click', () => {
       loadMoreEvents();
     });
 
+    // ========== NOW LOAD THE DATA ==========
+    
     // Initial load
     await loadMoreEvents();
 
@@ -325,24 +348,6 @@ async function homePageHandler() {
         },
       }
     );
-
-    // Video card click handler
-    grid.addEventListener("click", (event) => {
-      let card = event.target.closest(".video-card");
-      if (card && card.dataset.videoId) {
-        const discoveryRelays = app.relays.slice(0, 3).map(cleanRelayUrl);
-        const uniqueDiscoveryRelays = [...new Set(discoveryRelays)];
-        const discoveryParam = uniqueDiscoveryRelays.join(",");
-        const watchUrl = `#watch/params?v=${card.dataset.videoId}&discovery=${discoveryParam}`;
-
-        console.log("Navigating to watch URL:", watchUrl);
-        window.location.hash = watchUrl;
-      }
-    });
-
-    document.getElementById("shorts-btn").addEventListener("click", () => {
-      window.location.hash = "#shorts";
-    });
 
   } catch (error) {
     console.error("Error rendering home page:", error);
@@ -374,8 +379,6 @@ function renderNewVideoAtTop(video, grid) {
     card.classList.remove("new-video");
   }, 2000);
 }
-
-
 
 /* async function homePageHandler() {
   mainContent.innerHTML = `

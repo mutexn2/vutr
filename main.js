@@ -60,6 +60,9 @@ let app = {
   // home sub
   homeSubscription: null,
   homePool: null,  
+  // comments sub
+  commentSubscription: null,
+  commentPool: null,  
   // ========== CHAT ==========
   chatSubscription: null,
   chatPool: null,

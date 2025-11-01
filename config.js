@@ -13,7 +13,6 @@ let config = {
         ["title", "Default"],
         ["description", "Default Set"],
         ["relay", "wss://nos.lol"],
-        ["relay", "wss://relay.nostr.band"],
         ["relay", "wss://relay.damus.io"],
         ["relay", "wss://nostr.mom"],
       ],
@@ -33,7 +32,6 @@ let config = {
         ["d", "asdasdaszx123123czcxzxzdadasdas"],
         ["title", "Nostrmom"],
         ["relay", "wss://nostr.mom"],
-        ["relay", "wss://nostr.momasdasdasdsadsdas"],
       ],
     },
     Nostrlol: {
@@ -41,9 +39,6 @@ let config = {
       tags: [
         ["d", "asdasdaszxczcxzxzdadasdfgdfgddas"],
         ["title", "Nostrlol"],
-        ["relay", "wss://nos.lol"],
-        ["relay", "wss://nos.lol"],
-        ["relay", "wss://nos.lol"],
         ["relay", "wss://nos.lol"],
       ],
     },

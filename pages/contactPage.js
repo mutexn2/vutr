@@ -932,37 +932,28 @@ function createMessageFooter(event) {
   showJsonButton.className = "video-action-tab-button";
   showJsonButton.innerHTML = `
 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-  <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+  <path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
 </svg>
-
   `;
   showJsonButton.addEventListener("click", () => showRawData(event));
 
-  const copyIdButton = document.createElement("button");
-  copyIdButton.className = "video-action-tab-button";
-  copyIdButton.innerHTML = `
-    Copy ID
-  `;
-  copyIdButton.addEventListener("click", () =>
-    copyToClipboard(event.id, copyIdButton)
-  );
+
 
   // Append buttons to scroll container
   scrollContainer.appendChild(replyButton);
   scrollContainer.appendChild(likeButton);
   scrollContainer.appendChild(zapButton);
   scrollContainer.appendChild(showJsonButton);
-  scrollContainer.appendChild(copyIdButton);
 
   // Assemble structure
   actionsDiv.appendChild(scrollContainer);
   footerDiv.appendChild(actionsDiv);
 
   // Enable drag and wheel scrolling like in video page
-  setTimeout(() => {
+/*   setTimeout(() => {
     enableDragScroll(scrollContainer);
     enableWheelScroll(scrollContainer);
-  }, 100);
+  }, 100); */
 
   return footerDiv;
 }

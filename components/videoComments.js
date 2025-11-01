@@ -80,40 +80,41 @@ const commentEventManager = {
     return this.allEvents.get(eventId);
   },
 
-  insertCommentInChronologicalOrder(commentElement, event) {
-    const commentsList = document.querySelector('.comments-list');
-    if (!commentsList) return;
+insertCommentInChronologicalOrder(commentElement, event) {
+  const commentsList = document.querySelector('.comments-list');
+  if (!commentsList) return;
 
-    const existingComment = commentsList.querySelector(
-      `[data-event-id="${event.id}"]`
+  const existingComment = commentsList.querySelector(
+    `[data-event-id="${event.id}"]`
+  );
+  if (existingComment) {
+    return existingComment;
+  }
+
+  const eventTimestamp = event.created_at;
+  const existingComments = Array.from(commentsList.children);
+
+  let insertIndex = 0;
+  for (let i = 0; i < existingComments.length; i++) {
+    const existingTimestamp = parseInt(
+      existingComments[i].dataset.timestamp
     );
-    if (existingComment) {
-      return existingComment;
+    // Changed comparison: newer timestamps (higher values) come first
+    if (eventTimestamp > existingTimestamp) {
+      insertIndex = i;
+      break;
     }
+    insertIndex = i + 1;
+  }
 
-    const eventTimestamp = event.created_at;
-    const existingComments = Array.from(commentsList.children);
+  if (insertIndex >= existingComments.length) {
+    commentsList.appendChild(commentElement);
+  } else {
+    commentsList.insertBefore(commentElement, existingComments[insertIndex]);
+  }
 
-    let insertIndex = 0;
-    for (let i = 0; i < existingComments.length; i++) {
-      const existingTimestamp = parseInt(
-        existingComments[i].dataset.timestamp
-      );
-      if (eventTimestamp < existingTimestamp) {
-        insertIndex = i;
-        break;
-      }
-      insertIndex = i + 1;
-    }
-
-    if (insertIndex >= existingComments.length) {
-      commentsList.appendChild(commentElement);
-    } else {
-      commentsList.insertBefore(commentElement, existingComments[insertIndex]);
-    }
-
-    return commentElement;
-  },
+  return commentElement;
+},
 
   renderFetchedEventInComments(event) {
     const commentsList = document.querySelector('.comments-list');
@@ -236,27 +237,38 @@ async function renderComments(videoId) {
     return;
   }
 
-  // Create the structure similar to chat
-  commentsContainer.innerHTML = `
-    <div class="comments-content">
 
-      <h3 class="comments-header">Comments</h3>
-      <div class="comments-list"></div>
-      <div class="chat-input-container">
+commentsContainer.innerHTML = `
+  <div class="comments-content">
+    <h3 class="comments-header">Comments</h3>
+    
+    <div class="chat-input-container collapsed">
+      <button id="comment-expand-btn" class="comment-expand-button">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+        </svg>
+        Add a comment
+      </button>
+      
+      <div class="chat-input-expanded">
         <div id="comment-reply-indicator" class="reply-indicator hidden">
           <span id="comment-reply-text">Replying to...</span>
           <button id="comment-cancel-reply-btn">✕</button>
         </div>
-      <div class="loading-indicator">
-        <p>Loading comments...</p>
-      </div>        
         <div class="chat-input-wrapper">
           <textarea id="comment-input" placeholder="Add a comment..." rows="1"></textarea>
           <button id="comment-send-button">Send</button>
         </div>
       </div>
     </div>
-  `;
+
+    <div class="loading-indicator">
+      <p>Loading comments...</p>
+    </div>
+    
+    <div class="comments-list"></div>
+  </div>
+`;
 
   const commentsList = commentsContainer.querySelector('.comments-list');
   const commentInput = document.getElementById('comment-input');
@@ -300,6 +312,25 @@ async function renderComments(videoId) {
 
   cancelReplyBtn?.addEventListener('click', () => {
     clearCommentReplyState();
+  });
+
+  const expandBtn = document.getElementById('comment-expand-btn');
+  const chatInputContainer = document.querySelector('.chat-input-container');
+  
+  expandBtn?.addEventListener('click', () => {
+    chatInputContainer.classList.remove('collapsed');
+    commentInput.focus();
+  });
+
+  // collapse when clicking outside
+  document.addEventListener('click', (e) => {
+    if (chatInputContainer && 
+        !chatInputContainer.contains(e.target) && 
+        !chatInputContainer.classList.contains('collapsed') &&
+        !commentInput.value.trim() &&
+        !commentReplyState.isReplying) {
+      chatInputContainer.classList.add('collapsed');
+    }
   });
 
   try {
@@ -373,7 +404,8 @@ function renderInitialComment(event, container) {
 
 function appendNewComment(event, container) {
   const commentElement = createCommentElement(event);
-  container.appendChild(commentElement);
+  // Changed from appendChild to prepend to add at the top
+  container.prepend(commentElement);
   
   // Update comment count
   const header = document.querySelector('.comments-header');
@@ -382,7 +414,6 @@ function appendNewComment(event, container) {
     header.textContent = `Comments (${currentCount})`;
   }
 }
-
 function createCommentElement(event) {
   const commentDiv = document.createElement("div");
   commentDiv.className = "message comment-card";
@@ -649,34 +680,39 @@ function createCommentFooter(event) {
     handleCommentLikeWithUI(event, likeButton, likeCountSpan)
   );
 
+  const zapButton = document.createElement("button");
+  zapButton.className = "video-action-tab-button";
+  zapButton.innerHTML = `
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+  <path stroke-linecap="round" stroke-linejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z" />
+</svg>
+
+  `;
+  zapButton.addEventListener("click", () => handleZap(event));
+
   const showJsonButton = document.createElement("button");
   showJsonButton.className = "video-action-tab-button";
   showJsonButton.innerHTML = `
 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-  <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+  <path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
 </svg>
   `;
   showJsonButton.addEventListener("click", () => showRawData(event));
 
-  const copyIdButton = document.createElement("button");
-  copyIdButton.className = "video-action-tab-button";
-  copyIdButton.innerHTML = `Copy ID`;
-  copyIdButton.addEventListener("click", () =>
-    copyToClipboard(event.id, copyIdButton)
-  );
+
 
   scrollContainer.appendChild(replyButton);
   scrollContainer.appendChild(likeButton);
+  scrollContainer.appendChild(zapButton);
   scrollContainer.appendChild(showJsonButton);
-  scrollContainer.appendChild(copyIdButton);
 
   actionsDiv.appendChild(scrollContainer);
   footerDiv.appendChild(actionsDiv);
 
-  setTimeout(() => {
+/*   setTimeout(() => {
     enableDragScroll(scrollContainer);
     enableWheelScroll(scrollContainer);
-  }, 100);
+  }, 100); */
 
   return footerDiv;
 }
@@ -711,6 +747,9 @@ function handleCommentReply(event) {
 
   const chatInputContainer = document.querySelector(".chat-input-container");
   if (chatInputContainer) {
+    // Expand the input if collapsed
+    chatInputContainer.classList.remove('collapsed');
+    
     chatInputContainer.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
 
@@ -719,7 +758,6 @@ function handleCommentReply(event) {
     commentInput.focus();
   }
 }
-
 async function handleCommentLikeWithUI(event, likeButton, likeCountSpan) {
   console.log("Like comment:", event.id);
 
@@ -863,14 +901,20 @@ async function sendComment(videoId, content) {
           errorMessage: "Failed to publish comment",
         });
 
-        if (result.success) {
-          showTemporaryNotification("✓ Comment sent!");
+if (result.success) {
+  showTemporaryNotification("✓ Comment sent!");
 
-          clearCommentReplyState();
+  clearCommentReplyState();
+  
+  // Collapse the input after sending
+  const chatInputContainer = document.querySelector(".chat-input-container");
+  if (chatInputContainer) {
+    chatInputContainer.classList.add('collapsed');
+  }
 
-          sendButton.disabled = false;
-          sendButton.textContent = "Send";
-        } else {
+  sendButton.disabled = false;
+  sendButton.textContent = "Send";
+} else {
           throw new Error(result.error);
         }
       } catch (publishError) {

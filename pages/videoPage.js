@@ -395,7 +395,14 @@ channelInfo.children[0].appendChild(channelImage);
 channelInfo.children[1].appendChild(channelName);
 
 // Add click handler to channel info
-channelInfo.addEventListener("click", () => {
+/* channelInfo.addEventListener("click", () => {
+  window.location.hash = `#profile/${pubkey}`;
+}); */
+
+channelImage.addEventListener("click", () => {
+  window.location.hash = `#profile/${pubkey}`;
+});
+channelName.addEventListener("click", () => {
   window.location.hash = `#profile/${pubkey}`;
 });
 

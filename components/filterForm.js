@@ -126,7 +126,7 @@ function createFilterForm(config = {}) {
           </div>
           
           <div class="filter-sort-controls">
-            <div class="filter-section">
+            <div class="filter-section" style="display: none;">
               <h3>Date uploaded</h3>
               <div class="filter-options">
                 <label><input type="radio" name="date-filter" value="any" checked> Any time</label>
@@ -138,7 +138,7 @@ function createFilterForm(config = {}) {
               </div>
             </div>
             
-            <div class="filter-section">
+            <div class="filter-section" style="display: none;">
               <h3>Duration</h3>
               <div class="filter-options">
                 <label><input type="checkbox" name="duration-filter" value="short"> Short (< 4 minutes)</label>
@@ -147,7 +147,7 @@ function createFilterForm(config = {}) {
               </div>
             </div>
             
-            <div class="filter-section">
+            <div class="filter-section" style="display: none;">
               <h3>Sort by</h3>
               <div class="filter-options">
                 <select id="sort-selector">

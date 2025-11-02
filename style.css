@@ -2548,7 +2548,7 @@ main {
 /* Mobile optimizations */
 @media (max-width: 769px) {
   .video-action-tab-button {
-    padding: 10px 16px;
+    padding: 8px 12px;
     font-size: 13px;
   }
 }
@@ -2607,17 +2607,20 @@ main {
   flex-direction: row;
   align-items: center;
   width: 100%;
-  cursor: pointer;
   text-align: center;
   height: 6vh;
   gap: 8px;
   color: var(--text);
-  border-bottom: 1px solid var(--background);
   margin-top: 8px;
   padding: 8px;
 }
 
-.channel-info:hover {
+.channel-info div {
+  cursor: pointer;
+  border-bottom: 1px solid var(--background);
+}
+
+.channel-info div:hover {
   border-bottom: 1px solid var(--primary);
 }
 
@@ -4379,6 +4382,8 @@ main {
   gap: 8px;
   overflow-x: auto;
   background-color: var(--background);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
   white-space: nowrap;
   -ms-overflow-style: none;
   scrollbar-width: none;
@@ -8383,6 +8388,10 @@ noscript {
   gap: 0.75rem;
 }
 
+.playlist-publisher-info {
+  display: flex;
+  align-items: center;
+}
 /* Improved Playlist Video Items */
 .playlist-videos {
   display: flex;

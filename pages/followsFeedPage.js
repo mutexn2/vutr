@@ -37,7 +37,7 @@ async function followsFeedPageHandler() {
 
 <div class="sort-controls">
 
-<div class="form-group">
+<div class="form-group" style="display: none;">
   <label for="follows-sort">Sort by:</label>
   <select id="follows-sort">
     <option value="newest" ${sortBy === 'newest' ? 'selected' : ''}>Newest First</option>
@@ -51,7 +51,7 @@ async function followsFeedPageHandler() {
     <option value="extended" ${relaySource === 'extended' ? 'selected' : ''}>Extended Relays (outbox)</option>
   </select>
 </div>
-<div class="form-group">  
+<div class="form-group" style="display: none;">  
   <label for="shorts-option">shorts:</label>
   <select id="shorts-option">
     <option value="no" ${includeShorts === 'no' ? 'selected' : ''}>no shorts</option>
@@ -304,28 +304,52 @@ const queryRelayBatch = async (relayBatch) => {
   }
 };
 
-  // Start with active relays immediately
-  console.log(`📡 Starting with active relay set (${app.relays.length} relays)`);
+// Start with active relays immediately (for both modes)
+console.log(`📡 Starting with active relay set (${app.relays.length} relays)`);
+
+try {
+  const normalizedActiveRelays = app.relays.map(relay => relay.toLowerCase().replace(/\/+$/, ""));
+  const initialEvents = await getFeedFromRelays(app.relays, queryOptions);
+  if (shouldContinue()) {
+    normalizedActiveRelays.forEach(relay => usedRelays.add(relay));
+    handleNewEvents(initialEvents, 'active relays');
+  }
+} catch (error) {
+  console.warn("⚠️ Failed to query active relays:", error.message);
+}
+
+// If extended mode, query global relays next
+if (relaySource === 'extended' && shouldContinue()) {
+  console.log(`📡 Querying global relay set (${app.globalRelays.length} relays)`);
   
   try {
-    const normalizedActiveRelays = app.relays.map(relay => relay.toLowerCase().replace(/\/+$/, ""));
-    const initialEvents = await getFeedFromRelays(app.relays, queryOptions);
-    if (shouldContinue()) {
-      normalizedActiveRelays.forEach(relay => usedRelays.add(relay));
-      handleNewEvents(initialEvents, 'active relays');
+    // Filter out relays we've already used
+    const newGlobalRelays = app.globalRelays.filter(relay => {
+      const normalized = relay.toLowerCase().replace(/\/+$/, "");
+      return !usedRelays.has(normalized);
+    });
+    
+    if (newGlobalRelays.length > 0) {
+      const normalizedGlobalRelays = newGlobalRelays.map(relay => relay.toLowerCase().replace(/\/+$/, ""));
+      const globalEvents = await getFeedFromRelays(newGlobalRelays, queryOptions);
+      if (shouldContinue()) {
+        normalizedGlobalRelays.forEach(relay => usedRelays.add(relay));
+        handleNewEvents(globalEvents, 'global relays');
+      }
     }
   } catch (error) {
-    console.warn("⚠️ Failed to query active relays:", error.message);
+    console.warn("⚠️ Failed to query global relays:", error.message);
   }
+}
 
-  // If extended mode, progressively discover and query relays in batches
-  if (relaySource === 'extended' && shouldContinue()) {
-    const pubkeysForRelaySearch = followedPubkeys.length > MAX_PUBKEYS_FOR_EXTENDED_RELAYS 
-      ? followedPubkeys.slice(0, MAX_PUBKEYS_FOR_EXTENDED_RELAYS)
-      : followedPubkeys;
+// If extended mode, progressively discover and query relays in batches
+if (relaySource === 'extended' && shouldContinue()) {
+  const pubkeysForRelaySearch = followedPubkeys.length > MAX_PUBKEYS_FOR_EXTENDED_RELAYS 
+    ? followedPubkeys.slice(0, MAX_PUBKEYS_FOR_EXTENDED_RELAYS)
+    : followedPubkeys;
 
-    console.log(`🔍 Starting extended relay discovery for ${pubkeysForRelaySearch.length} pubkeys...`);
-    
+  console.log(`🔍 Starting extended relay discovery for ${pubkeysForRelaySearch.length} pubkeys...`);
+  
     let newRelaysBatch = [];
     
     // Process pubkeys and collect relays in batches

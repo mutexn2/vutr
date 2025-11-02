@@ -43,14 +43,15 @@ async function playlistsPageHandler() {
     playlists = filterValidPlaylists(playlists);
 
     if (playlists.length === 0) {
-      pageContainer.innerHTML = `
+      let listContainer = document.getElementById("playlistPage-container");
+      listContainer.innerHTML = `
         <h1>No playlists Found</h1>
         <p>No playlists found.</p>
       `;
 
-      setTimeout(() => {
+/*       setTimeout(() => {
         window.location.hash = "playlists";
-      }, 1200);
+      }, 1200); */
 
       return;
     }

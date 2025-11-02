@@ -14,8 +14,8 @@ async function networkSettingsPageHandler() {
     <button class="network-tab-button active" data-tab="active-set">
       Active Set
     </button>
-    <button class="network-tab-button" data-tab="placeholder-1">1</button>
-    <button class="network-tab-button" data-tab="placeholder-2">2</button>
+    <button class="network-tab-button" data-tab="placeholder-1" style="display: none;">1</button>
+    <button class="network-tab-button" data-tab="placeholder-2" style="display: none;">2</button>
 
   </div>
 

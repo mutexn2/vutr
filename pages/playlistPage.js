@@ -270,10 +270,16 @@ function renderNetworkPlaylist(playlist, videoEvents, playlistId) {
       </div>
     </div>
     
-    <div class="playlist-publisher-info">
+  <!--  <div class="playlist-publisher-info">
       <p><strong>Publisher:</strong> ${escapeHtml(playlist.pubkey)}</p>
       ${dTag ? `<p><strong>Playlist ID (d-tag):</strong> ${escapeHtml(dTag)}</p>` : ''}
-    </div>
+    </div>    -->
+
+    <div class="playlist-publisher-info">
+      <nostr-picture pubkey="${playlist.pubkey}"></nostr-picture>
+      <nostr-name pubkey="${playlist.pubkey}"></nostr-name>
+      ${dTag ? `<p style="display: none;"><strong>Playlist ID (d-tag):</strong> ${escapeHtml(dTag)}</p>` : ''}
+    </div>    
     
     <div class="playlist-content">
       <div class="playlist-videos" id="network-playlist-videos">

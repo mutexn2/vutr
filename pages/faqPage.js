@@ -17,40 +17,31 @@ async function faqPageHandler() {
         <path stroke-linecap="round" stroke-linejoin="round"
           d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
       </svg>
-      <p>This software has not received external security review and may contain vulnerabilities and may not necessarily
-        meet its stated security goals. Do not use it for sensitive use cases, and do not rely on its security until it
-        has been reviewed. Work in progress.</p>
+<p><strong>Security Notice:</strong> This is experimental software that hasn't undergone external security review. Do not use for sensitive data. Content may be unreliable or unsafe - use at your own risk.</p>
     </div>
 
 
 
 
     <div class="faq-item">
-      <h3>What is it?</h3>
+      <h3>What is this?</h3>
       <p>
         A prototype video client built around <a href="https://github.com/nostr-protocol/nips/blob/master/71.md"
           target="_blank">Nostr (NIP-71)</a>.
       </p>
       <p>Experimental project exploring Nostr.</p>
-      <p>Just a client, not running or related to any nostr relay or media server.</p>
+      <p>Nostr works as the discovery/social layer for the URLs.</p>      
+
       <p>Not using a new technology for media hosting other than <a href="https://github.com/hzrd149/blossom"
           target="_blank">Blossom</a> which is currently optional and not fully applied, any file server should work.
       </p>
-      <p>Nostr works as the discovery/social layer for the URLs.</p>
+
       <p>Runs fully local on device.</p>
+      <p>Just a client, not running or related to any nostr relay or media server.</p>      
       <a href="https://github.com/mutexn2/vutr" target="_blank">Open-source</a>
     </div>
 
-    <div class="faq-item" id="another-notice">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
-        class="size-6">
-        <path stroke-linecap="round" stroke-linejoin="round"
-          d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
-      </svg>
-      <h3>Decentralized Service Notice</h3>
-      <p>Content may be unreliable, unverified, or potentially unsafe.</p>
-      <p>Use at your own risk.</p>
-    </div>
+
 
 
     <div class="faq-item">
@@ -75,6 +66,18 @@ async function faqPageHandler() {
 
 
     <!--
+    <div class="faq-item" id="another-notice">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
+        class="size-6">
+        <path stroke-linecap="round" stroke-linejoin="round"
+          d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+      </svg>
+      <h3>Decentralized Service Notice</h3>
+      <p>Content may be unreliable, unverified, or potentially unsafe.</p>
+      <p>Use at your own risk.</p>
+    </div>
+    
+    
     <div class="faq-item">
       <h2>How does it work?</h2>
       <p>
@@ -157,6 +160,88 @@ async function faqPageHandler() {
 
       `;
 
+  let madeBy = document.querySelector('#made-by');
+  let maker = 'npub1mutexn28l0umympkquy0vsfjqn32dz7ee3q90lyvztkvl3vawvfsgqwgck';
+
+  let creatorImage = document.createElement('nostr-picture');
+  creatorImage.className = 'channel-name';
+  creatorImage.setAttribute('pubkey', maker);
+  madeBy.appendChild(creatorImage);
+  let creatorName = document.createElement('nostr-name');
+  creatorName.className = 'channel-name';
+  creatorName.setAttribute('pubkey', maker);
+  madeBy.appendChild(creatorName);
+
+  madeBy.addEventListener('click', (e) => {
+    e.stopPropagation();
+    window.location.hash = `#profile/${maker}`;
+  });
+
+
+  } catch (error) {
+    console.error("Error rendering faq page:", error);
+    mainContent.innerHTML = `
+      <h1>404</h1>
+      <div class="loading-indicator">
+          <p>Error rendering faq page</p>
+      </div>
+    `;
+  }
+}
+
+
+/* 
+async function faqPageHandler() {
+  mainContent.innerHTML = `
+    <h1>FAQ</h1>
+    <div class="loading-indicator"><p>Loading...</p></div>
+  `;
+
+  try {
+    mainContent.innerHTML = `
+      <div class="faq-container">
+        <section class="faq-section">
+          
+          <div class="security-notice">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+            </svg>
+            <p><strong>Security Notice:</strong> This is experimental software that hasn't undergone external security review. Do not use for sensitive data. Content may be unreliable or unsafe - use at your own risk.</p>
+          </div>
+
+          <div class="faq-item">
+            <h3>What is Vutr?</h3>
+            <p>A prototype video client built around <a href="https://github.com/nostr-protocol/nips/blob/master/71.md" target="_blank">Nostr (NIP-71)</a> for decentralized video discovery and playback.</p>
+            <p><strong>Key points:</strong></p>
+            <ul>
+              <li>Runs fully locally on your device</li>
+              <li>Uses Nostr as the social/discovery layer</li>
+              <li>Compatible with any file server (Blossom optional)</li>
+              <li>Just a client - not affiliated with any relays or media servers</li>
+            </ul>
+          </div>
+
+          <div class="faq-item">
+            <h3>Technology</h3>
+            <p>Built with vanilla JavaScript, leveraging the Nostr protocol for decentralized content discovery while maintaining local execution for privacy and performance.</p>
+            <a href="https://github.com/mutexn2/vutr" target="_blank">View Source Code</a>
+          </div>
+
+          <div class="faq-item">
+            <div class="donation">
+              <p>Open-source software built by the community, for the community.</p>
+              <p>Your donation supports ongoing development and maintenance.</p>
+              <button class="donate-btn">Donate</button>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <p>Created by</p>
+            <div id="made-by"></div>
+          </div>
+        </section>
+      </div>
+    `;
 
   let madeBy = document.querySelector('#made-by');
   let maker = 'npub1mutexn28l0umympkquy0vsfjqn32dz7ee3q90lyvztkvl3vawvfsgqwgck';
@@ -175,13 +260,12 @@ async function faqPageHandler() {
     window.location.hash = `#profile/${maker}`;
   });
 
+    
   } catch (error) {
     console.error("Error rendering faq page:", error);
     mainContent.innerHTML = `
-      <h1>404</h1>
-      <div class="loading-indicator">
-          <p>Error rendering faq page</p>
-      </div>
+      <h1>Error</h1>
+      <div class="loading-indicator"><p>Unable to load FAQ page</p></div>
     `;
   }
-}
+} */

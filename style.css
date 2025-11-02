@@ -484,7 +484,6 @@ h1 {
 .searchToggle svg,
 #toggleTheme svg,
 .video-action-tabs svg,
-.settings-section svg,
 .profile-info svg {
   width: 24px;
   height: 24px;
@@ -497,12 +496,12 @@ h1 {
 .light-theme .searchToggle svg,
 .light-theme #toggleTheme svg,
 .light-theme .video-action-tabs svg,
-.light-theme .settings-section svg,
 .light-theme .profile-info svg {
   fill: var(--primary);
   stroke: var(--text);
 }
 
+.settings-section svg,
 .relay-hints-list svg,
 .relay-set-discovery-btn svg,
 .relay-set-card svg,
@@ -2607,6 +2606,7 @@ main {
   display: flex;
   flex-direction: row;
   align-items: center;
+  width: 100%;
   cursor: pointer;
   text-align: center;
   height: 6vh;
@@ -2995,6 +2995,42 @@ details[open] .arrow {
 .video-page-layout .chat-input-wrapper textarea {
   width: 100%;
   max-width: 450px;
+}
+
+.video-page-layout .chat-input-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  padding: 0 4px;
+}
+
+.video-page-layout .chat-input-title {
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.video-page-layout .comment-collapse-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.video-page-layout .comment-collapse-button:hover {
+  background-color: var(--hover-bg, rgba(0, 0, 0, 0.05));
+}
+
+.video-page-layout .comment-collapse-button svg {
+  width: 20px;
+  height: 20px;
+  color: var(--text-secondary);
 }
 /*********************************************/
 /* Cross-browser thin scrollbar with dynamic color */
@@ -8969,7 +9005,8 @@ noscript {
   height: 17vh;
 }
 
-#message-input {
+#message-input,
+#comment-input {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 8px 12px;

@@ -621,10 +621,46 @@ function signEventAsGuest(eventTemplate) {
     throw new Error('Guest login not available');
   }
   
+  // If event already has an id (from mining), just sign it
   const signedEvent = window.NostrTools.finalizeEvent(eventTemplate, app.guestSk);
   console.log("%c Signed Event as Guest", "font-weight: bold; color: blue;", JSON.stringify(signedEvent, null, 2));
   return signedEvent;
 }
+
+/* async function handleEventSigning(eventTemplate) {
+  if (app.loginMethod === 'extension') {
+    return await signEventWithExtension(eventTemplate);
+  } else if (app.loginMethod === 'guest') {
+    return signEventAsGuest(eventTemplate);
+  } else {
+    throw new Error('No login method available');
+  }
+}
+
+async function signEventWithExtension(eventTemplate) {
+  if (typeof window.nostr === "undefined" || !app.myNpub) {
+    throw new Error('Extension not available');
+  }
+  
+  try {
+    const signedEvent = await window.nostr.signEvent(eventTemplate);
+    console.log("%c Signed Event with Extension", "font-weight: bold; color: green;", JSON.stringify(signedEvent, null, 2));
+    return signedEvent;
+  } catch (error) {
+    console.error("Extension signing failed:", error);
+    throw error;
+  }
+}
+
+function signEventAsGuest(eventTemplate) {
+  if (!app.isGuest || !app.guestSk) {
+    throw new Error('Guest login not available');
+  }
+  
+  const signedEvent = window.NostrTools.finalizeEvent(eventTemplate, app.guestSk);
+  console.log("%c Signed Event as Guest", "font-weight: bold; color: blue;", JSON.stringify(signedEvent, null, 2));
+  return signedEvent;
+} */
 
 // Usage
 async function someEventHandler() {

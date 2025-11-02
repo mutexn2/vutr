@@ -319,6 +319,15 @@ const eventManager = {
   },
 };
 
+
+// PoW Configuration (hardcoded by developer)
+const POW_DIFFICULTY = 10; // Set your desired difficulty here
+
+// Helper function to get PoW from event
+function getEventPow(event) {
+  return window.NostrTools.nip13.getPow(event.id);
+}
+
 async function contactPageHandler() {
   // Clean up any existing chat subscription
   if (app.chatSubscription) {
@@ -352,7 +361,7 @@ async function contactPageHandler() {
         
       </div>
     </div>
-`;
+  `;
 
   const messagesContainer = document.getElementById("messages-container");
   const messageInput = document.getElementById("message-input");
@@ -361,13 +370,13 @@ async function contactPageHandler() {
 
   scrollToBottomBtn.addEventListener("click", () => {
     scrollToBottom();
-    newMessageCount = 0; // Reset counter
+    newMessageCount = 0;
     hideNewMessageIndicator();
   });
 
   messagesContainer.addEventListener("scroll", () => {
     if (isAtBottom()) {
-      newMessageCount = 0; // Reset counter
+      newMessageCount = 0;
       hideNewMessageIndicator();
     }
   });
@@ -390,7 +399,6 @@ async function contactPageHandler() {
 
   // Enter key to send
   messageInput.addEventListener("keydown", async (e) => {
-    // Check if it's a mobile device
     const isMobile =
       /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
         navigator.userAgent
@@ -398,11 +406,8 @@ async function contactPageHandler() {
 
     if (e.key === "Enter") {
       if (isMobile || e.shiftKey) {
-        // On mobile or shift+enter: new line
-        // Allow default behavior (new line)
         return;
       } else {
-        // On desktop enter (without shift): send message
         e.preventDefault();
         if (messageInput.value.trim()) {
           await sendChatMessage(messageInput.value.trim());
@@ -446,12 +451,20 @@ async function contactPageHandler() {
           // Process through event manager
           eventManager.processEvent(event);
 
-          // Display all events (no filtering)
-          if (isInitialLoad) {
-            initialLoadCount++;
-            setTimeout(() => renderInitialEvent(event, messagesContainer), 0);
+          // Check PoW requirement (silently filter)
+          const meetsPow = eventMeetsPowRequirement(event);
+          
+          if (meetsPow) {
+            if (isInitialLoad) {
+              initialLoadCount++;
+              setTimeout(() => renderInitialEvent(event, messagesContainer), 0);
+            } else {
+              appendNewMessage(event, messagesContainer);
+            }
           } else {
-            appendNewMessage(event, messagesContainer);
+            // Silently ignore messages that don't meet PoW requirement
+            const eventPow = getEventPow(event);
+            console.log(`Filtered out event with PoW ${eventPow} (required: ${POW_DIFFICULTY})`);
           }
         },
 
@@ -463,12 +476,12 @@ async function contactPageHandler() {
           );
           isInitialLoad = false;
           hideLoadingIndicator();
-setTimeout(() => scrollToBottom(false), 100);
+          setTimeout(() => scrollToBottom(false), 100);
 
-setTimeout(() => {
-  autoFetchMissingReferences();
-  setTimeout(() => scrollToBottom(false), 300); 
-}, 500);
+          setTimeout(() => {
+            autoFetchMissingReferences();
+            setTimeout(() => scrollToBottom(false), 300); 
+          }, 500);
         },
 
         onclose() {
@@ -1283,11 +1296,10 @@ async function sendChatMessage(content) {
     const chatRoomId =
       "39c44dcdd67271483f1c5217bcfd214c8c34980fa55f0f6b834a3e253e296c15";
 
-    // Get a relay hint (use first chat relay)
     const relayHint =
       app.chatRelays && app.chatRelays.length > 0 ? app.chatRelays[0] : "";
 
-    // Create the message event (kind-42)
+    // Create the base message event (WITHOUT pubkey for extension method)
     const messageEvent = {
       kind: 42,
       created_at: Math.floor(Date.now() / 1000),
@@ -1297,21 +1309,56 @@ async function sendChatMessage(content) {
 
     // Check if this is a reply
     if (replyState.isReplying && replyState.replyToEvent) {
-      // Reply message with root and reply tags
       messageEvent.tags = [
         ["e", chatRoomId, relayHint, "root"],
         ["e", replyState.replyToEvent.id, relayHint, "reply"],
         ["p", replyState.replyToEvent.pubkey, relayHint],
       ];
     } else {
-      // Root message (just reference the chat room)
       messageEvent.tags = [["e", chatRoomId, relayHint, "root"]];
     }
 
-    console.log("Creating chat message event:", messageEvent);
+    let eventToSign;
 
-    // Sign the event
-    const signedMessageEvent = await handleEventSigning(messageEvent);
+    // Handle PoW mining based on login method
+    if (app.loginMethod === 'guest') {
+      // For guest: we can mine directly because we have the secret key
+      console.log(`Mining PoW ${POW_DIFFICULTY} for message (guest)...`);
+      
+      // Add pubkey for guest mining
+      messageEvent.pubkey = window.NostrTools.getPublicKey(app.guestSk);
+      
+      // Mine PoW
+      const minedEvent = window.NostrTools.nip13.minePow(
+        messageEvent,
+        POW_DIFFICULTY
+      );
+      console.log(`PoW mined: ${window.NostrTools.nip13.getPow(minedEvent.id)}`);
+      
+      eventToSign = minedEvent;
+      
+    } else if (app.loginMethod === 'extension') {
+      // For extension: we need to mine with the pubkey from extension
+      console.log(`Mining PoW ${POW_DIFFICULTY} for message (extension)...`);
+      
+      // Add pubkey for extension mining
+      messageEvent.pubkey = app.myPk;
+      
+      // Mine PoW
+      const minedEvent = window.NostrTools.nip13.minePow(
+        messageEvent,
+        POW_DIFFICULTY
+      );
+      console.log(`PoW mined: ${window.NostrTools.nip13.getPow(minedEvent.id)}`);
+      
+      eventToSign = minedEvent;
+      
+    } else {
+      throw new Error('No login method available');
+    }
+
+    // Sign the mined event (this will work correctly for both methods now)
+    const signedMessageEvent = await handleEventSigning(eventToSign);
 
     console.log("Message event signed successfully:", signedMessageEvent);
 
@@ -1325,11 +1372,7 @@ async function sendChatMessage(content) {
 
         if (result.success) {
           showTemporaryNotification("✓ Message sent!");
-
-          // Clear reply state
           clearReplyState();
-
-          // Re-enable button
           sendButton.disabled = false;
           sendButton.textContent = "Send";
         } else {
@@ -1338,8 +1381,6 @@ async function sendChatMessage(content) {
       } catch (publishError) {
         console.error("Error publishing message event:", publishError);
         showTemporaryNotification("❌ Failed to send message");
-
-        // Re-enable button on publish failure
         sendButton.disabled = false;
         sendButton.textContent = "Send";
       }
@@ -1352,8 +1393,6 @@ async function sendChatMessage(content) {
   } catch (error) {
     console.error("Error creating message event:", error);
     showTemporaryNotification("❌ Failed to send message: " + error.message);
-
-    // Re-enable button on error
     sendButton.disabled = false;
     sendButton.textContent = "Send";
   }
@@ -1392,5 +1431,43 @@ function clearReplyState() {
   const replyIndicator = document.getElementById("reply-indicator");
   if (replyIndicator) {
     replyIndicator.classList.add("hidden");
+  }
+}
+
+
+
+///////////////////////////
+// Check if event meets PoW requirements
+function eventMeetsPowRequirement(event) {
+  const eventPow = getEventPow(event);
+  return eventPow >= POW_DIFFICULTY;
+}
+
+// Refilter all displayed messages by current PoW setting
+function refilterMessagesByPow() {
+  const messagesContainer = document.getElementById("messages-container");
+  if (!messagesContainer) return;
+
+  const messages = Array.from(messagesContainer.children);
+  let hiddenCount = 0;
+
+  messages.forEach((messageElement) => {
+    const eventId = messageElement.dataset.eventId;
+    const event = eventManager.allEvents.get(eventId);
+    
+    if (event) {
+      const meetsPow = eventMeetsPowRequirement(event);
+      if (meetsPow) {
+        messageElement.style.display = '';
+      } else {
+        messageElement.style.display = 'none';
+        hiddenCount++;
+      }
+    }
+  });
+
+  const powInfo = document.getElementById('pow-info');
+  if (powInfo) {
+    powInfo.textContent = hiddenCount > 0 ? `(${hiddenCount} messages hidden)` : '';
   }
 }

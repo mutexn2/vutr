@@ -251,6 +251,14 @@ commentsContainer.innerHTML = `
       </button>
       
       <div class="chat-input-expanded">
+        <div class="chat-input-header">
+          <span class="chat-input-title">Add a comment</span>
+          <button id="comment-collapse-btn" class="comment-collapse-button" title="Close">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
         <div id="comment-reply-indicator" class="reply-indicator hidden">
           <span id="comment-reply-text">Replying to...</span>
           <button id="comment-cancel-reply-btn">✕</button>
@@ -274,6 +282,9 @@ commentsContainer.innerHTML = `
   const commentInput = document.getElementById('comment-input');
   const sendButton = document.getElementById('comment-send-button');
   const cancelReplyBtn = document.getElementById('comment-cancel-reply-btn');
+  const collapseBtn = document.getElementById('comment-collapse-btn');
+  const expandBtn = document.getElementById('comment-expand-btn');
+  const chatInputContainer = document.querySelector('.chat-input-container');
 
   // Auto-resize textarea
   commentInput.addEventListener('input', function() {
@@ -310,16 +321,24 @@ commentsContainer.innerHTML = `
     }
   });
 
+  // Cancel reply button
   cancelReplyBtn?.addEventListener('click', () => {
     clearCommentReplyState();
   });
 
-  const expandBtn = document.getElementById('comment-expand-btn');
-  const chatInputContainer = document.querySelector('.chat-input-container');
-  
+  // Expand button - clear any previous state first
   expandBtn?.addEventListener('click', () => {
+    // If there's an existing reply state, clear it
+    if (commentReplyState.isReplying) {
+      clearCommentReplyState();
+    }
     chatInputContainer.classList.remove('collapsed');
     commentInput.focus();
+  });
+
+  // NEW: Collapse button
+  collapseBtn?.addEventListener('click', () => {
+    collapseCommentInput();
   });
 
   // collapse when clicking outside
@@ -329,9 +348,10 @@ commentsContainer.innerHTML = `
         !chatInputContainer.classList.contains('collapsed') &&
         !commentInput.value.trim() &&
         !commentReplyState.isReplying) {
-      chatInputContainer.classList.add('collapsed');
+      collapseCommentInput();
     }
   });
+
 
   try {
     if (!app.commentPool) {
@@ -743,6 +763,11 @@ async function loadReactionsForComment(eventId, likeButton, likeCountSpan) {
 
 function handleCommentReply(event) {
   console.log("Reply to comment:", event.id);
+  
+  // Clear any existing reply state first to avoid conflicts
+  clearCommentReplyState();
+  
+  // Then set the new reply state
   setCommentReplyState(event);
 
   const chatInputContainer = document.querySelector(".chat-input-container");
@@ -758,6 +783,8 @@ function handleCommentReply(event) {
     commentInput.focus();
   }
 }
+
+
 async function handleCommentLikeWithUI(event, likeButton, likeCountSpan) {
   console.log("Like comment:", event.id);
 
@@ -973,7 +1000,27 @@ function clearCommentReplyState() {
   }
 }
 
-// Helper function to get current video ID from the page
+function collapseCommentInput() {
+  const chatInputContainer = document.querySelector(".chat-input-container");
+  const commentInput = document.getElementById("comment-input");
+  
+  if (chatInputContainer) {
+    chatInputContainer.classList.add('collapsed');
+  }
+  
+  // Clear input and reset state
+  if (commentInput) {
+    commentInput.value = '';
+    commentInput.style.height = 'auto';
+  }
+  
+  // Clear reply state when collapsing
+  clearCommentReplyState();
+}
+
+
+
+// Helper function to get current video ID from the page <-------- fix to get from the already existing
 function getCurrentVideoId() {
   // You may need to adjust this based on how you store the current video ID
   // This is a common pattern - extract from hash or from a data attribute
@@ -982,7 +1029,7 @@ function getCurrentVideoId() {
   return match ? match[1] : null;
 }
 
-// Helper function to get video event (you may already have this)
+// Helper function to get video event (you may already have this) <-------- 
 async function getVideoEvent(videoId) {
   if (!app.commentPool) {
     app.commentPool = new window.NostrTools.SimplePool();

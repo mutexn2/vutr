@@ -860,7 +860,7 @@ moreBtn?.addEventListener("click", (e) => {
 
   // Load comments after delay
   setTimeout(() => {
-    renderComments(videoId);
+    renderComments(videoId, video);
   }, 1000);
 }
 

@@ -1,3 +1,11 @@
+// Extract websocket URLs from an event - now a standalone function
+function extractWebSocketUrls(event) {
+  let jsonString = JSON.stringify(event, null, 2);
+  let wsUrlRegex = /(wss?:\/\/[^\s",\]]+)/g;
+  let urls = [...jsonString.matchAll(wsUrlRegex)].map(match => match[0]);
+  return [...new Set(urls)]; // Remove duplicates
+}
+
 async function relaySetsDiscoveryPageHandler() {
   mainContent.innerHTML = `
     <h1>Discovering Relay sets</h1>
@@ -13,10 +21,16 @@ async function relaySetsDiscoveryPageHandler() {
     let sets = await NostrClient.getEvents({ kinds: kinds, limit: limit });
     sets = sets.map(sanitizeNostrEvent).filter(v => v !== null);
     
+    // Filter out events that don't have any relay URLs
+    sets = sets.filter(event => {
+      const wsUrls = extractWebSocketUrls(event);
+      return wsUrls.length > 0;
+    });
+    
     if (sets.length === 0) {
       mainContent.innerHTML = `
         <h1>No sets Found</h1>
-        <p>No kind-30002 events were found on the connected relays.</p>
+        <p>No kind-30002 events with relays were found on the connected relays.</p>
       `;
       return;
     }
@@ -31,14 +45,11 @@ async function relaySetsDiscoveryPageHandler() {
                              <div class="videos-listview"></div>`;
     const rSets = document.querySelector('.videos-listview');
 
-    // Create all skeleton cards first
+    // Create all cards directly
     sets.forEach(event => {
-      const skeletonCard = createSkeletonRelaySetCard(event);
-      rSets.appendChild(skeletonCard);
+      const card = createRelaySetCard(event);
+      rSets.appendChild(card);
     });
-
-    // Set up lazy loading for publisher components
-    setupRelaySetLazyLoading(rSets, sets);
 
     // Event delegation for all button clicks
     setupRelaySetEventDelegation(rSets, sets);
@@ -227,7 +238,7 @@ async function importRelaySet(event, finalTitle) {
     saveRelayLists();
     
     showTemporaryNotification(`Relay set "${finalTitle}" imported successfully!`);
-     updateDrawerContent();
+    updateDrawerContent();
   } catch (error) {
     console.error('Error importing relay set:', error);
     showTemporaryNotification('Failed to import relay set');
@@ -256,114 +267,6 @@ function deduplicateReplaceableEvents(events) {
   return Array.from(eventMap.values());
 }
 
-function setupRelaySetLazyLoading(container, sets) {
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        const skeletonCard = entry.target;
-        const eventId = skeletonCard.dataset.eventId;
-        const event = sets.find(e => e.id === eventId);
-        
-        if (event) {
-          // Replace skeleton with real card
-          const realCard = createRelaySetCard(event);
-          container.replaceChild(realCard, skeletonCard);
-          
-          // Stop observing this element
-          observer.unobserve(skeletonCard);
-        }
-      }
-    });
-  }, {
-    rootMargin: '100px' // Start loading 100px before the element becomes visible
-  });
-  
-  // Observe all skeleton cards
-  const skeletonCards = container.querySelectorAll('.relay-set-skeleton');
-  skeletonCards.forEach(card => observer.observe(card));
-}
-
-function createSkeletonRelaySetCard(event) {
-  if (!event || !event.id) return document.createElement('div');
-
-  // Helper function to get title from tags
-  let getValueFromTags = (tags, key, defaultValue = "") => {
-    let tag = tags?.find((t) => t[0] === key);
-    return tag ? tag[1] : defaultValue;
-  };
-
-  // Extract websocket URLs from the event
-  function extractWebSocketUrls(event) {
-    let jsonString = JSON.stringify(event, null, 2);
-    let wsUrlRegex = /(wss?:\/\/[^\s",\]]+)/g;
-    let urls = [...jsonString.matchAll(wsUrlRegex)].map(match => match[0]);
-    return [...new Set(urls)]; // Remove duplicates
-  }
-
-  let wsUrls = extractWebSocketUrls(event);
-  let title = getValueFromTags(event.tags, "title");
-  let description = getValueFromTags(event.tags, "description"); // Get description
-  
-  // Create the skeleton card element
-  let card = document.createElement('div');
-  card.className = 'relay-set-card relay-set-skeleton';
-  card.dataset.eventId = event.id;
-  
-  // Create title section if title exists
-  let titleHtml = '';
-  if (title) {
-    titleHtml = `<div class="relay-set-title">${escapeHtml(title)}</div>`;
-  }
-  
-  // Create description section if description exists
-  let descriptionHtml = '';
-  if (description) {
-    descriptionHtml = `<div class="relay-set-description">${escapeHtml(description)}</div>`;
-  }
-  
-  // Skeleton state
-  card.innerHTML = `
-    ${titleHtml}
-    ${descriptionHtml}
-    <div class="relay-set-main">
-      <div class="relay-set-info">
-        <div class="publisher-section">
-          <div class="skeleton-avatar"></div>
-          <div class="publisher-details">
-            <div class="skeleton-name"></div>
-            <div class="skeleton-time"></div>
-          </div>
-        </div>
-        <div class="relay-count">
-          <span class="relay-count-number">${wsUrls.length}</span>
-          <span class="relay-count-label">relays</span>
-        </div>
-      </div>
-      <div class="relay-urls" data-all-urls='${JSON.stringify(wsUrls)}'>
-        ${wsUrls.length > 3 ? `<div class="relay-item more-relays clickable-more" data-count="${wsUrls.length - 3}">Show ${wsUrls.length - 3} more relays</div>` : ''}
-        ${wsUrls.slice(0, 3).map(url => `
-          <div class="relay-item">
-            <span class="relay-url">${escapeHtml(url)}</span>
-            <button class="relay-action-btn" data-url="${escapeHtml(url)}" title="Visit relay"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-  <path stroke-linecap="round" stroke-linejoin="round" d="M15.59 14.37a6 6 0 0 1-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 0 0 6.16-12.12A14.98 14.98 0 0 0 9.631 8.41m5.96 5.96a14.926 14.926 0 0 1-5.841 2.58m-.119-8.54a6 6 0 0 0-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 0 0-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 0 1-2.448-2.448 14.9 14.9 0 0 1 .06-.312m-2.24 2.39a4.493 4.493 0 0 0-1.757 4.306 4.493 4.493 0 0 0 4.306-1.758M16.5 9a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z" />
-</svg>
-</button>
-          </div>
-        `).join('')}
-      </div>
-    </div>
-    <div class="relay-set-footer">
-      <button class="show-json-btn">Show JSON</button>
-      <button class="import-relay-set-btn" data-event-id="${event.id}">Add to my local sets</button>
-    </div>
-    <div class="relay-set-json hidden">
-      <pre class="json-content"></pre>
-    </div>
-  `;
-
-  return card;
-}
-
 function createRelaySetCard(event) {
   if (!event || !event.id) return document.createElement('div');
   
@@ -373,17 +276,9 @@ function createRelaySetCard(event) {
     return tag ? tag[1] : defaultValue;
   };
 
-  // Extract websocket URLs from the event
-  function extractWebSocketUrls(event) {
-    let jsonString = JSON.stringify(event, null, 2);
-    let wsUrlRegex = /(wss?:\/\/[^\s",\]]+)/g;
-    let urls = [...jsonString.matchAll(wsUrlRegex)].map(match => match[0]);
-    return [...new Set(urls)]; // Remove duplicates
-  }
-
   let wsUrls = extractWebSocketUrls(event);
   let title = getValueFromTags(event.tags, "title");
-  let description = getValueFromTags(event.tags, "description"); // Get description
+  let description = getValueFromTags(event.tags, "description");
   
   // Create the card element
   let card = document.createElement('div');
@@ -402,10 +297,9 @@ function createRelaySetCard(event) {
     descriptionHtml = `<div class="relay-set-description">${escapeHtml(description)}</div>`;
   }
 
-  // Convert pubkey to npub for consistency with your following page
+  // Convert pubkey to npub for consistency
   const npub = window.NostrTools.nip19.npubEncode(event.pubkey);
   
-  // Real card with all the information
   card.innerHTML = `
     ${titleHtml}
     ${descriptionHtml}
@@ -456,4 +350,5 @@ function renderJson(event, container) {
   let jsonString = JSON.stringify(event, null, 2);
   container.textContent = jsonString;
 }
+
 

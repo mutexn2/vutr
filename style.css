@@ -3084,6 +3084,11 @@ main {
   .comment-card {
     padding: 0.7rem;
   }
+
+.video-page-layout .comments-content {
+  gap: 0;
+}
+
 }
 
 @media (min-width: 769px) {

@@ -215,6 +215,7 @@
       "pages/relaySetsDiscoveryPage.js",
       "pages/playlistPage.js",
       "pages/playlistsPage.js",
+    //  "pages/queueHistoryPage.js",
       "pages/localPlaylistsPage.js",
       "pages/localPlaylistPage.js",
       "pages/profilePage.js",

@@ -213,6 +213,7 @@ let config = {
     {
       title: "App",
       items: [
+     //   { name: "queue", displayName: "Queue", icon: "⚙️" },
         { name: "settings", displayName: "Settings", icon: "⚙️" },
         { name: "relaysetsdiscover", displayName: "Relay Sets", icon: "⚙️" },
         { name: "list", displayName: "listview", icon: "📒" },

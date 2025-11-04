@@ -1709,7 +1709,7 @@ main {
 /********************************************/
 /* Video Card - Shared Styles */
 .video-card {
-  border: 1px solid var(--border);
+  border: 2px solid var(--border);
   border-radius: 8px;
   overflow: visible;
   transition: box-shadow 0.2s ease;
@@ -1731,7 +1731,7 @@ main {
   }
 
   .video-card:hover {
-    border: 1px solid var(--background);
+    border: 2px solid var(--background);
   }
 
   .video-card .creator {
@@ -1748,7 +1748,7 @@ main {
 }
 
 .video-card:hover {
-  border: 1px solid var(--primary);
+  border: 2px solid var(--primary);
 }
 
 .thumbnail-container {
@@ -11449,3 +11449,6 @@ noscript {
   margin: 4px;
   cursor: pointer;
 }
+
+
+/********************/

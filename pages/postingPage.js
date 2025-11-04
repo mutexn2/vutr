@@ -2,7 +2,7 @@ async function postingPageHandler() {
   mainContent.innerHTML = `
     <div class="posting-container">
       <h1 class="posting-title">Create Event</h1>
-      <p class="subtitle">publish a kind-21 video event</p>
+      <p class="subtitle">publish a kind:21 event</p>
       <div class="loading-indicator">
         <p>Loading...</p>
       </div>

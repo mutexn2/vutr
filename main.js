@@ -137,7 +137,9 @@ let app = {
 
 chatRelays: ["wss://nos.lol", "wss://nostr.mom"],
   
+
 };
+
 
 let routes = {
   "#home": homePageHandler,
@@ -157,6 +159,7 @@ let routes = {
   "#localplaylists": localPlaylistsPageHandler,
   "#playlist": playlistPageHandler,
   "#playlists": playlistsPageHandler,
+  //"#queue": queueHistoryPageHandler, 
   "#post": postingPageHandler,
   "#singlerelay": singleRelayPageHandler,
   "#contact": contactPageHandler,
@@ -250,6 +253,7 @@ function initializeApp() {
   initNotifyMenuButton();
   updateSidebar();
   updateDrawerContent();
+
 
 //initSubscriptionsManager();
 

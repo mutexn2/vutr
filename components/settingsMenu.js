@@ -38,7 +38,7 @@ async function createSettingsMenu(buttonElement) {
       <div class="menu-header">
         <div class="user-info">
           <div class="user-avatar">
-            <img src="https://fiatjaf.com/static/favicon.jpg" alt="User Avatar">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/bd/Struthio_camelus_portrait_Whipsnade_Zoo.jpg/1280px-Struthio_camelus_portrait_Whipsnade_Zoo.jpg" alt="User Avatar">
           </div>
           <div class="user-details">
             <div class="user-name">${app.isLoggedIn ? 'Nostr User' : 'Guest'}</div>

@@ -11,7 +11,7 @@ function createPlaylistCard(playlist) {
     return text.length > maxLength ? `${text.substring(0, maxLength)}...` : text;
   };
 
-  let countVideoReferences = (playlist) => {
+  function countVideoReferences(playlist) {
     if (!playlist.tags || !Array.isArray(playlist.tags)) {
       return 0;
     }
@@ -22,15 +22,19 @@ function createPlaylistCard(playlist) {
       }
       
       const aTagValue = tag[1];
-      if (!aTagValue || typeof aTagValue !== "string" || !aTagValue.startsWith("21:")) {
+      if (!aTagValue || typeof aTagValue !== "string" || 
+          (!aTagValue.startsWith("21:") && !aTagValue.startsWith("22:"))) {
         return false;
       }
       
       const idPart = aTagValue.substring(3);
       return idPart.length === 64 && /^[a-fA-F0-9]{64}$/.test(idPart);
     }).length;
-  };
+  }
 
+  // Check if playlist is already saved locally
+  const isSavedLocally = isPlaylistInLocalLibrary(playlist);
+  
   // Extract playlist data
   let title = getValueFromTags(playlist.tags, "title", "Untitled Playlist");
   let description = getValueFromTags(playlist.tags, "description", "");
@@ -44,19 +48,22 @@ function createPlaylistCard(playlist) {
     imageUrl || "https://cdn.nostrcheck.me/a605827e09ea5be22a06ac2ec7e2be3985cac6b0322f7621881adbe21a7d7fb6.jpeg"
   );
 
-  // Create the card using same structure as video card
+  // Create the card
   let card = document.createElement('div');
-  card.className = 'video-card'; // Using same class as video card
+  card.className = 'video-card playlist-card';
   card.dataset.playlistId = playlist.id;
   card.dataset.author = playlist.pubkey;
   card.dataset.dtag = dtag;
+  card.dataset.isSaved = isSavedLocally;
 
   card.innerHTML = `
     <div class="metadata">
       <span class="time"></span>
+      ${isSavedLocally ? '<span class="saved-indicator" title="Saved in your library">💾</span>' : ''}
     </div>
     <div class="thumbnail-container">
       <img class="thumbnail" loading="lazy" />
+      <div class="playlist-overlay-indicator">📋 Playlist</div>
     </div>
     <div class="video-info">
       <h3 class="title"></h3>
@@ -85,7 +92,7 @@ function createPlaylistCard(playlist) {
   let optionsButton = card.querySelector('.options-button');
   let creatorSection = card.querySelector('.creator');
 
-  // Set dynamic content programmatically
+  // Set dynamic content
   thumbnailImg.src = thumbnailSrc;
   thumbnailImg.alt = title;
   
@@ -94,11 +101,11 @@ function createPlaylistCard(playlist) {
   
   timeElement.textContent = timeAgo;
 
-  // Add video count instead of duration (in the same position as video card duration)
+  // Add video count
   if (videoCount !== undefined) {
     let videoCountSpan = document.createElement('span');
-    videoCountSpan.className = 'duration'; // Using same class as video duration
-    videoCountSpan.textContent = `${videoCount} videos`;
+    videoCountSpan.className = 'duration';
+    videoCountSpan.textContent = `${videoCount} items`;
     card.querySelector('.thumbnail-container').appendChild(videoCountSpan);
   }
 
@@ -127,23 +134,33 @@ function createPlaylistCard(playlist) {
     videoInfoContainer.appendChild(descriptionP);
   }
 
-  // Options menu functionality - same as video card
+  // Options menu - always check current saved status
   optionsButton.addEventListener('click', (e) => {
     e.stopPropagation();
-    showPlaylistCardMenu(optionsButton, playlist, title);
+    const currentSavedStatus = isPlaylistInLocalLibrary(playlist);
+    showPlaylistCardMenu(optionsButton, playlist, title, currentSavedStatus);
   });
 
   return card;
 }
 
+function isPlaylistInLocalLibrary(playlist) {
+  const existingPlaylists = app.playlists || [];
+  const dTag = getValueFromTags(playlist, "d", "");
+  
+  return existingPlaylists.some(
+    (p) => p.pubkey === playlist.pubkey && 
+           getValueFromTags(p, "d", "") === dTag
+  );
+}
 
 //////////////////////////////////////////////
-// PLAYLIST CARD MENU (same pattern as video card menu)
+// PLAYLIST CARD MENU
 //////////////////////////////////////////////
 let playlistCardMenuControls = null;
 let currentPlaylistCardData = null;
 
-async function showPlaylistCardMenu(buttonElement, playlist, title) {
+async function showPlaylistCardMenu(buttonElement, playlist, title, isSavedLocally = false) {
   // If menu exists and it's for a different playlist, close it first
   if (playlistCardMenuControls && playlistCardMenuControls.isOpen() && currentPlaylistCardData?.id !== playlist.id) {
     playlistCardMenuControls.close();
@@ -158,18 +175,16 @@ async function showPlaylistCardMenu(buttonElement, playlist, title) {
 
   // If menu doesn't exist, create it
   if (!playlistCardMenuControls || currentPlaylistCardData?.id !== playlist.id) {
-    await createPlaylistCardMenu(buttonElement, playlist, title);
+    await createPlaylistCardMenu(buttonElement, playlist, title, isSavedLocally);
   }
 
   // Open the menu
   playlistCardMenuControls.open();
 }
 
-async function createPlaylistCardMenu(buttonElement, playlist, title) {
-  // Store current playlist data
+async function createPlaylistCardMenu(buttonElement, playlist, title, isSavedLocally = false) {
   currentPlaylistCardData = playlist;
   
-  // Create overlay container
   let overlayElement = document.createElement('div');
   overlayElement.id = 'playlist-card-overlay';
   overlayElement.classList.add('menu-overlay');
@@ -183,18 +198,22 @@ async function createPlaylistCardMenu(buttonElement, playlist, title) {
       <div class="menu-header">
         <div class="user-info">
           ${title}
+          ${isSavedLocally ? '<span class="saved-badge">💾 Saved</span>' : ''}
         </div>
       </div>
       
       <div class="menu-items">
-        <button class="menu-item playlist-save">
-          <span class="item-icon">💾</span>
-          <span class="item-text">Save Playlist</span>
-        </button>
-        <button class="menu-item playlist-share">
-          <span class="item-icon">🔗</span>
-          <span class="item-text">Share</span>
-        </button>
+        ${isSavedLocally ? `
+          <button class="menu-item playlist-remove">
+            <span class="item-icon">🗑️</span>
+            <span class="item-text">Remove from Library</span>
+          </button>
+        ` : `
+          <button class="menu-item playlist-save">
+            <span class="item-icon">💾</span>
+            <span class="item-text">Save Playlist</span>
+          </button>
+        `}
         <div class="menu-separator"></div>
         <button class="menu-item playlist-mute-user">
           <span class="item-icon">🔇</span>
@@ -213,7 +232,6 @@ async function createPlaylistCardMenu(buttonElement, playlist, title) {
     </div>
   `;
   
-  // Center the menu on screen
   menuElement.style.position = 'fixed';
   menuElement.style.top = '50%';
   menuElement.style.left = '50%';
@@ -223,7 +241,6 @@ async function createPlaylistCardMenu(buttonElement, playlist, title) {
   overlayElement.appendChild(menuElement);
   document.body.appendChild(overlayElement);
   
-  // Create overlay controls
   playlistCardMenuControls = createOverlayControls("playlist-card", overlayElement, {
     closeOnOutsideClick: true,
     closeOnEscape: true,
@@ -254,24 +271,55 @@ async function createPlaylistCardMenu(buttonElement, playlist, title) {
     }, 150);
   };
 
-  setupPlaylistCardMenuEvents(menuElement, playlist);
+  setupPlaylistCardMenuEvents(menuElement, playlist, isSavedLocally);
   
-  // Store reference in app object (optional)
   if (app.overlayControls) {
     app.overlayControls.playlistCard = playlistCardMenuControls;
   }
 }
 
-function setupPlaylistCardMenuEvents(menuElement, playlist) {
-  menuElement.querySelector('.playlist-save')?.addEventListener('click', () => {
-    console.log('Save Playlist clicked for:', playlist.id);
-    playlistCardMenuControls?.close();
-  });
+function setupPlaylistCardMenuEvents(menuElement, playlist, isSavedLocally) {
+  // Save playlist functionality
+  const saveButton = menuElement.querySelector('.playlist-save');
+  if (saveButton) {
+    saveButton.addEventListener('click', async () => {
+      try {
+        await saveNetworkPlaylistToLocal(playlist);
+        playlistCardMenuControls?.close();
+        showTemporaryNotification('Playlist saved to your library');
+        
+        // Update the card to show saved status
+        updatePlaylistCardSavedStatus(playlist, true);
+      } catch (error) {
+        console.error('Error saving playlist:', error);
+        showTemporaryNotification('Failed to save playlist');
+      }
+    });
+  }
   
-  menuElement.querySelector('.playlist-share')?.addEventListener('click', () => {
-    console.log('Share clicked for playlist:', playlist.id);
-    playlistCardMenuControls?.close();
-  });
+  // Remove from library functionality
+  const removeButton = menuElement.querySelector('.playlist-remove');
+  if (removeButton) {
+    removeButton.addEventListener('click', () => {
+    
+      
+     
+        const dTag = getValueFromTags(playlist, "d", "");
+        
+        // Remove from app.playlists
+        app.playlists = app.playlists.filter(p => 
+          !(getValueFromTags(p, "d", "") === dTag && p.pubkey === playlist.pubkey)
+        );
+        
+        savePlaylistsToStorage();
+        playlistCardMenuControls?.close();
+        showTemporaryNotification('Playlist removed from library');
+        
+        // Update the card to show unsaved status
+        updatePlaylistCardSavedStatus(playlist, false);
+      
+    });
+  }
   
   menuElement.querySelector('.playlist-mute-user')?.addEventListener('click', () => {
     console.log('Mute User clicked for playlist:', playlist.id, 'pubkey:', playlist.pubkey);
@@ -287,6 +335,34 @@ function setupPlaylistCardMenuEvents(menuElement, playlist) {
     console.log('Show JSON clicked for playlist:', playlist.id);
     showPlaylistJsonModal(playlist);
     playlistCardMenuControls?.close();
+  });
+}
+
+// Updated helper function with isSaved parameter
+function updatePlaylistCardSavedStatus(playlist, isSaved) {
+  const cards = document.querySelectorAll('.playlist-card');
+  const dTag = getValueFromTags(playlist, "d", "");
+  
+  cards.forEach(card => {
+    if (card.dataset.author === playlist.pubkey && card.dataset.dtag === dTag) {
+      card.dataset.isSaved = isSaved.toString();
+      
+      // Update saved indicator
+      const metadata = card.querySelector('.metadata');
+      const existingIndicator = metadata.querySelector('.saved-indicator');
+      
+      if (isSaved && !existingIndicator) {
+        // Add indicator if saving
+        const indicator = document.createElement('span');
+        indicator.className = 'saved-indicator';
+        indicator.title = 'Saved in your library';
+        indicator.textContent = '💾';
+        metadata.appendChild(indicator);
+      } else if (!isSaved && existingIndicator) {
+        // Remove indicator if unsaving
+        existingIndicator.remove();
+      }
+    }
   });
 }
 

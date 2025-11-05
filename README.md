@@ -19,7 +19,7 @@ A prototype video client built around [Nostr (NIP-71)](https://github.com/nostr-
 - Not affiliated with any relays or media servers
 
 
-**Vision**: To become an easy-to-clone template for communities, topics, or personal use - just start with your own relays and servers.
+
 
 ## Technology
 

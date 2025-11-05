@@ -49,37 +49,73 @@ function showErrorState(message) {
 }
 
 function renderPlaylistsGrid(playlists) {
+  const localPlaylists = playlists.filter(isLocalPlaylist);
+  const networkPlaylists = playlists.filter(isNetworkPlaylist);
+  
   mainContent.innerHTML = `
       <div class="playlists-header">
-        <h1>My Local Playlists (${playlists.length})</h1>
+        <h1>Local Playlists (${playlists.length})</h1>
         <div class="playlists-actions">
           <button class="create-playlist-btn btn-primary">Create Playlist</button>
+          ${networkPlaylists.length > 0 ? 
+            '<button class="sync-all-btn btn-secondary">Sync All Network Playlists</button>' 
+            : ''}
         </div>
       </div>
-      <div class="playlists-grid">
-        ${playlists.map(playlist => renderPlaylistCard(playlist)).join('')}
-      </div>
+      
+      ${networkPlaylists.length > 0 ? `
+        <div class="playlists-section">
+          <h2>Read-only (${networkPlaylists.length})</h2>
+          <div class="playlists-grid">
+            ${networkPlaylists.map(playlist => renderPlaylistCard(playlist)).join('')}
+          </div>
+        </div>
+      ` : ''}
+      
+      ${localPlaylists.length > 0 ? `
+        <div class="playlists-section">
+          <h2>My Playlists (${localPlaylists.length})</h2>
+          <div class="playlists-grid">
+            ${localPlaylists.map(playlist => renderPlaylistCard(playlist)).join('')}
+          </div>
+        </div>
+      ` : ''}
   `;
 }
-
 function renderPlaylistCard(playlist) {
   const dTag = getValueFromTags(playlist, "d", "");
   const title = getValueFromTags(playlist, "title", "Untitled Playlist");
-  const image = getValueFromTags(playlist, "image", "");
+  
+  // Try to get thumbnail from either "image" or "thumb" tag
+  const image = getValueFromTags(playlist, "image", "") || getValueFromTags(playlist, "thumb", "");
+  
   const description = getValueFromTags(playlist, "description", "");
-  const videoCount = playlist.tags.filter(tag => tag[0] === "a").length;
+  
+  // Count both kind 21 and kind 22 video references
+  const videoCount = playlist.tags.filter(tag => {
+    if (tag[0] !== "a") return false;
+    const aTagValue = tag[1];
+    return aTagValue && (aTagValue.startsWith("21:") || aTagValue.startsWith("22:"));
+  }).length;
+  
+  const isLocal = isLocalPlaylist(playlist);
   
   return `
-    <div class="playlist-card" data-d-tag="${escapeHtml(dTag)}">
+    <div class="playlist-card ${isLocal ? 'local-playlist' : 'network-playlist'}" data-d-tag="${escapeHtml(dTag)}">
       <div class="playlist-thumbnail">
         ${image ? 
           `<img src="${escapeHtml(image)}" alt="Playlist thumbnail" loading="lazy">` :
           `<div class="no-thumbnail">📹</div>`
         }
-        <div class="playlist-overlay">
-          <button class="edit-playlist-btn" data-d-tag="${escapeHtml(dTag)}" title="Edit playlist">✏️</button>
-          <button class="delete-playlist-btn" data-d-tag="${escapeHtml(dTag)}" title="Delete playlist">🗑️</button>
+        <div class="playlist-badge ${isLocal ? 'local-badge' : 'network-badge'}">
+          ${isLocal ? '💾 Local' : '📡 Network'}
         </div>
+        ${isLocal ? `
+          <div class="playlist-overlay">
+            <button class="edit-playlist-btn" data-d-tag="${escapeHtml(dTag)}" title="Edit playlist">✏️</button>
+            <button class="delete-playlist-btn" data-d-tag="${escapeHtml(dTag)}" title="Delete playlist">🗑️</button>
+          </div>
+        ` : ''}
       </div>
       <div class="playlist-info">
         <h3 class="playlist-title">${escapeHtml(title)}</h3>
@@ -88,33 +124,111 @@ function renderPlaylistCard(playlist) {
           <span class="video-count">${videoCount} videos</span>
           <span class="created-date">${escapeHtml(getRelativeTime(playlist.created_at))}</span>
         </div>
+        ${!isLocal ? `
+          <div class="playlist-author" data-pubkey="${escapeHtml(playlist.pubkey)}">
+            <div class="playlist-author-image"></div>
+            <div class="playlist-author-name"></div>
+          </div>
+        ` : ''}
       </div>
     </div>
   `;
 }
 
-function setupPlaylistsEventListeners() {
+function setupPlaylistsEventListenersForGrid(gridElement) {
   // Playlist card clicks
-  document.querySelectorAll('.playlist-card').forEach(card => {
+  gridElement.querySelectorAll('.playlist-card').forEach(card => {
     card.addEventListener('click', handlePlaylistCardClick);
   });
   
-  // Edit playlist buttons
-  document.querySelectorAll('.edit-playlist-btn').forEach(btn => {
+  // Edit playlist buttons (only for local playlists)
+  gridElement.querySelectorAll('.edit-playlist-btn').forEach(btn => {
     btn.addEventListener('click', handleEditPlaylistClick);
   });
   
   // Delete playlist buttons
-  document.querySelectorAll('.delete-playlist-btn').forEach(btn => {
+  gridElement.querySelectorAll('.delete-playlist-btn').forEach(btn => {
     btn.addEventListener('click', handleDeletePlaylistClick);
   });
   
-
-  // Create playlist button
-  document.querySelector('.create-playlist-btn').addEventListener('click', () => {
-    showPlaylistModal();
+  // Initialize author information for network playlists
+  gridElement.querySelectorAll('.playlist-author').forEach(authorElement => {
+    const pubkey = authorElement.dataset.pubkey;
+    
+    // Create and append nostr-picture element
+    const imageContainer = authorElement.querySelector('.playlist-author-image');
+    const creatorImage = document.createElement('nostr-picture');
+    creatorImage.className = 'author-picture';
+    creatorImage.setAttribute('pubkey', pubkey);
+    imageContainer.appendChild(creatorImage);
+    
+    // Create and append nostr-name element
+    const nameContainer = authorElement.querySelector('.playlist-author-name');
+    const creatorName = document.createElement('nostr-name');
+    creatorName.className = 'author-name';
+    creatorName.setAttribute('pubkey', pubkey);
+    nameContainer.appendChild(creatorName);
+    
+    // Make author section clickable
+    authorElement.style.cursor = 'pointer';
+    authorElement.addEventListener('click', (e) => {
+      e.stopPropagation();
+      window.location.hash = `#profile/${pubkey}`;
+    });
   });
 }
+
+// Update the main setup function to use the grid-specific version
+function setupPlaylistsEventListeners() {
+  const playlistsGrids = document.querySelectorAll('.playlists-grid');
+  
+  playlistsGrids.forEach(grid => {
+    setupPlaylistsEventListenersForGrid(grid);
+  });
+  
+  // Create playlist button
+  const createBtn = document.querySelector('.create-playlist-btn');
+  if (createBtn) {
+    createBtn.addEventListener('click', () => {
+      showPlaylistModal();
+    });
+  }
+
+  // Sync all network playlists button
+  const syncAllBtn = document.querySelector('.sync-all-btn');
+  if (syncAllBtn) {
+    syncAllBtn.addEventListener('click', async () => {
+      const originalText = syncAllBtn.textContent;
+      syncAllBtn.textContent = 'Syncing...';
+      syncAllBtn.disabled = true;
+      
+      const networkPlaylists = app.playlists.filter(isNetworkPlaylist);
+      let updatedCount = 0;
+      
+      for (const playlist of networkPlaylists) {
+        try {
+          const updatedPlaylist = await syncNetworkPlaylist(playlist);
+          if (updatedPlaylist) {
+            updatedCount++;
+          }
+        } catch (error) {
+          console.error('Error syncing playlist:', error);
+        }
+      }
+      
+      if (updatedCount > 0) {
+        savePlaylistsToStorage();
+        showTemporaryNotification(`Updated ${updatedCount} playlist(s)`);
+        setTimeout(() => location.reload(), 1000);
+      } else {
+        showTemporaryNotification('All playlists are up to date');
+        syncAllBtn.textContent = originalText;
+        syncAllBtn.disabled = false;
+      }
+    });
+  }
+}
+
 
 function handlePlaylistCardClick(e) {
   if (e.target.closest('.playlist-overlay')) return;
@@ -139,7 +253,11 @@ function handleDeletePlaylistClick(e) {
     app.playlists = app.playlists.filter(p => getValueFromTags(p, "d", "") !== dTag);
     savePlaylistsToStorage();
     showTemporaryNotification('Playlist deleted');
-    location.reload();
+  //  location.reload();
+  // updatePlaylistsGridWithNewPlaylist(playlist);
+    const playlists = app.playlists || [];
+    renderPlaylistsGrid(playlists);
+    setupPlaylistsEventListeners();  
   }
 }
 
@@ -153,7 +271,7 @@ function showPlaylistModal(dTag = null) {
   
   const content = `
       <div class="modal-header">
-      <!--  <h3>${isEditing ? 'Edit Playlist' : 'Create New Playlist'}</h3> -->
+        <h3>${isEditing ? 'Edit Playlist' : 'Create New Playlist'}</h3>
       </div>
       <div class="modal-content">
         <form class="playlist-form">
@@ -184,13 +302,8 @@ function showPlaylistModal(dTag = null) {
     customClass: 'playlist-modal'
   });
 
-  // Focus and setup handlers
-//  const titleInput = modal.querySelector('#playlist-title');
   const form = modal.querySelector('.playlist-form');
   
- // titleInput?.focus();
-
-  // Event listeners
   modal.querySelector('.cancel-btn')?.addEventListener('click', closeModal);
   
   form?.addEventListener('submit', (e) => {
@@ -207,26 +320,37 @@ function showPlaylistModal(dTag = null) {
     
     if (isEditing) {
       updatePlaylist(dTag, title, description, image);
-    //  showTemporaryNotification('Playlist updated');
-    
+      showTemporaryNotification('Playlist updated');
+      
+      setTimeout(() => {
+        // Check which page we're on
+        const currentHash = window.location.hash;
+        
+        if (currentHash === '#localplaylists') {
+          // We're on the playlists grid page - re-render the grid
+          const playlists = app.playlists || [];
+          renderPlaylistsGrid(playlists);
+          setupPlaylistsEventListeners();
+        } else if (currentHash.startsWith('#localplaylist/')) {
+          // We're on a single playlist page - re-render that playlist
+          localPlaylistPageHandler();
+        }
+      }, 500);
+
     } else {
       createPlaylist(title, description, image);
-    //  showTemporaryNotification(`Playlist "${title}" created`);
-    
+      showTemporaryNotification(`Playlist "${title}" created`);
     }
     
     closeModal();
-    location.reload();
   });
 }
-
 
 function truncateText(text, maxLength) {
   if (text.length <= maxLength) return text;
   return text.substring(0, maxLength) + '...';
 }
 
-// Updated playlist management functions
 function createPlaylist(title, description = "", image = "") {
   const dTag = `vutr-${generateId()}`;
   
@@ -248,38 +372,84 @@ function createPlaylist(title, description = "", image = "") {
   app.playlists = app.playlists || [];
   app.playlists.push(playlist);
   savePlaylistsToStorage();
+  
+  // Only update the UI grid if we're currently on the localplaylists page
+  if (window.location.hash === '#localplaylists') {
+    updatePlaylistsGridWithNewPlaylist(playlist);
+  }
+  
   return playlist;
+}
+function updatePlaylistsGridWithNewPlaylist(newPlaylist) {
+  const localPlaylistsSection = document.querySelector('.playlists-section:last-child');
+  const localPlaylistsGrid = localPlaylistsSection?.querySelector('.playlists-grid');
+  
+  if (localPlaylistsGrid) {
+    // Add new playlist card to existing grid
+    const newCard = createPlaylistCardElement(newPlaylist);
+    localPlaylistsGrid.insertBefore(newCard, localPlaylistsGrid.firstChild);
+    
+    // Re-attach event listeners to ALL playlist cards in the grid
+    reattachPlaylistCardEventListeners(localPlaylistsGrid);
+  } else {
+    // If no grid exists yet, re-render the entire section
+    const playlists = app.playlists || [];
+    renderPlaylistsGrid(playlists);
+    setupPlaylistsEventListeners();
+  }
+}
+
+// Helper function to reattach event listeners to all playlist cards
+function reattachPlaylistCardEventListeners(playlistsGrid) {
+  // Remove existing event listeners by cloning and replacing
+  const newGrid = playlistsGrid.cloneNode(true);
+  playlistsGrid.parentNode.replaceChild(newGrid, playlistsGrid);
+  
+  // Re-attach all event listeners
+  setupPlaylistsEventListenersForGrid(newGrid);
+}
+
+// Helper function to create DOM element from playlist card HTML
+function createPlaylistCardElement(playlist) {
+  const cardHTML = renderPlaylistCard(playlist);
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = cardHTML;
+  return tempDiv.firstElementChild;
 }
 
 function updatePlaylist(dTag, title, description, image) {
   const playlist = app.playlists.find(p => getValueFromTags(p, "d", "") === dTag);
   if (!playlist) return false;
   
-  // Update playlist tags
+  // Only regenerate ID for truly local playlists
+  if (isLocalPlaylist(playlist)) {
+    playlist.id = generateId();
+    playlist.created_at = Math.floor(Date.now() / 1000);
+  }
+  // For network playlists saved locally, keep original metadata
+  // but update the tags
+  
   playlist.tags = playlist.tags.filter(tag => !["title", "description", "image"].includes(tag[0]));
   playlist.tags.push(["title", title]);
   if (description) playlist.tags.push(["description", description]);
   if (image) playlist.tags.push(["image", image]);
   
-  // Update playlist metadata
-  playlist.created_at = Math.floor(Date.now() / 1000);
-  playlist.id = generateId();
-  
   savePlaylistsToStorage();
   return true;
 }
 
-function addVideoToPlaylist(dTag, videoId) {
+function addVideoToPlaylist(dTag, videoId, kind = 21) {
   const playlist = app.playlists.find(p => getValueFromTags(p, "d", "") === dTag);
   if (!playlist) return false;
   
-  const existingVideoTag = playlist.tags.find(tag => tag[0] === "a" && tag[1] === `21:${videoId}`);
+  const videoRef = `${kind}:${videoId}`;
+  const existingVideoTag = playlist.tags.find(tag => tag[0] === "a" && tag[1] === videoRef);
   if (existingVideoTag) {
     showTemporaryNotification("Video already in this playlist");
     return false;
   }
   
-  playlist.tags.push(["a", `21:${videoId}`]);
+  playlist.tags.push(["a", videoRef]);
   playlist.created_at = Math.floor(Date.now() / 1000);
   playlist.id = generateId();
   
@@ -287,18 +457,18 @@ function addVideoToPlaylist(dTag, videoId) {
   return true;
 }
 
-function removeVideoFromPlaylist(dTag, videoId) {
+function removeVideoFromPlaylist(dTag, videoId, kind = 21) {
   const playlist = app.playlists.find(p => getValueFromTags(p, "d", "") === dTag);
   if (!playlist) return false;
   
-  playlist.tags = playlist.tags.filter(tag => !(tag[0] === "a" && tag[1] === `21:${videoId}`));
+  const videoRef = `${kind}:${videoId}`;
+  playlist.tags = playlist.tags.filter(tag => !(tag[0] === "a" && tag[1] === videoRef));
   playlist.created_at = Math.floor(Date.now() / 1000);
   playlist.id = generateId();
   
   savePlaylistsToStorage();
   return true;
 }
-
 function savePlaylistsToStorage() {
   localStorage.setItem('playlists', JSON.stringify(app.playlists || []));
 }

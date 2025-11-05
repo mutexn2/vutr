@@ -1372,8 +1372,8 @@ main {
 }
 
 .shorts-button {
-  display: none;
-  /* display: flex; */
+  /* display: none; */
+   display: flex;
   align-items: center;
   gap: 8px;
   padding: 8px;
@@ -2138,6 +2138,31 @@ main {
   bottom: unset;
 }
 
+/****in local playlists***/
+.playlist-author {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px 0;
+  cursor: pointer;
+  border: 1px solid var(--border);
+}
+
+.playlist-author:hover {
+  border: 1px solid var(--primary);
+}
+
+.playlist-author-image .author-picture {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+}
+
+.playlist-author-name .author-name {
+  font-size: 0.9em;
+  color: var(--text-secondary);
+}
 /**********************************************/
 /**********************************************/
 /**********************************************/
@@ -11452,3 +11477,104 @@ noscript {
 
 
 /********************/
+/* .playlist-card.network-playlist {
+  border-left: 4px solid #4a90e2;
+}
+
+.playlist-card.local-playlist {
+  border-left: 4px solid #50c878;
+}
+
+.playlist-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 2px 6px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: bold;
+}
+
+.playlist-badge.local-badge {
+  background: #50c878;
+  color: white;
+}
+
+.playlist-badge.network-badge {
+  background: #4a90e2;
+  color: white;
+}
+
+.playlist-author {
+  margin-top: 8px;
+  color: #666;
+  font-style: italic;
+}
+
+.playlist-overlay {
+  display: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+}
+
+.playlist-card.local-playlist:hover .playlist-overlay {
+  display: flex;
+}
+
+.playlist-overlay button {
+  background: rgba(255, 255, 255, 0.9);
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.playlist-overlay button:hover {
+  background: white;
+  transform: scale(1.1);
+} */
+
+/* Saved indicator in playlist cards */
+.saved-indicator {
+  margin-left: 8px;
+  font-size: 0.9em;
+}
+
+.playlist-overlay-indicator {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: bold;
+}
+
+/* Menu styles */
+.saved-badge {
+  margin-left: 8px;
+  font-size: 0.8em;
+  color: #50c878;
+}
+
+.menu-item.saved {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.menu-item.saved:hover {
+  background-color: transparent;
+}

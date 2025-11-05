@@ -83,21 +83,35 @@ async function playlistsPageHandler() {
       grid.appendChild(card);
     });
 
-    grid.addEventListener("click", async (event) => {
-      let card = event.target.closest(".video-card");
-      if (card && card.dataset.playlistId) {
-        const discoveryRelays = app.relays.slice(0, 3).map(cleanRelayUrl);
-        const uniqueDiscoveryRelays = [...new Set(discoveryRelays)];
-        const discoveryParam = uniqueDiscoveryRelays.join(",");
-        
-        const author = card.dataset.author;
-        const dtag = card.dataset.dtag;
-
-        const playlistUrl = `#playlist/params?author=${author}&dtag=${dtag}&discovery=${discoveryParam}`;
-        console.log("Navigating to playlist URL:", playlistUrl);
-        window.location.hash = playlistUrl;
+grid.addEventListener("click", async (event) => {
+  let card = event.target.closest(".video-card");
+  if (card && card.dataset.playlistId) {
+    const author = card.dataset.author;
+    const dtag = card.dataset.dtag;
+    const isSaved = card.dataset.isSaved === 'true';
+    
+    if (isSaved) {
+      // Navigate to local playlist page
+      const localPlaylist = app.playlists.find(p => 
+        p.pubkey === author && 
+        getValueFromTags(p, "d", "") === dtag
+      );
+      if (localPlaylist) {
+        const localDTag = getValueFromTags(localPlaylist, "d", "");
+        window.location.hash = `#localplaylist/${localDTag}`;
       }
-    });
+    } else {
+      // Navigate to network playlist page
+      const discoveryRelays = app.relays.slice(0, 3).map(cleanRelayUrl);
+      const uniqueDiscoveryRelays = [...new Set(discoveryRelays)];
+      const discoveryParam = uniqueDiscoveryRelays.join(",");
+      
+      const playlistUrl = `#playlist/params?author=${author}&dtag=${dtag}&discovery=${discoveryParam}`;
+      console.log("Navigating to playlist URL:", playlistUrl);
+      window.location.hash = playlistUrl;
+    }
+  }
+});
   } catch (error) {
     console.error("Error rendering playlists page:", error);
     let errorDiv = document.createElement("div");
@@ -118,7 +132,7 @@ function filterValidPlaylists(playlists) {
       return false;
     }
 
-    // Look for at least one valid kind-21 reference
+    // Look for at least one valid kind-21 or kind-22 reference
     return playlist.tags.some(tag => {
       // Check if it's an "a" tag with at least 2 elements
       if (!Array.isArray(tag) || tag.length < 2 || tag[0] !== "a") {
@@ -127,12 +141,13 @@ function filterValidPlaylists(playlists) {
 
       const aTagValue = tag[1];
       
-      // Check if it starts with "21:"
-      if (!aTagValue || typeof aTagValue !== "string" || !aTagValue.startsWith("21:")) {
+      // Check if it starts with "21:" or "22:"
+      if (!aTagValue || typeof aTagValue !== "string" || 
+          (!aTagValue.startsWith("21:") && !aTagValue.startsWith("22:"))) {
         return false;
       }
 
-      // Extract the ID part after "21:"
+      // Extract the ID part after the kind prefix
       const idPart = aTagValue.substring(3);
       
       // Check if the ID is exactly 64 characters (valid hex length)

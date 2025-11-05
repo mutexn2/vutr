@@ -322,7 +322,7 @@ async function createVideoCardMenu(buttonElement, video, title) {
   
   let menuElement = document.createElement('div');
   menuElement.id = 'video-card-menu';
-  menuElement.classList.add('settings-menu'); // Reusing same styles
+  menuElement.classList.add('settings-menu');
   
   menuElement.innerHTML = `
     <div class="menu-container">
@@ -333,13 +333,9 @@ async function createVideoCardMenu(buttonElement, video, title) {
       </div>
       
       <div class="menu-items">
-        <button class="menu-item video-queue">
+        <button class="menu-item video-add-playlist">
           <span class="item-icon">📋</span>
-          <span class="item-text">Add to Queue</span>
-        </button>
-        <button class="menu-item video-watch-later">
-          <span class="item-icon">⏰</span>
-          <span class="item-text">Watch Later</span>
+          <span class="item-text">Add to Playlist</span>
         </button>
         <div class="menu-separator"></div>
         <button class="menu-item video-mute-user">
@@ -409,13 +405,33 @@ async function createVideoCardMenu(buttonElement, video, title) {
 }
 
 function setupVideoCardMenuEvents(menuElement, video) {
-  menuElement.querySelector('.video-queue')?.addEventListener('click', () => {
-    console.log('Add to Queue clicked for video:', video.id);
-    videoCardMenuControls?.close();
-  });
-  
-  menuElement.querySelector('.video-watch-later')?.addEventListener('click', () => {
-    console.log('Watch Later clicked for video:', video.id);
+  menuElement.querySelector('.video-add-playlist')?.addEventListener('click', () => {
+    console.log('Add to Playlist clicked for video:', video.id);
+    
+    // Extract video data similar to video page
+    let getValueFromTags = (tags, key, defaultValue = "") => {
+      let tag = tags?.find((t) => t[0] === key);
+      return tag ? tag[1] : defaultValue;
+    };
+    
+    let title = getValueFromTags(video.tags, "title", "Untitled");
+    let url = getValueFromTags(video.tags, "url", "No URL found");
+    let mimeType = getValueFromTags(video.tags, "m", "Unknown MIME type");
+    let content = video.content?.trim() || "";
+    let relativeTime = getRelativeTime(video.created_at);
+    let pubkey = video.pubkey;
+    
+    // Call the playlist selector with the video data
+    showPlaylistSelector(video, video.id, {
+      title: title,
+      url: url,
+      mimeType: mimeType,
+      content: content,
+      relativeTime: relativeTime,
+      pubkey: pubkey,
+    });
+    
+    // Close the video card menu
     videoCardMenuControls?.close();
   });
   

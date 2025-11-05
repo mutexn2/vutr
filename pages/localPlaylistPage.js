@@ -39,33 +39,23 @@ async function fetchVideoEvents(videoTags) {
   
   console.log("Fetching video events for playlist...");
   
-  // Extract video IDs from tags
-  const videoIds = videoTags.map(tag => {
-    const videoRef = tag[1]; // Format: "21:eventId"
-    return videoRef.split(':')[1];
+  // Extract video IDs and kinds from tags
+  const videoRefs = videoTags.map(tag => {
+    const videoRef = tag[1]; // Format: "kind:eventId"
+    const [kind, id] = videoRef.split(':');
+    return { kind: parseInt(kind), id };
   });
   
   try {
-    // Fetch all events at once
-/*     const events = await NostrClient.getEvents({
-      ids: videoIds,
-      kinds: [21, 22],
-      limit: videoIds.length,
-      maxWait: 3000,
-      timeout: 5000
-    }); */
-
-const events = await NostrClient.getEventsFromRelays(app.globalRelays, {
-      ids: videoIds,
-      kinds: [21, 22],
-      limit: videoIds.length,
+    const events = await NostrClient.getEventsFromRelays(app.globalRelays, {
+      ids: videoRefs.map(ref => ref.id),
+      kinds: [21, 22], // Include both kinds
+      limit: videoRefs.length,
       maxWait: 3000,
       timeout: 5000
     });    
-    
 
-
-    console.log(`Found ${events?.length || 0} video events out of ${videoIds.length} requested`);
+    console.log(`Found ${events?.length || 0} video events out of ${videoRefs.length} requested`);
     
     // Create a map for quick lookup
     const eventMap = new Map();
@@ -73,28 +63,28 @@ const events = await NostrClient.getEventsFromRelays(app.globalRelays, {
       events.forEach(event => eventMap.set(event.id, event));
     }
     
-    // Create result array with events or placeholders
-    return videoIds.map(id => {
-      const event = eventMap.get(id);
+    // Create result array with events or placeholders, preserving original kind
+    return videoRefs.map(ref => {
+      const event = eventMap.get(ref.id);
       if (event) {
         return event;
       } else {
-        // Create placeholder event
-        return createPlaceholderEvent(id);
+        // Create placeholder event with original kind
+        return createPlaceholderEvent(ref.id, ref.kind);
       }
     });
     
   } catch (error) {
     console.error("Error fetching video events:", error);
     // Return placeholders for all videos if fetch fails
-    return videoIds.map(id => createPlaceholderEvent(id));
+    return videoRefs.map(ref => createPlaceholderEvent(ref.id, ref.kind));
   }
 }
 
-function createPlaceholderEvent(videoId) {
+function createPlaceholderEvent(videoId, kind = 21) {
   return {
     id: videoId,
-    kind: 21,
+    kind: kind,
     pubkey: '',
     created_at: 0,
     content: '',
@@ -138,8 +128,17 @@ function showPlaylistError(error) {
 function renderSinglePlaylist(playlist, dTag, videoEvents = []) {
   const title = getValueFromTags(playlist, "title", "Untitled Playlist");
   const description = getValueFromTags(playlist, "description", "");
-  const image = getValueFromTags(playlist, "image", "");
-  const videoTags = playlist.tags.filter(tag => tag[0] === "a");
+  const image = getValueFromTags(playlist, "image", "") || getValueFromTags(playlist, "thumb", "");
+  
+  // Count both kind 21 and kind 22 video references
+  const videoTags = playlist.tags.filter(tag => {
+    if (tag[0] !== "a") return false;
+    const aTagValue = tag[1];
+    return aTagValue && (aTagValue.startsWith("21:") || aTagValue.startsWith("22:"));
+  });
+  
+  const validVideoCount = videoEvents.filter(event => !event.isPlaceholder).length;
+  const isLocal = isLocalPlaylist(playlist);
   
   mainContent.innerHTML = `
       <div class="playlist-header">
@@ -154,31 +153,89 @@ function renderSinglePlaylist(playlist, dTag, videoEvents = []) {
             <h1 class="playlist-title">${escapeHtml(title)}</h1>
             ${description ? `<p class="playlist-description">${escapeHtml(description)}</p>` : ''}
             <div class="playlist-meta">
-              <span class="video-count">${videoTags.length} videos</span>
+              <span class="video-count">${validVideoCount} videos (${videoTags.length} total)</span>
               <span class="created-date">Created ${escapeHtml(getRelativeTime(playlist.created_at))}</span>
+              ${!isLocal ? '<span class="network-badge">📡 Network Playlist (Read-only)</span>' : '<span class="local-badge">💾 Local Playlist</span>'}
             </div>
           </div>
         </div>
         <div class="playlist-actions">
-          <button class="btn-primary share-playlist-btn" data-d-tag="${escapeHtml(dTag)}">Share to Network</button>
-          <button class="btn-secondary edit-playlist-btn" data-d-tag="${escapeHtml(dTag)}">Edit Playlist</button>
-          <button class="btn-danger delete-playlist-btn" data-d-tag="${escapeHtml(dTag)}">Delete Playlist</button>
+          ${isLocal ? `
+            <button class="btn-primary share-playlist-btn" data-d-tag="${escapeHtml(dTag)}">Share to Network</button>
+            <button class="btn-secondary edit-playlist-btn" data-d-tag="${escapeHtml(dTag)}">Edit Playlist</button>
+            <button class="btn-danger delete-playlist-btn" data-d-tag="${escapeHtml(dTag)}">Delete Playlist</button>
+          ` : `
+            <button class="btn-primary copy-to-local-btn" data-d-tag="${escapeHtml(dTag)}">Copy to Local Playlist</button>
+            <button class="btn-secondary sync-playlist-btn" data-d-tag="${escapeHtml(dTag)}">Check for Updates</button>
+            <button class="btn-danger delete-playlist-btn" data-d-tag="${escapeHtml(dTag)}">Remove from Library</button>
+          `}
         </div>
       </div>
       
+      ${!isLocal ? `
+        <div class="playlist-publisher-info">
+          <nostr-picture pubkey="${playlist.pubkey}"></nostr-picture>
+          <nostr-name pubkey="${playlist.pubkey}"></nostr-name>
+        </div>
+      ` : ''}
+      
       <div class="playlist-content">
         <div class="playlist-videos" id="playlist-videos">
-          ${renderPlaylistVideos(videoEvents, dTag)}
+          ${renderPlaylistVideos(videoEvents, dTag, isLocal)}
         </div>
+      </div>
+      
+      <!-- Add JSON display for local playlists -->
+      <div class="playlist-raw-data">
+        <details>
+          <summary><strong>Raw Event JSON</strong></summary>
+          <pre>${JSON.stringify(playlist, null, 2)}</pre>
+        </details>
       </div>
   `;
 }
+async function syncNetworkPlaylist(playlist) {
+  if (isLocalPlaylist(playlist)) {
+    return null; // Can't sync local playlists
+  }
+  
+  const dTag = getValueFromTags(playlist, "d", "");
+  const author = playlist.pubkey;
+  
+  try {
+    const extendedRelays = await getExtendedRelaysForProfile(author);
+    const result = await NostrClient.getEventsFromRelays(extendedRelays, {
+      kinds: [30005],
+      authors: [author],
+      tags: { d: [dTag] },
+      limit: 1,
+    });
+    
+    const latestPlaylist = Array.isArray(result) ? result[0] : result;
+    
+    if (!latestPlaylist) {
+      return null; // Playlist not found on network
+    }
+    
+    // Check if newer version exists
+    if (latestPlaylist.created_at > playlist.created_at) {
+      return latestPlaylist;
+    }
+    
+    return null; // Already up to date
+  } catch (error) {
+    console.error("Error syncing playlist:", error);
+    return null;
+  }
+}
 
-function renderPlaylistVideos(videoEvents, dTag) {
+
+
+function renderPlaylistVideos(videoEvents, dTag, isLocal) {
   if (videoEvents.length === 0) {
     return `
       <div class="empty-playlist">
-        <p>This playlist is empty. Add some videos to get started!</p>
+        <p>This playlist is empty. ${isLocal ? 'Add some videos to get started!' : ''}</p>
         <a href="#home" class="nav-link">Browse Videos</a>
       </div>
     `;
@@ -189,22 +246,23 @@ function renderPlaylistVideos(videoEvents, dTag) {
       <div class="playlist-video-item ${event.isPlaceholder ? 'placeholder-video' : ''}" 
            data-video-id="${escapeHtml(event.id)}" 
            data-index="${index}"
-           draggable="true">
-        <div class="drag-handle">⋮⋮</div>
+           ${isLocal ? 'draggable="true"' : ''}>
+        ${isLocal ? '<div class="drag-handle">⋮⋮</div>' : ''}
         ${renderVideoThumbnail(event)}
         ${renderVideoDetails(event, index + 1)}
-        <div class="video-actions">
-          <button class="btn-secondary remove-video-btn" 
-                  data-video-id="${escapeHtml(event.id)}" 
-                  data-d-tag="${escapeHtml(dTag)}">
-            ×
-          </button>
-        </div>
+        ${isLocal ? `
+          <div class="video-actions">
+            <button class="btn-secondary remove-video-btn" 
+                    data-video-id="${escapeHtml(event.id)}" 
+                    data-d-tag="${escapeHtml(dTag)}">
+              ×
+            </button>
+          </div>
+        ` : ''}
       </div>
     `;
   }).join('');
 }
-
 function renderVideoThumbnail(event) {
   if (event.isPlaceholder) {
     return `
@@ -224,6 +282,11 @@ function renderVideoThumbnail(event) {
     if (imageEntry) {
       thumbnailUrl = imageEntry.replace('image ', '');
     }
+  }
+  
+  // Fallback to image or thumb tags if imeta not found
+  if (!thumbnailUrl) {
+    thumbnailUrl = getValueFromTags(event, 'image', '') || getValueFromTags(event, 'thumb', '');
   }
   
   const duration = getValueFromTags(event, 'duration', '');
@@ -247,6 +310,9 @@ function renderVideoDetails(event, position) {
   const tags = event.tags.filter(tag => tag[0] === 't').map(tag => tag[1]);
   const author = event.pubkey.slice(0, 8) + '...';
   
+  // Determine content type based on kind
+  const contentType = event.kind === 22 ? 'Short Video' : 'Video';
+  
   // Truncate long descriptions
   const maxDescLength = 120;
   const truncatedDesc = description.length > maxDescLength 
@@ -262,7 +328,7 @@ function renderVideoDetails(event, position) {
       <div class="video-meta">
         ${!event.isPlaceholder ? `<span class="video-author">by ${escapeHtml(author)}</span>` : ''}
         ${publishedAt && !event.isPlaceholder ? `<span class="video-date">${escapeHtml(getRelativeTime(parseInt(publishedAt)))}</span>` : ''}
-        <span class="video-kind">Kind ${event.kind}</span>
+        <span class="video-kind">${contentType}</span>
       </div>
       
       ${tags.length > 0 ? `
@@ -274,7 +340,6 @@ function renderVideoDetails(event, position) {
     </div>
   `;
 }
-
 
 function renderVideoActions(event, dTag) {
   return `
@@ -308,6 +373,9 @@ function formatDuration(seconds) {
 }
 
 function setupSinglePlaylistEventListeners(dTag) {
+  const playlist = app.playlists.find(p => getValueFromTags(p, "d", "") === dTag);
+  const isLocal = isLocalPlaylist(playlist);
+  
   // Make entire video item clickable to watch video
   document.querySelectorAll('.playlist-video-item').forEach(item => {
     if (!item.classList.contains('placeholder-video')) {
@@ -320,81 +388,191 @@ function setupSinglePlaylistEventListeners(dTag) {
         window.location.hash = `#watch/${videoId}`;
       });
       
-      // Add hover cursor
       item.style.cursor = 'pointer';
     }
   });
   
+  // Remove video buttons (only for local playlists)
+  if (isLocal) {
+    document.querySelectorAll('.remove-video-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const videoId = btn.dataset.videoId;
+        const dTag = btn.dataset.dTag;
+        
+        if (confirm('Remove this video from the playlist?')) {
+          const success = removeVideoFromPlaylist(dTag, videoId);
+          
+          if (success) {
+            showTemporaryNotification('Video removed from playlist');
+            removeVideoFromUI(videoId);
+            updatePlaylistVideoCount();
+          }
+        }
+      });
+    });
+  }
 
-document.querySelectorAll('.remove-video-btn').forEach(btn => {
-  btn.addEventListener('click', (e) => {
-    e.stopPropagation(); // Prevent video navigation
-    const videoId = btn.dataset.videoId;
-    const dTag = btn.dataset.dTag;
-    
-    if (confirm('Remove this video from the playlist?')) {
-      const success = removeVideoFromPlaylist(dTag, videoId);
-      
-      if (success) {
-        showTemporaryNotification('Video removed from playlist');
-        // Remove the video item from UI instead of reloading
-        removeVideoFromUI(videoId);
-        updatePlaylistVideoCount();
+  // Copy to local button (for network playlists)
+  const copyBtn = document.querySelector('.copy-to-local-btn');
+  if (copyBtn) {
+    copyBtn.addEventListener('click', () => {
+      const playlist = app.playlists.find(p => getValueFromTags(p, "d", "") === dTag);
+      if (playlist) {
+        const newPlaylist = copyNetworkPlaylistToLocal(playlist);
+        const newDTag = getValueFromTags(newPlaylist, "d", "");
+        
+        // Navigate to the new local playlist
+        setTimeout(() => {
+          window.location.hash = `#localplaylist/${newDTag}`;
+        }, 500);
       }
-    }
-  });
-});
+    });
+  }
   
-  // Share playlist button
-  document.querySelector('.share-playlist-btn').addEventListener('click', async () => {
-    const shareBtn = document.querySelector('.share-playlist-btn');
-    const originalText = shareBtn.textContent;
-    
-    try {
-      shareBtn.textContent = 'Sharing...';
-      shareBtn.disabled = true;
+  // Sync playlist button (for network playlists)
+  const syncBtn = document.querySelector('.sync-playlist-btn');
+  if (syncBtn) {
+    syncBtn.addEventListener('click', async () => {
+      const originalText = syncBtn.textContent;
       
-      await sharePlaylistToNetwork(dTag);
-      
-      shareBtn.textContent = 'Shared!';
-      setTimeout(() => {
-        shareBtn.textContent = originalText;
-        shareBtn.disabled = false;
-      }, 2000);
-      
-    } catch (error) {
-      console.error('Error sharing playlist:', error);
-      shareBtn.textContent = 'Share Failed';
-      setTimeout(() => {
-        shareBtn.textContent = originalText;
-        shareBtn.disabled = false;
-      }, 2000);
-      
-      alert('Failed to share playlist: ' + error.message);
-    }
-  });
+      try {
+        syncBtn.textContent = 'Checking...';
+        syncBtn.disabled = true;
+        
+        const playlist = app.playlists.find(p => getValueFromTags(p, "d", "") === dTag);
+        
+        if (!playlist) {
+          throw new Error("Playlist not found");
+        }
+        
+        const updatedPlaylist = await syncNetworkPlaylist(playlist);
+        
+        if (updatedPlaylist) {
+          const shouldUpdate = confirm(
+            'A newer version of this playlist is available. Update now?'
+          );
+          
+          if (shouldUpdate) {
+            const existingIndex = app.playlists.findIndex(
+              p => getValueFromTags(p, "d", "") === dTag && p.pubkey === playlist.pubkey
+            );
+            
+            if (existingIndex !== -1) {
+              // Replace with exact network playlist
+              app.playlists[existingIndex] = { ...updatedPlaylist };
+              savePlaylistsToStorage();
+              
+              showTemporaryNotification('Playlist updated successfully!');
+              
+              setTimeout(() => {
+                  const playlists = app.playlists || [];
+    renderPlaylistsGrid(playlists);
+    setupPlaylistsEventListeners(); 
+              }, 1000);
+            }
+          } else {
+            syncBtn.textContent = originalText;
+            syncBtn.disabled = false;
+          }
+        } else {
+          showTemporaryNotification('Playlist is already up to date');
+          syncBtn.textContent = 'Up to date ✓';
+          setTimeout(() => {
+            syncBtn.textContent = originalText;
+            syncBtn.disabled = false;
+          }, 2000);
+        }
+        
+      } catch (error) {
+        console.error('Error syncing playlist:', error);
+        showTemporaryNotification('Failed to sync playlist');
+        syncBtn.textContent = 'Sync Failed';
+        setTimeout(() => {
+          syncBtn.textContent = originalText;
+          syncBtn.disabled = false;
+        }, 2000);
+      }
+    });
+  }
 
-  // Edit playlist button
-  document.querySelector('.edit-playlist-btn').addEventListener('click', () => {
-    const dTag = document.querySelector('.edit-playlist-btn').dataset.dTag;
-    showPlaylistModal(dTag);
-  });
+  // Share playlist button (for local playlists only)
+  const shareBtn = document.querySelector('.share-playlist-btn');
+  if (shareBtn) {
+    shareBtn.addEventListener('click', async () => {
+      const originalText = shareBtn.textContent;
+      
+      try {
+        shareBtn.textContent = 'Sharing...';
+        shareBtn.disabled = true;
+        
+        await sharePlaylistToNetwork(dTag);
+        
+        shareBtn.textContent = 'Shared!';
+        setTimeout(() => {
+          shareBtn.textContent = originalText;
+          shareBtn.disabled = false;
+        }, 2000);
+        
+      } catch (error) {
+        console.error('Error sharing playlist:', error);
+        shareBtn.textContent = 'Share Failed';
+        setTimeout(() => {
+          shareBtn.textContent = originalText;
+          shareBtn.disabled = false;
+        }, 2000);
+        
+        alert('Failed to share playlist: ' + error.message);
+      }
+    });
+  }
+
+  // Edit playlist button (for local playlists only)
+  const editBtn = document.querySelector('.edit-playlist-btn');
+  if (editBtn) {
+    editBtn.addEventListener('click', () => {
+      showPlaylistModal(dTag);
+    });
+  }
   
-  // Delete playlist button
-  document.querySelector('.delete-playlist-btn').addEventListener('click', () => {
-    const dTag = document.querySelector('.delete-playlist-btn').dataset.dTag;
-    const playlist = app.playlists.find(p => getValueFromTags(p, "d", "") === dTag);
-    const title = playlist ? getValueFromTags(playlist, "title", "Untitled Playlist") : "playlist";
-    
-    if (confirm(`Are you sure you want to delete "${title}"?`)) {
-      app.playlists = app.playlists.filter(p => getValueFromTags(p, "d", "") !== dTag);
-      savePlaylistsToStorage();
-      showTemporaryNotification('Playlist deleted');
-      window.location.hash = '#localplaylists';
-    }
-  });
+  // Delete/Remove playlist button
+  const deleteBtn = document.querySelector('.delete-playlist-btn');
+  if (deleteBtn) {
+    deleteBtn.addEventListener('click', () => {
+      const playlist = app.playlists.find(p => getValueFromTags(p, "d", "") === dTag);
+      const title = playlist ? getValueFromTags(playlist, "title", "Untitled Playlist") : "playlist";
+      const isLocal = isLocalPlaylist(playlist);
+      
+      const confirmMessage = isLocal 
+        ? `Are you sure you want to delete "${title}"? This cannot be undone.`
+        : `Remove "${title}" from your library? (You can save it again later)`;
+      
+      if (confirm(confirmMessage)) {
+        if (isLocal) {
+          app.playlists = app.playlists.filter(p => getValueFromTags(p, "d", "") !== dTag);
+        } else {
+          // For network playlists, match by both dTag and pubkey
+          app.playlists = app.playlists.filter(p => 
+            !(getValueFromTags(p, "d", "") === dTag && p.pubkey === playlist.pubkey)
+          );
+        }
+        
+        savePlaylistsToStorage();
+        showTemporaryNotification(isLocal ? 'Playlist deleted' : 'Playlist removed from library');
+/*     const playlists = app.playlists || [];
+    renderPlaylistsGrid(playlists);
+    setupPlaylistsEventListeners();  */
+          window.location.hash = '#localplaylists';
+     //   localPlaylistPageHandler();
+      }
+    });
+  }
+  
+  // Setup drag and drop only for local playlists
+  if (isLocal) {
+    setupDragAndDrop(dTag);
+  }
 }
-
 
 
 function setupDragAndDrop(dTag) {

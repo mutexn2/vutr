@@ -238,12 +238,24 @@ function showPlaylistNotFoundWithSearch(author, dtag, id) {
   });
 }
 
+function isPlaylistSaved(playlist) {
+  const existingPlaylists = app.playlists || [];
+  const dTag = getValueFromTags(playlist, "d", "");
+  
+  return existingPlaylists.some(
+    (p) => p.pubkey === playlist.pubkey && 
+           getValueFromTags(p, "d", "") === dTag
+  );
+}
+
+// Update the save button in renderNetworkPlaylist
 function renderNetworkPlaylist(playlist, videoEvents, playlistId) {
   const title = getValueFromTags(playlist, "title", "Untitled Playlist");
   const description = getValueFromTags(playlist, "description", "");
   const image = getValueFromTags(playlist, "image", "");
   const dTag = getValueFromTags(playlist, "d", "");
   const validVideoCount = videoEvents.length;
+  const isSaved = isPlaylistSaved(playlist);
   
   mainContent.innerHTML = `
     <div class="playlist-header">
@@ -258,23 +270,21 @@ function renderNetworkPlaylist(playlist, videoEvents, playlistId) {
           <h1 class="playlist-title">${escapeHtml(title)}</h1>
           ${description ? `<p class="playlist-description">${escapeHtml(description)}</p>` : ''}
           <div class="playlist-meta">
-            <span class="video-count">${validVideoCount} valid video${validVideoCount !== 1 ? 's' : ''}</span>
+            <span class="video-count">${validVideoCount} item${validVideoCount !== 1 ? 's' : ''}</span>
             <span class="created-date">Created ${escapeHtml(getRelativeTime(playlist.created_at))}</span>
+            ${isSaved ? '<span class="saved-badge">💾 Saved in Library</span>' : ''}
           </div>
         </div>
       </div>
       <div class="playlist-actions">
-        <button class="btn-primary save-playlist-btn" data-playlist-id="${escapeHtml(playlistId)}">
-          Save to Local
+        <button class="btn-primary save-playlist-btn ${isSaved ? 'saved' : ''}" 
+                data-playlist-id="${escapeHtml(playlistId)}"
+                ${isSaved ? 'disabled' : ''}>
+          ${isSaved ? 'Already Saved' : 'Save to Local'}
         </button>
       </div>
     </div>
     
-  <!--  <div class="playlist-publisher-info">
-      <p><strong>Publisher:</strong> ${escapeHtml(playlist.pubkey)}</p>
-      ${dTag ? `<p><strong>Playlist ID (d-tag):</strong> ${escapeHtml(dTag)}</p>` : ''}
-    </div>    -->
-
     <div class="playlist-publisher-info">
       <nostr-picture pubkey="${playlist.pubkey}"></nostr-picture>
       <nostr-name pubkey="${playlist.pubkey}"></nostr-name>
@@ -298,12 +308,12 @@ function renderNetworkPlaylist(playlist, videoEvents, playlistId) {
 
 function renderNetworkPlaylistVideos(videoEvents) {
   if (videoEvents.length === 0) {
-    return `
-      <div class="empty-playlist">
-        <p>No valid videos found in this playlist (only kind:21 and kind:22 are supported).</p>
-        <a href="#home" class="nav-link">Browse Videos</a>
-      </div>
-    `;
+return `
+  <div class="empty-playlist">
+    <p>No valid video content found in this playlist.</p>
+    <a href="#home" class="nav-link">Browse Content</a>
+  </div>
+`;
   }
   
   return videoEvents.map((event, index) => {
@@ -348,9 +358,8 @@ function setupNetworkPlaylistEventListeners(playlist) {
         showTemporaryNotification('Playlist saved to local storage');
         
         setTimeout(() => {
-          savePlaylistBtn.textContent = originalText;
-          savePlaylistBtn.disabled = false;
-        }, 2000);
+          window.location.hash = `#localplaylists`;
+        }, 500);
         
       } catch (error) {
         console.error("Error saving playlist:", error);
@@ -366,70 +375,109 @@ function setupNetworkPlaylistEventListeners(playlist) {
   }
 }
 
-async function saveNetworkPlaylistToLocal(networkPlaylist) {
+function saveNetworkPlaylistToLocal(networkPlaylist) {
   try {
-    // Convert network playlist to local format
-    const localPlaylist = convertNetworkPlaylistToLocal(networkPlaylist);
-    
-    // Check if playlist already exists locally
     const existingPlaylists = app.playlists || [];
+    const dTag = getValueFromTags(networkPlaylist, "d", "");
+    
+    // Check if playlist already exists
     const existingIndex = existingPlaylists.findIndex(
-      (p) => p.id === localPlaylist.id
+      (p) => p.pubkey === networkPlaylist.pubkey && 
+             getValueFromTags(p, "d", "") === dTag
     );
     
+    let notificationMessage = "";
+    
     if (existingIndex !== -1) {
-      // Update existing playlist
-      const shouldUpdate = confirm(
-        "This playlist already exists locally. Do you want to update it?"
-      );
-      if (shouldUpdate) {
-        app.playlists[existingIndex] = localPlaylist;
-        showTemporaryNotification("Playlist updated in local storage");
+      const existing = existingPlaylists[existingIndex];
+      
+      // Check if network version is newer
+      if (networkPlaylist.created_at > existing.created_at) {
+        const shouldUpdate = confirm(
+          "A newer version of this playlist is available. Update?"
+        );
+        if (shouldUpdate) {
+          app.playlists[existingIndex] = { ...networkPlaylist };
+          notificationMessage = "Playlist updated to newer version";
+        } else {
+          notificationMessage = "Update cancelled";
+        }
       } else {
-        return;
+        notificationMessage = "You already have the latest version";
       }
     } else {
-      // Add new playlist
-      app.playlists = app.playlists || [];
-      app.playlists.push(localPlaylist);
+      // Save exact network playlist
+      app.playlists.push({ ...networkPlaylist });
+      notificationMessage = "Playlist saved for reference";
     }
     
-    // Save to localStorage
     savePlaylistsToStorage();
     
-    console.log("Playlist saved locally:", localPlaylist);
+    // Show only one notification
+    if (notificationMessage) {
+      showTemporaryNotification(notificationMessage);
+    }
+    
   } catch (error) {
-    console.error("Error saving playlist to local:", error);
+    console.error("Error saving playlist:", error);
     throw error;
   }
 }
-
-function convertNetworkPlaylistToLocal(networkPlaylist) {
-  // Generate a local d-tag if one doesn't exist
-  const originalDTag = getValueFromTags(networkPlaylist, "d", "");
-  const localDTag = originalDTag || `vutr-${networkPlaylist.id.substring(0, 12)}`;
+function copyNetworkPlaylistToLocal(networkPlaylist) {
+  const originalTitle = getValueFromTags(networkPlaylist, "title", "Untitled Playlist");
+  const description = getValueFromTags(networkPlaylist, "description", "");
+  const image = getValueFromTags(networkPlaylist, "image", "");
   
-  // Ensure the d-tag has the local prefix
-  const finalDTag = localDTag.startsWith("vutr-") ? localDTag : `vutr-${localDTag}`;
+  // Create a completely new local playlist
+  const dTag = `vutr-${generateId()}`;
   
-  // Convert the tags, updating the d-tag for local storage
-  const convertedTags = networkPlaylist.tags.map((tag) => {
-    if (tag[0] === "d") {
-      return ["d", finalDTag];
-    }
-    return tag;
-  });
+  // Copy only the content tags (a tags for videos)
+  const videoTags = networkPlaylist.tags.filter(tag => tag[0] === "a");
   
-  // Create the local playlist structure
   const localPlaylist = {
-    id: networkPlaylist.id,
-    pubkey: networkPlaylist.pubkey,
-    created_at: networkPlaylist.created_at,
-    kind: networkPlaylist.kind,
-    tags: convertedTags,
-    content: networkPlaylist.content || "",
-    sig: networkPlaylist.sig || "network",
+    id: generateId(),
+    pubkey: "local",
+    created_at: Math.floor(Date.now() / 1000),
+    kind: 30005,
+    tags: [
+      ["d", dTag],
+      ["title", `${originalTitle} (copy)`],
+      ...(description ? [["description", description]] : []),
+      ...(image ? [["image", image]] : []),
+      ...videoTags
+    ],
+    content: "",
+    sig: "local"
   };
   
+  app.playlists = app.playlists || [];
+  app.playlists.push(localPlaylist);
+  savePlaylistsToStorage();
+  
+  showTemporaryNotification(`Created local copy: "${originalTitle} (copy)"`);
   return localPlaylist;
+}
+
+
+
+
+// Helper function to check if playlist is local
+function isLocalPlaylist(playlist) {
+  return playlist.pubkey === "local" || playlist.sig === "local";
+}
+
+// Helper function to check if playlist is from network
+function isNetworkPlaylist(playlist) {
+  return !isLocalPlaylist(playlist);
+}
+
+// Helper function to get playlist unique identifier
+function getPlaylistIdentifier(playlist) {
+  const dTag = getValueFromTags(playlist, "d", "");
+  
+  if (isLocalPlaylist(playlist)) {
+    return `local:${dTag}`;
+  } else {
+    return `${playlist.pubkey}:${dTag}`;
+  }
 }

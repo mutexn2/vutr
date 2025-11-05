@@ -8473,9 +8473,8 @@ noscript {
 
 .playlist-info {
   display: flex;
-  gap: 1.5rem;
   margin-bottom: 1.5rem;
-  padding: 1rem;
+  padding: 8px;
 }
 
 .playlist-info .playlist-thumbnail {
@@ -10296,7 +10295,8 @@ noscript {
   word-break: break-all;
 }
 
-.videos-listview .relay-action-btn {
+.videos-listview .relay-action-btn,
+.videos-listview .add-relay-to-set-btn {
   background: var(--background);
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -10307,7 +10307,8 @@ noscript {
   transition: all 0.2s ease;
 }
 
-.videos-listview .relay-action-btn:hover {
+.videos-listview .relay-action-btn:hover,
+.videos-listview .add-relay-to-set-btn:hover {
   background: var(--surface);
   border-color: var(--primary);
 }

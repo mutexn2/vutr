@@ -44,7 +44,7 @@ function renderMainForm() {
   <div class="section-content">
   <div class="video-tabs">
     <button type="button" class="tab-button active" data-tab="url">Add by URL</button>
-    <button type="button" class="tab-button" data-tab="upload">Upload File</button>
+    <button type="button" class="tab-button" data-tab="upload" style="display: none;">Upload File</button>
   </div>
   
 <div class="tab-content active" id="url-tab">

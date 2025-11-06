@@ -1156,10 +1156,10 @@ function setupMoreMenuEvents(menuElement, video, videoId) {
 
 function addVideoToBookmarks(video, videoId) {
   try {
-    if (!app.bookmarkPlaylist) {
+    if (!app.bookmarkedVideos) {
       // Initialize bookmark playlist if it doesn't exist
-      app.bookmarkPlaylist = {
-        ...config.defaultBookmarkPlaylist,
+      app.bookmarkedVideos = {
+        ...config.defaultBookmarkedVideos,
         created_at: Math.floor(Date.now() / 1000),
       };
     }
@@ -1167,18 +1167,18 @@ function addVideoToBookmarks(video, videoId) {
     const aTag = ["a", `${video.kind}:${videoId}`];
 
     // Check if video is already bookmarked
-    const existingIndex = app.bookmarkPlaylist.tags.findIndex(
+    const existingIndex = app.bookmarkedVideos.tags.findIndex(
       (tag) => tag[0] === "a" && tag[1] === aTag[1]
     );
 
     if (existingIndex === -1) {
       // Add the video reference
-      app.bookmarkPlaylist.tags.push(aTag);
+      app.bookmarkedVideos.tags.push(aTag);
 
       // Save to localStorage
       localStorage.setItem(
-        "bookmarkPlaylist",
-        JSON.stringify(app.bookmarkPlaylist)
+        "bookmarkedVideos",
+        JSON.stringify(app.bookmarkedVideos)
       );
 
       console.log("Added video to bookmarks:", videoId);
@@ -1194,19 +1194,19 @@ function addVideoToBookmarks(video, videoId) {
 
 function removeVideoFromBookmarks(videoId) {
   try {
-    if (!app.bookmarkPlaylist) return false;
+    if (!app.bookmarkedVideos) return false;
 
-    const initialLength = app.bookmarkPlaylist.tags.length;
+    const initialLength = app.bookmarkedVideos.tags.length;
 
     // Remove the "a" tag for this video
-    app.bookmarkPlaylist.tags = app.bookmarkPlaylist.tags.filter(
+    app.bookmarkedVideos.tags = app.bookmarkedVideos.tags.filter(
       (tag) => !(tag[0] === "a" && tag[1].includes(videoId))
     );
 
-    if (app.bookmarkPlaylist.tags.length < initialLength) {
+    if (app.bookmarkedVideos.tags.length < initialLength) {
       localStorage.setItem(
-        "bookmarkPlaylist",
-        JSON.stringify(app.bookmarkPlaylist)
+        "bookmarkedVideos",
+        JSON.stringify(app.bookmarkedVideos)
       );
       console.log("Removed video from bookmarks:", videoId);
       return true;
@@ -1219,9 +1219,9 @@ function removeVideoFromBookmarks(videoId) {
 }
 
 function isVideoBookmarked(videoId) {
-  if (!app.bookmarkPlaylist) return false;
+  if (!app.bookmarkedVideos) return false;
 
-  return app.bookmarkPlaylist.tags.some(
+  return app.bookmarkedVideos.tags.some(
     (tag) => tag[0] === "a" && tag[1].includes(videoId)
   );
 }

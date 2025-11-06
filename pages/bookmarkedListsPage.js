@@ -11,7 +11,10 @@ async function bookmarkedListsPageHandler() {
   let pageContainer = document.getElementById("bookmarkedPlaylistsPage-container");
 
   try {
-    const bookmarkedPlaylists = app.bookmarkedPlaylists || [];
+    // Filter out local playlists - only show bookmarked network playlists
+    const allBookmarked = app.bookmarkedPlaylists || [];
+    const bookmarkedPlaylists = allBookmarked.filter(playlist => !isLocalPlaylist(playlist));
+    
     await new Promise((resolve) => setTimeout(resolve, 300));
     
     if (bookmarkedPlaylists.length === 0) {

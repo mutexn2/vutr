@@ -32,9 +32,7 @@ let app = {
     notifications: null
   },  
   // ========== VIDEO & PLAYBACK ==========
-  bookmarkedVideos: JSON.parse(
-    localStorage.getItem("bookmarkedVideos") || "null"
-  ),
+  bookmarkedVideos: JSON.parse(localStorage.getItem("bookmarkedVideos") || "[]"),
   playlists: JSON.parse(localStorage.getItem("playlists") || "[]"),
   bookmarkedPlaylists: JSON.parse(localStorage.getItem("playlists") || "[]"),
 

@@ -12,9 +12,9 @@ async function bookmarksPageHandler() {
 
   try {
     // Get bookmark playlist
-    const bookmarkPlaylist = app.bookmarkPlaylist;
+    const bookmarkedVideos = app.bookmarkedVideos;
     
-    if (!bookmarkPlaylist) {
+    if (!bookmarkedVideos) {
         pageContainer.innerHTML = `
       <div class="empty-state">
         <h1>No Bookmarks Found</h1>
@@ -26,7 +26,7 @@ async function bookmarksPageHandler() {
     }
 
     // Get video references from the playlist
-    const videoTags = bookmarkPlaylist.tags.filter(tag => tag[0] === "a");
+    const videoTags = bookmarkedVideos.tags.filter(tag => tag[0] === "a");
     
     if (videoTags.length === 0) {
        pageContainer.innerHTML = `
@@ -39,7 +39,7 @@ async function bookmarksPageHandler() {
       return;
     }
 
-    console.log("Loaded bookmark playlist:", bookmarkPlaylist);
+    console.log("Loaded bookmark playlist:", bookmarkedVideos);
 
     // Delay to show loading state
     await new Promise((resolve) => setTimeout(resolve, 300));
@@ -47,8 +47,8 @@ async function bookmarksPageHandler() {
     // Fetch video events (reuse the same function from playlists)
     const videoEvents = await fetchVideoEvents(videoTags);
     
-      const title = getValueFromTags(bookmarkPlaylist, "title", "My Bookmarks");
-  const description = getValueFromTags(bookmarkPlaylist, "description", "Your saved videos");
+      const title = getValueFromTags(bookmarkedVideos, "title", "My Bookmarks");
+  const description = getValueFromTags(bookmarkedVideos, "description", "Your saved videos");
   
   
   pageContainer.innerHTML = `
@@ -62,7 +62,7 @@ async function bookmarksPageHandler() {
             <p class="playlist-description">${escapeHtml(description)}</p>
             <div class="playlist-meta">
               <span class="video-count">${videoTags.length} videos</span>
-              <span class="created-date">Updated ${escapeHtml(getRelativeTime(bookmarkPlaylist.created_at))}</span>
+              <span class="created-date">Updated ${escapeHtml(getRelativeTime(bookmarkedVideos.created_at))}</span>
             </div>
           </div>
         </div>
@@ -360,19 +360,19 @@ function checkIfBookmarksEmpty() {
 }
 
 function reorderBookmarkVideo(fromIndex, toIndex) {
-  const bookmarkPlaylist = app.bookmarkPlaylist;
+  const bookmarkedVideos = app.bookmarkedVideos;
   
-  if (!bookmarkPlaylist) return false;
+  if (!bookmarkedVideos) return false;
   
-  const videoTags = bookmarkPlaylist.tags.filter(tag => tag[0] === "a");
-  const otherTags = bookmarkPlaylist.tags.filter(tag => tag[0] !== "a");
+  const videoTags = bookmarkedVideos.tags.filter(tag => tag[0] === "a");
+  const otherTags = bookmarkedVideos.tags.filter(tag => tag[0] !== "a");
   
   // Reorder the video tags
   const movedVideo = videoTags.splice(fromIndex, 1)[0];
   videoTags.splice(toIndex, 0, movedVideo);
   
   // Update the bookmark playlist with reordered tags
-  bookmarkPlaylist.tags = [...otherTags, ...videoTags];
+  bookmarkedVideos.tags = [...otherTags, ...videoTags];
   
   // Save to storage (assuming you have a function for this)
   saveBookmarksToStorage();
@@ -419,13 +419,13 @@ function updateBookmarkOrder(fromIndex, toIndex) {
 
 
 async function shareBookmarksToNetwork() {
-  const bookmarkPlaylist = app.bookmarkPlaylist;
+  const bookmarkedVideos = app.bookmarkedVideos;
   
-  if (!bookmarkPlaylist) {
+  if (!bookmarkedVideos) {
     throw new Error("No bookmarks to share");
   }
 
-  const eventData = buildPlaylistEventData(bookmarkPlaylist);
+  const eventData = buildPlaylistEventData(bookmarkedVideos);
   
   try {
     console.log("Bookmark playlist event data:", eventData);
@@ -445,7 +445,7 @@ async function shareBookmarksToNetwork() {
 
 function saveBookmarksToStorage() {
   try {
-    localStorage.setItem('bookmarkPlaylist', JSON.stringify(app.bookmarkPlaylist));
+    localStorage.setItem('bookmarkedVideos', JSON.stringify(app.bookmarkedVideos));
   } catch (error) {
     console.error('Error saving bookmarks to storage:', error);
   }

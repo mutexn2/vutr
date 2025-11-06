@@ -57,12 +57,19 @@ function showEmptyPlaylistsState() {
   mainContent.innerHTML = `
       <div class="empty-state">
         <h1>No Playlists Found</h1>
-        <p>You haven't created any playlists yet. Start watching videos and save them to playlists!</p>
-        <a href="#home" class="nav-link">Browse Videos</a>
+        <p>You haven't created any playlists yet. Start by creating your first playlist!</p>
+        <button class="create-playlist-btn btn-primary">Create Playlist</button>
       </div>
   `;
+  
+  // Add event listener for the create button
+  const createBtn = document.querySelector('.create-playlist-btn');
+  if (createBtn) {
+    createBtn.addEventListener('click', () => {
+      showPlaylistModal();
+    });
+  }
 }
-
 function showErrorState(message) {
   mainContent.innerHTML = `
       <h1>Error</h1>
@@ -408,7 +415,7 @@ function createPlaylist(title, description = "", image = "") {
   
   const playlist = {
     id: generateId(),
-    pubkey: "local",
+pubkey: "local",
     created_at: Math.floor(Date.now() / 1000),
     kind: 30005,
     tags: [
@@ -422,29 +429,46 @@ function createPlaylist(title, description = "", image = "") {
   };
   
   app.playlists = app.playlists || [];
+  const wasEmpty = app.playlists.length === 0;
   app.playlists.push(playlist);
   savePlaylistsToStorage();
   
   // Only update the UI grid if we're currently on the localplaylists page
   if (window.location.hash === '#localplaylists') {
-    updatePlaylistsGridWithNewPlaylist(playlist);
+    if (wasEmpty) {
+      // If this was the first playlist, re-render the entire page
+      localPlaylistsPageHandler();
+    } else {
+      // Otherwise just add the new card
+      updatePlaylistsGridWithNewPlaylist(playlist);
+    }
   }
   
   return playlist;
 }
 function updatePlaylistsGridWithNewPlaylist(newPlaylist) {
-  const localPlaylistsSection = document.querySelector('.playlists-section:last-child');
-  const localPlaylistsGrid = localPlaylistsSection?.querySelector('.playlists-grid');
+  const localPlaylistsGrid = document.querySelector('.local-playlists-grid');
   
   if (localPlaylistsGrid) {
-    // Add new playlist card to existing grid
-    const newCard = createPlaylistCardElement(newPlaylist);
-    localPlaylistsGrid.insertBefore(newCard, localPlaylistsGrid.firstChild);
+    // Create new card using the same createPlaylistCard function
+    const card = createPlaylistCard(newPlaylist, {
+      showEditControls: true,
+      showAuthor: false,
+      badgeText: 'Local',
+      badgeIcon: '💾'
+    });
     
-    // Re-attach event listeners to ALL playlist cards in the grid
-    reattachPlaylistCardEventListeners(localPlaylistsGrid);
+    // Add to the beginning of the grid
+    localPlaylistsGrid.insertBefore(card, localPlaylistsGrid.firstChild);
+    
+    // Update the count in the section header if it exists
+    const sectionCount = document.querySelector('.playlists-section:last-child .section-count');
+    if (sectionCount) {
+      const currentCount = app.playlists.filter(isLocalPlaylist).length;
+      sectionCount.textContent = `(${currentCount})`;
+    }
   } else {
-    // If no grid exists yet, re-render the entire section
+    // If no grid exists yet, re-render everything
     const playlists = app.playlists || [];
     renderPlaylistsGrid(playlists);
     setupPlaylistsEventListeners();

@@ -248,14 +248,13 @@ function isPlaylistSaved(playlist) {
   );
 }
 
-// Update the save button in renderNetworkPlaylist
 function renderNetworkPlaylist(playlist, videoEvents, playlistId) {
   const title = getValueFromTags(playlist, "title", "Untitled Playlist");
   const description = getValueFromTags(playlist, "description", "");
   const image = getValueFromTags(playlist, "image", "");
   const dTag = getValueFromTags(playlist, "d", "");
   const validVideoCount = videoEvents.length;
-  const isSaved = isPlaylistSaved(playlist);
+  const isBookmarked = isPlaylistBookmarked(playlist);
   
   mainContent.innerHTML = `
     <div class="playlist-header">
@@ -272,15 +271,19 @@ function renderNetworkPlaylist(playlist, videoEvents, playlistId) {
           <div class="playlist-meta">
             <span class="video-count">${validVideoCount} item${validVideoCount !== 1 ? 's' : ''}</span>
             <span class="created-date">Created ${escapeHtml(getRelativeTime(playlist.created_at))}</span>
-            ${isSaved ? '<span class="saved-badge">💾 Saved in Library</span>' : ''}
+            ${isBookmarked ? '<span class="saved-badge">🔖 Bookmarked</span>' : ''}
           </div>
         </div>
       </div>
       <div class="playlist-actions">
-        <button class="btn-primary save-playlist-btn ${isSaved ? 'saved' : ''}" 
+        <button class="btn-primary bookmark-playlist-btn ${isBookmarked ? 'bookmarked' : ''}" 
                 data-playlist-id="${escapeHtml(playlistId)}"
-                ${isSaved ? 'disabled' : ''}>
-          ${isSaved ? 'Already Saved' : 'Save to Local'}
+                ${isBookmarked ? 'disabled' : ''}>
+          ${isBookmarked ? '🔖 Bookmarked' : '🔖 Bookmark Playlist'}
+        </button>
+        <button class="btn-secondary copy-local-btn" 
+                data-playlist-id="${escapeHtml(playlistId)}">
+          📋 Create Local Copy
         </button>
       </div>
     </div>
@@ -306,6 +309,15 @@ function renderNetworkPlaylist(playlist, videoEvents, playlistId) {
   `;
 }
 
+function isPlaylistBookmarked(playlist) {
+  const bookmarkedPlaylists = app.bookmarkedPlaylists || [];
+  const dTag = getValueFromTags(playlist, "d", "");
+  
+  return bookmarkedPlaylists.some(
+    (p) => p.pubkey === playlist.pubkey && 
+           getValueFromTags(p, "d", "") === dTag
+  );
+}
 function renderNetworkPlaylistVideos(videoEvents) {
   if (videoEvents.length === 0) {
 return `
@@ -329,49 +341,105 @@ return `
 }
 
 function setupNetworkPlaylistEventListeners(playlist) {
-  // Make entire video item clickable to watch video
+  // Make entire video item clickable
   document.querySelectorAll('.network-playlist-video').forEach(item => {
     if (!item.classList.contains('placeholder-video')) {
       item.addEventListener('click', (e) => {
         const videoId = item.dataset.videoId;
         window.location.hash = `#watch/${videoId}`;
       });
-      
-      // Add hover cursor
       item.style.cursor = 'pointer';
     }
   });
   
-  // Save playlist button
-  const savePlaylistBtn = document.querySelector(".save-playlist-btn");
-  if (savePlaylistBtn) {
-    savePlaylistBtn.addEventListener("click", async () => {
-      const originalText = savePlaylistBtn.textContent;
+  // Bookmark playlist button
+  const bookmarkBtn = document.querySelector(".bookmark-playlist-btn");
+  if (bookmarkBtn && !bookmarkBtn.disabled) {
+    bookmarkBtn.addEventListener("click", async () => {
+      const originalText = bookmarkBtn.textContent;
       
       try {
-        savePlaylistBtn.textContent = "Saving...";
-        savePlaylistBtn.disabled = true;
+        bookmarkBtn.textContent = "Bookmarking...";
+        bookmarkBtn.disabled = true;
         
-        await saveNetworkPlaylistToLocal(playlist);
+        await bookmarkPlaylist(playlist);
         
-        savePlaylistBtn.textContent = "Saved!";
-        showTemporaryNotification('Playlist saved to local storage');
+        bookmarkBtn.textContent = "🔖 Bookmarked!";
+        showTemporaryNotification('Playlist bookmarked');
         
         setTimeout(() => {
-          window.location.hash = `#localplaylists`;
+          window.location.hash = `#bookmarkedplaylists`;
         }, 500);
         
       } catch (error) {
-        console.error("Error saving playlist:", error);
-        savePlaylistBtn.textContent = "Save Failed";
+        console.error("Error bookmarking playlist:", error);
+        bookmarkBtn.textContent = "Bookmark Failed";
         setTimeout(() => {
-          savePlaylistBtn.textContent = originalText;
-          savePlaylistBtn.disabled = false;
+          bookmarkBtn.textContent = originalText;
+          bookmarkBtn.disabled = false;
         }, 2000);
         
-        alert("Failed to save playlist: " + error.message);
+        alert("Failed to bookmark playlist: " + error.message);
       }
     });
+  }
+  
+  // Create local copy button
+  const copyBtn = document.querySelector(".copy-local-btn");
+  if (copyBtn) {
+    copyBtn.addEventListener("click", () => {
+      const newPlaylist = copyNetworkPlaylistToLocal(playlist);
+      const newDTag = getValueFromTags(newPlaylist, "d", "");
+      
+      showTemporaryNotification('Local copy created');
+      setTimeout(() => {
+        window.location.hash = `#localplaylist/${newDTag}`;
+      }, 500);
+    });
+  }
+}
+
+function bookmarkPlaylist(networkPlaylist) {
+  try {
+    const bookmarkedPlaylists = app.bookmarkedPlaylists || [];
+    const dTag = getValueFromTags(networkPlaylist, "d", "");
+    
+    // Check if already bookmarked
+    const existingIndex = bookmarkedPlaylists.findIndex(
+      (p) => p.pubkey === networkPlaylist.pubkey && 
+             getValueFromTags(p, "d", "") === dTag
+    );
+    
+    if (existingIndex !== -1) {
+      const existing = bookmarkedPlaylists[existingIndex];
+      
+      // Check if network version is newer
+      if (networkPlaylist.created_at > existing.created_at) {
+        const shouldUpdate = confirm(
+          "A newer version of this playlist is available. Update bookmark?"
+        );
+        if (shouldUpdate) {
+          app.bookmarkedPlaylists[existingIndex] = { ...networkPlaylist };
+          showTemporaryNotification("Bookmark updated to newer version");
+        } else {
+          showTemporaryNotification("Update cancelled");
+          return;
+        }
+      } else {
+        showTemporaryNotification("You already have the latest version bookmarked");
+        return;
+      }
+    } else {
+      // Bookmark the playlist
+      app.bookmarkedPlaylists.push({ ...networkPlaylist });
+      showTemporaryNotification("Playlist bookmarked");
+    }
+    
+    saveBookmarkedPlaylistsToStorage();
+    
+  } catch (error) {
+    console.error("Error bookmarking playlist:", error);
+    throw error;
   }
 }
 

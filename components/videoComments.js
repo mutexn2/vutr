@@ -1,4 +1,3 @@
-// Comment state management (similar to chat)
 const commentReplyState = {
   isReplying: false,
   replyToEvent: null,

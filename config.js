@@ -57,7 +57,7 @@ let config = {
   },
   defaultRelayList: "Default",
 
-  defaultBookmarkPlaylist: {
+  defaultBookmarkedVideos: {
     id: "local-bookmarks-playlist",
     pubkey: "local",
     created_at: Math.floor(Date.now() / 1000),
@@ -160,6 +160,81 @@ let config = {
       sig: "local",
     },
   ],
+
+  defaultBookmarkedPlaylists: [
+    {
+      id: "7ae757fa4606f0c39d4dd220ef567b41fc9060c758c4216fe5f8d3df7c57daad",
+      pubkey: "local",
+      created_at: 1695327657,
+      kind: 30005,
+      tags: [
+        ["d", "vutr-7ae757fa4606"],
+        ["title", "nostr tutorial"],
+        [
+          "image",
+          "https://cdn.britannica.com/40/188540-050-9AC748DE/Yak-Himalayas-Nepal.jpg",
+        ],
+        ["description", "Tutorial getting started with nostr series."],
+        [
+          "a",
+          "21:8ac450661b10082d6d322ac69c4a10b3f66b1a10e8b9d860cfdaf32dbad022c4",
+        ],
+        [
+          "a",
+          "21:40899e6332db0d24ddd62693d89a576e9b724ba7f34013363a3f482ea26351b7",
+        ],
+        [
+          "a",
+          "21:bcd6e1277e0f9b5ef882e206bb6df5375c697cdcd77e00f8857d9f0499692060",
+        ],
+      ],
+      content: "",
+      sig: "local",
+    },
+    {
+      id: "567b41fc9060c758c4216f25f8d3df7c57daad7ae757fa4606f0c39d4dd220ef",
+      pubkey: "local",
+      created_at: 1695329657,
+      kind: 30005,
+      tags: [
+        ["d", "vutr-567b41fc9060"],
+        ["title", "curated content"],
+        [
+          "image",
+          "https://cdn.nostrcheck.me/2bde9958f6a4cf1273f8f6a60ad444b0fa438428e6d2a20213b791c92c166b39.png",
+        ],
+        ["description", "some curated videos."],
+
+        [
+          "a",
+          "21:773211cb828d03ce264f7669dc9fa463b6857f4d4461a7d645f33dd0efcba82c",
+        ],
+        [
+          "a",
+          "21:000089feb98f0352b28c9717c7d9c230854cf88a59d301b0de73fbabbf95c39f",
+        ],
+        [
+          "a",
+          "21:571165e21999d9770ea00916c572e6ab077ec45194e1050c8ca8ec406fc12f94",
+        ],
+        [
+          "a",
+          "21:e923c8fbfd72f1842be5037efa217d0e0f66a0580658112192a7bb1b2a2a3e7e",
+        ],
+        [
+          "a",
+          "21:1ff44f579ee779a8267577743c1d4b6745c5b448f5674e6d3b75fd926350b5a5",
+        ],
+        [
+          "a",
+          "21:61ee0eff2d3cbaa05b0faa477960b909dd58a8a5a668328a1bcd6ed3a085578a",
+        ],
+      ],
+      content: "",
+      sig: "local",
+    },
+  ],
+
 
   defaultFollowSet: {
     id: "local",

@@ -32,10 +32,11 @@ let app = {
     notifications: null
   },  
   // ========== VIDEO & PLAYBACK ==========
-  bookmarkPlaylist: JSON.parse(
-    localStorage.getItem("bookmarkPlaylist") || "null"
+  bookmarkedVideos: JSON.parse(
+    localStorage.getItem("bookmarkedVideos") || "null"
   ),
   playlists: JSON.parse(localStorage.getItem("playlists") || "[]"),
+  bookmarkedPlaylists: JSON.parse(localStorage.getItem("playlists") || "[]"),
 
  // ========== VIDEO PLAYER STATE ==========
   videoPlayer: {
@@ -148,6 +149,7 @@ let routes = {
   "#list": listPageHandler,
   "#liked": likedPageHandler,
   "#saved": bookmarksPageHandler,
+  "#bookmarkedplaylists": bookmarkedListsPageHandler,
   "#localfollows": localFollowsPageHandler,
   "#kind1follows": kind1FollowsPageHandler,
   "#followsfeed": followsFeedPageHandler,
@@ -310,10 +312,10 @@ function initializeFirstVisit() {
     // Mark as visited
     localStorage.setItem("hasVisited", "true");
 
-    if (!localStorage.getItem("bookmarkPlaylist")) {
+    if (!localStorage.getItem("bookmarkedVideos")) {
       localStorage.setItem(
-        "bookmarkPlaylist",
-        JSON.stringify(config.defaultBookmarkPlaylist)
+        "bookmarkedVideos",
+        JSON.stringify(config.defaultBookmarkedVideos)
       );
     }
 
@@ -323,6 +325,14 @@ function initializeFirstVisit() {
         JSON.stringify(config.defaultPlaylists)
       );
     }
+
+    if (!localStorage.getItem("bookmarkedPlaylists")) {
+      localStorage.setItem(
+        "bookmarkedPlaylists",
+        JSON.stringify(config.defaultBookmarkedPlaylists)
+      );
+    }    
+
     if (!localStorage.getItem("followSet")) {
       localStorage.setItem(
         "followSet",

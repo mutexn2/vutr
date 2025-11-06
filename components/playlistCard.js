@@ -1,5 +1,12 @@
-function createPlaylistCard(playlist) {
+function createPlaylistCard(playlist, options = {}) {
   if (!playlist || !playlist.id) return document.createElement('div');
+
+  const {
+    showEditControls = false,  // Show edit/delete buttons for local playlists
+    showAuthor = true,         // Show author info (hide for user's own playlists)
+    badgeText = null,          // Custom badge text (e.g., "Local", "Network")
+    badgeIcon = null           // Custom badge icon
+  } = options;
 
   let getValueFromTags = (tags, key, defaultValue = "") => {
     let tag = tags?.find((t) => t[0] === key);
@@ -32,13 +39,13 @@ function createPlaylistCard(playlist) {
     }).length;
   }
 
-  // Check if playlist is already saved locally
-  const isSavedLocally = isPlaylistInLocalLibrary(playlist);
+  // Check if playlist is already saved locally (only for network playlists)
+  const isSavedLocally = showAuthor ? isPlaylistInLocalLibrary(playlist) : false;
   
   // Extract playlist data
   let title = getValueFromTags(playlist.tags, "title", "Untitled Playlist");
   let description = getValueFromTags(playlist.tags, "description", "");
-  let imageUrl = getValueFromTags(playlist.tags, "image", "");
+  let imageUrl = getValueFromTags(playlist.tags, "image", "") || getValueFromTags(playlist.tags, "thumb", "");
   let timeAgo = getRelativeTime(playlist.created_at);
   let videoCount = countVideoReferences(playlist);
   let dtag = getValueFromTags(playlist.tags, "d", "");
@@ -56,6 +63,12 @@ function createPlaylistCard(playlist) {
   card.dataset.dtag = dtag;
   card.dataset.isSaved = isSavedLocally;
 
+  // Build the badge HTML
+  let badgeHtml = '';
+  if (badgeText || badgeIcon) {
+    badgeHtml = `<div class="playlist-type-badge">${badgeIcon || ''} ${badgeText || ''}</div>`;
+  }
+
   card.innerHTML = `
     <div class="metadata">
       <span class="time"></span>
@@ -67,10 +80,12 @@ function createPlaylistCard(playlist) {
     </div>
     <div class="video-info">
       <h3 class="title"></h3>
-      <div class="creator">
-        <div class="creator-image"></div>
-        <div class="creator-name"></div>
-      </div>
+      ${showAuthor ? `
+        <div class="creator">
+          <div class="creator-image"></div>
+          <div class="creator-name"></div>
+        </div>
+      ` : ''}
 
       <button class="options-button" type="button" aria-label="Playlist options">
         <svg viewBox="0 0 24 24" fill="currentColor">
@@ -85,12 +100,9 @@ function createPlaylistCard(playlist) {
   // Get references to elements
   let thumbnailImg = card.querySelector('.thumbnail');
   let titleElement = card.querySelector('.title');
-  let creatorImageContainer = card.querySelector('.creator-image');
-  let creatorNameContainer = card.querySelector('.creator-name');
   let timeElement = card.querySelector('.time');
   let videoInfoContainer = card.querySelector('.video-info');
   let optionsButton = card.querySelector('.options-button');
-  let creatorSection = card.querySelector('.creator');
 
   // Set dynamic content
   thumbnailImg.src = thumbnailSrc;
@@ -109,22 +121,28 @@ function createPlaylistCard(playlist) {
     card.querySelector('.thumbnail-container').appendChild(videoCountSpan);
   }
 
-  // Creator info
-  let creatorImage = document.createElement('nostr-picture');
-  creatorImage.className = 'channel-image';
-  creatorImage.setAttribute('pubkey', playlist.pubkey);
-  creatorImageContainer.appendChild(creatorImage);
+  // Creator info (only if showAuthor is true)
+  if (showAuthor) {
+    let creatorSection = card.querySelector('.creator');
+    let creatorImageContainer = card.querySelector('.creator-image');
+    let creatorNameContainer = card.querySelector('.creator-name');
 
-  let creatorName = document.createElement('nostr-name');
-  creatorName.className = 'channel-name';
-  creatorName.setAttribute('pubkey', playlist.pubkey);
-  creatorNameContainer.appendChild(creatorName);
+    let creatorImage = document.createElement('nostr-picture');
+    creatorImage.className = 'channel-image';
+    creatorImage.setAttribute('pubkey', playlist.pubkey);
+    creatorImageContainer.appendChild(creatorImage);
 
-  // Make creator section clickable
-  creatorSection.addEventListener('click', (e) => {
-    e.stopPropagation();
-    window.location.hash = `#profile/${playlist.pubkey}`;
-  });
+    let creatorName = document.createElement('nostr-name');
+    creatorName.className = 'channel-name';
+    creatorName.setAttribute('pubkey', playlist.pubkey);
+    creatorNameContainer.appendChild(creatorName);
+
+    // Make creator section clickable
+    creatorSection.addEventListener('click', (e) => {
+      e.stopPropagation();
+      window.location.hash = `#profile/${playlist.pubkey}`;
+    });
+  }
 
   // Add description if available
   if (description) {
@@ -134,33 +152,56 @@ function createPlaylistCard(playlist) {
     videoInfoContainer.appendChild(descriptionP);
   }
 
+
   // Options menu - always check current saved status
   optionsButton.addEventListener('click', (e) => {
     e.stopPropagation();
-    const currentSavedStatus = isPlaylistInLocalLibrary(playlist);
-    showPlaylistCardMenu(optionsButton, playlist, title, currentSavedStatus);
+    const currentSavedStatus = showAuthor ? isPlaylistInLocalLibrary(playlist) : false;
+    showPlaylistCardMenu(optionsButton, playlist, title, currentSavedStatus, options);
   });
 
   return card;
 }
 
-function isPlaylistInLocalLibrary(playlist) {
-  const existingPlaylists = app.playlists || [];
+// Helper function for delete confirmation
+function handleDeletePlaylist(playlist, title) {
   const dTag = getValueFromTags(playlist, "d", "");
   
-  return existingPlaylists.some(
+  if (confirm(`Are you sure you want to delete "${title}"?`)) {
+    app.playlists = app.playlists.filter(p => getValueFromTags(p, "d", "") !== dTag);
+    savePlaylistsToStorage();
+    showTemporaryNotification('Playlist deleted');
+    
+    // Re-render the grid
+    const playlists = app.playlists || [];
+    renderPlaylistsGrid(playlists);
+    setupPlaylistsEventListeners();
+  }
+}
+
+function isPlaylistInLocalLibrary(playlist) {
+  // Check both local playlists and bookmarked playlists
+  const dTag = getValueFromTags(playlist, "d", "");
+  
+  const inLocalPlaylists = (app.playlists || []).some(
     (p) => p.pubkey === playlist.pubkey && 
            getValueFromTags(p, "d", "") === dTag
   );
+  
+  const inBookmarkedPlaylists = (app.bookmarkedPlaylists || []).some(
+    (p) => p.pubkey === playlist.pubkey && 
+           getValueFromTags(p, "d", "") === dTag
+  );
+  
+  return inLocalPlaylists || inBookmarkedPlaylists;
 }
-
 //////////////////////////////////////////////
 // PLAYLIST CARD MENU
 //////////////////////////////////////////////
 let playlistCardMenuControls = null;
 let currentPlaylistCardData = null;
 
-async function showPlaylistCardMenu(buttonElement, playlist, title, isSavedLocally = false) {
+async function showPlaylistCardMenu(buttonElement, playlist, title, isSavedLocally = false, options = {}) {
   // If menu exists and it's for a different playlist, close it first
   if (playlistCardMenuControls && playlistCardMenuControls.isOpen() && currentPlaylistCardData?.id !== playlist.id) {
     playlistCardMenuControls.close();
@@ -173,16 +214,19 @@ async function showPlaylistCardMenu(buttonElement, playlist, title, isSavedLocal
     return;
   }
 
+  // Determine if this is a local playlist (user's own playlist)
+  const isLocalPlaylist = options.showEditControls || false;
+
   // If menu doesn't exist, create it
   if (!playlistCardMenuControls || currentPlaylistCardData?.id !== playlist.id) {
-    await createPlaylistCardMenu(buttonElement, playlist, title, isSavedLocally);
+    await createPlaylistCardMenu(buttonElement, playlist, title, isSavedLocally, isLocalPlaylist);
   }
 
   // Open the menu
   playlistCardMenuControls.open();
 }
 
-async function createPlaylistCardMenu(buttonElement, playlist, title, isSavedLocally = false) {
+async function createPlaylistCardMenu(buttonElement, playlist, title, isSavedLocally = false, isLocalPlaylist = false) {
   currentPlaylistCardData = playlist;
   
   let overlayElement = document.createElement('div');
@@ -197,32 +241,63 @@ async function createPlaylistCardMenu(buttonElement, playlist, title, isSavedLoc
     <div class="menu-container">
       <div class="menu-header">
         <div class="user-info">
-          ${title}
-          ${isSavedLocally ? '<span class="saved-badge">💾 Saved</span>' : ''}
+          ${escapeHtml(title)}
+          ${isSavedLocally && !isLocalPlaylist ? '<span class="saved-badge">💾 Saved</span>' : ''}
+          ${isLocalPlaylist ? '<span class="saved-badge">💾 My Playlist</span>' : ''}
         </div>
       </div>
       
       <div class="menu-items">
-        ${isSavedLocally ? `
+        ${isLocalPlaylist ? `
+          <button class="menu-item playlist-edit">
+            <span class="item-icon">✏️</span>
+            <span class="item-text">Edit Metadata</span>
+          </button>
+          <button class="menu-item playlist-delete">
+            <span class="item-icon">🗑️</span>
+            <span class="item-text">Delete Playlist</span>
+          </button>
+          <div class="menu-separator"></div>
+          <button class="menu-item playlist-share">
+            <span class="item-icon">🔗</span>
+            <span class="item-text">Share Playlist</span>
+          </button>
+        ` : isSavedLocally ? `
+          <button class="menu-item playlist-sync">
+            <span class="item-icon">🔄</span>
+            <span class="item-text">Sync Playlist</span>
+          </button>
           <button class="menu-item playlist-remove">
             <span class="item-icon">🗑️</span>
             <span class="item-text">Remove from Library</span>
           </button>
+          <div class="menu-separator"></div>
+          <button class="menu-item playlist-view-original">
+            <span class="item-icon">🔗</span>
+            <span class="item-text">View Original</span>
+          </button>
         ` : `
           <button class="menu-item playlist-save">
             <span class="item-icon">💾</span>
-            <span class="item-text">Save Playlist</span>
+            <span class="item-text">Save to Library</span>
+          </button>
+          <div class="menu-separator"></div>
+          <button class="menu-item playlist-view-network">
+            <span class="item-icon">🔗</span>
+            <span class="item-text">View on Network</span>
           </button>
         `}
-        <div class="menu-separator"></div>
-        <button class="menu-item playlist-mute-user">
-          <span class="item-icon">🔇</span>
-          <span class="item-text">Mute User</span>
-        </button>
-        <button class="menu-item playlist-report">
-          <span class="item-icon">🚩</span>
-          <span class="item-text">Report</span>
-        </button>
+        ${!isLocalPlaylist ? `
+          <div class="menu-separator"></div>
+          <button class="menu-item playlist-mute-user">
+            <span class="item-icon">🔇</span>
+            <span class="item-text">Mute User</span>
+          </button>
+          <button class="menu-item playlist-report">
+            <span class="item-icon">🚩</span>
+            <span class="item-text">Report</span>
+          </button>
+        ` : ''}
         <div class="menu-separator"></div>
         <button class="menu-item playlist-show-json">
           <span class="item-icon">📄</span>
@@ -271,71 +346,225 @@ async function createPlaylistCardMenu(buttonElement, playlist, title, isSavedLoc
     }, 150);
   };
 
-  setupPlaylistCardMenuEvents(menuElement, playlist, isSavedLocally);
+  setupPlaylistCardMenuEvents(menuElement, playlist, isSavedLocally, isLocalPlaylist);
   
   if (app.overlayControls) {
     app.overlayControls.playlistCard = playlistCardMenuControls;
   }
 }
 
-function setupPlaylistCardMenuEvents(menuElement, playlist, isSavedLocally) {
-  // Save playlist functionality
-  const saveButton = menuElement.querySelector('.playlist-save');
-  if (saveButton) {
-    saveButton.addEventListener('click', async () => {
-      try {
-        await saveNetworkPlaylistToLocal(playlist);
-        playlistCardMenuControls?.close();
-        showTemporaryNotification('Playlist saved to your library');
-        
-        // Update the card to show saved status
-        updatePlaylistCardSavedStatus(playlist, true);
-      } catch (error) {
-        console.error('Error saving playlist:', error);
-        showTemporaryNotification('Failed to save playlist');
-      }
+function setupPlaylistCardMenuEvents(menuElement, playlist, isSavedLocally, isLocalPlaylist) {
+  const dTag = getValueFromTags(playlist, "d", "");
+  const title = getValueFromTags(playlist, "title", "Untitled Playlist");
+
+  // ===== LOCAL PLAYLIST ACTIONS =====
+  
+  // Edit playlist (local playlists only)
+  const editButton = menuElement.querySelector('.playlist-edit');
+  if (editButton) {
+    editButton.addEventListener('click', () => {
+      showPlaylistModal(dTag);
+      playlistCardMenuControls?.close();
     });
   }
   
-  // Remove from library functionality
-  const removeButton = menuElement.querySelector('.playlist-remove');
-  if (removeButton) {
-    removeButton.addEventListener('click', () => {
-    
-      
-     
-        const dTag = getValueFromTags(playlist, "d", "");
-        
-        // Remove from app.playlists
+  // Delete playlist (local playlists only)
+  const deleteButton = menuElement.querySelector('.playlist-delete');
+  if (deleteButton) {
+    deleteButton.addEventListener('click', () => {
+      if (confirm(`Are you sure you want to delete "${title}"?`)) {
         app.playlists = app.playlists.filter(p => 
           !(getValueFromTags(p, "d", "") === dTag && p.pubkey === playlist.pubkey)
         );
-        
         savePlaylistsToStorage();
         playlistCardMenuControls?.close();
-        showTemporaryNotification('Playlist removed from library');
+        showTemporaryNotification('Playlist deleted');
         
-        // Update the card to show unsaved status
-        updatePlaylistCardSavedStatus(playlist, false);
+        // Re-render if on local playlists page
+        if (window.location.hash === '#localplaylists') {
+          const playlists = app.playlists || [];
+          renderPlaylistsGrid(playlists);
+          setupPlaylistsEventListeners();
+        }
+      }
+    });
+  }
+
+  // Share playlist (local playlists only)
+  const shareButton = menuElement.querySelector('.playlist-share');
+  if (shareButton) {
+    shareButton.addEventListener('click', () => {
+      console.log('Share playlist clicked for:', playlist.id);
+      // TODO: Implement playlist sharing functionality
+      showTemporaryNotification('Share functionality coming soon');
+      playlistCardMenuControls?.close();
+    });
+  }
+
+  // ===== SAVED NETWORK PLAYLIST ACTIONS =====
+  
+  // Sync playlist (saved network playlists)
+  const syncButton = menuElement.querySelector('.playlist-sync');
+  if (syncButton) {
+    syncButton.addEventListener('click', async () => {
+      const originalText = syncButton.querySelector('.item-text').textContent;
+      syncButton.querySelector('.item-text').textContent = 'Syncing...';
+      syncButton.disabled = true;
       
+      try {
+        const updatedPlaylist = await syncNetworkPlaylist(playlist);
+        if (updatedPlaylist) {
+          savePlaylistsToStorage();
+          showTemporaryNotification('Playlist synced successfully');
+          
+          // Refresh the page after a short delay
+          setTimeout(() => {
+            if (window.location.hash === '#localplaylists') {
+              const playlists = app.playlists || [];
+              renderPlaylistsGrid(playlists);
+              setupPlaylistsEventListeners();
+            }
+          }, 500);
+        } else {
+          showTemporaryNotification('Playlist is already up to date');
+        }
+      } catch (error) {
+        console.error('Error syncing playlist:', error);
+        showTemporaryNotification('Failed to sync playlist');
+        syncButton.querySelector('.item-text').textContent = originalText;
+        syncButton.disabled = false;
+      }
+      
+      playlistCardMenuControls?.close();
+    });
+  }
+
+  // Remove from library (saved network playlists)
+const removeButton = menuElement.querySelector('.playlist-remove');
+if (removeButton) {
+  removeButton.addEventListener('click', () => {
+    if (confirm(`Remove "${title}" from your bookmarks?`)) {
+      app.bookmarkedPlaylists = app.bookmarkedPlaylists.filter(p => 
+        !(getValueFromTags(p, "d", "") === dTag && p.pubkey === playlist.pubkey)
+      );
+      
+      saveBookmarkedPlaylistsToStorage();
+      playlistCardMenuControls?.close();
+      showTemporaryNotification('Playlist removed from bookmarks');
+      
+      updatePlaylistCardSavedStatus(playlist, false);
+      
+      if (window.location.hash === '#bookmarkedplaylists') {
+        bookmarkedListsPageHandler();
+      }
+    }
+  });
+}
+  // View original (saved network playlists)
+  const viewOriginalButton = menuElement.querySelector('.playlist-view-original');
+  if (viewOriginalButton) {
+    viewOriginalButton.addEventListener('click', () => {
+      const author = playlist.pubkey;
+      const discoveryRelays = app.relays.slice(0, 3).map(cleanRelayUrl);
+      const uniqueDiscoveryRelays = [...new Set(discoveryRelays)];
+      const discoveryParam = uniqueDiscoveryRelays.join(",");
+      
+      window.location.hash = `#playlist/params?author=${author}&dtag=${dTag}&discovery=${discoveryParam}`;
+      playlistCardMenuControls?.close();
+    });
+  }
+
+  // ===== NETWORK PLAYLIST ACTIONS =====
+  
+const saveButton = menuElement.querySelector('.playlist-save');
+if (saveButton) {
+  // Replace single button with two options
+  const menuItems = menuElement.querySelector('.menu-items');
+  const saveMenuItem = menuElement.querySelector('.playlist-save').parentElement;
+  
+  saveMenuItem.innerHTML = `
+    <button class="menu-item playlist-bookmark">
+      <span class="item-icon">🔖</span>
+      <span class="item-text">Bookmark Playlist</span>
+    </button>
+    <button class="menu-item playlist-create-copy">
+      <span class="item-icon">📋</span>
+      <span class="item-text">Create Local Copy</span>
+    </button>
+  `;
+  
+  // Bookmark action
+  menuElement.querySelector('.playlist-bookmark').addEventListener('click', async () => {
+    try {
+      await bookmarkPlaylist(playlist);
+      playlistCardMenuControls?.close();
+      showTemporaryNotification('Playlist bookmarked');
+      updatePlaylistCardSavedStatus(playlist, true);
+    } catch (error) {
+      console.error('Error bookmarking playlist:', error);
+      showTemporaryNotification('Failed to bookmark playlist');
+    }
+  });
+  
+  // Create local copy action
+  menuElement.querySelector('.playlist-create-copy').addEventListener('click', () => {
+    const newPlaylist = copyNetworkPlaylistToLocal(playlist);
+    const newDTag = getValueFromTags(newPlaylist, "d", "");
+    playlistCardMenuControls?.close();
+    showTemporaryNotification('Local copy created');
+    setTimeout(() => {
+      window.location.hash = `#localplaylist/${newDTag}`;
+    }, 500);
+  });
+}
+
+
+  // View on network (network playlists not yet saved)
+  const viewNetworkButton = menuElement.querySelector('.playlist-view-network');
+  if (viewNetworkButton) {
+    viewNetworkButton.addEventListener('click', () => {
+      const author = playlist.pubkey;
+      const discoveryRelays = app.relays.slice(0, 3).map(cleanRelayUrl);
+      const uniqueDiscoveryRelays = [...new Set(discoveryRelays)];
+      const discoveryParam = uniqueDiscoveryRelays.join(",");
+      
+      window.location.hash = `#playlist/params?author=${author}&dtag=${dTag}&discovery=${discoveryParam}`;
+      playlistCardMenuControls?.close();
+    });
+  }
+
+  // ===== COMMON ACTIONS =====
+  
+  // Mute user (not for local playlists)
+  const muteButton = menuElement.querySelector('.playlist-mute-user');
+  if (muteButton) {
+    muteButton.addEventListener('click', () => {
+      console.log('Mute User clicked for playlist:', playlist.id, 'pubkey:', playlist.pubkey);
+      // TODO: Implement mute user functionality
+      showTemporaryNotification('Mute functionality coming soon');
+      playlistCardMenuControls?.close();
     });
   }
   
-  menuElement.querySelector('.playlist-mute-user')?.addEventListener('click', () => {
-    console.log('Mute User clicked for playlist:', playlist.id, 'pubkey:', playlist.pubkey);
-    playlistCardMenuControls?.close();
-  });
+  // Report playlist (not for local playlists)
+  const reportButton = menuElement.querySelector('.playlist-report');
+  if (reportButton) {
+    reportButton.addEventListener('click', () => {
+      console.log('Report clicked for playlist:', playlist.id);
+      // TODO: Implement report functionality
+      showTemporaryNotification('Report functionality coming soon');
+      playlistCardMenuControls?.close();
+    });
+  }
   
-  menuElement.querySelector('.playlist-report')?.addEventListener('click', () => {
-    console.log('Report clicked for playlist:', playlist.id);
-    playlistCardMenuControls?.close();
-  });
-  
-  menuElement.querySelector('.playlist-show-json')?.addEventListener('click', () => {
-    console.log('Show JSON clicked for playlist:', playlist.id);
-    showPlaylistJsonModal(playlist);
-    playlistCardMenuControls?.close();
-  });
+  // Show JSON (all playlists)
+  const showJsonButton = menuElement.querySelector('.playlist-show-json');
+  if (showJsonButton) {
+    showJsonButton.addEventListener('click', () => {
+      showPlaylistJsonModal(playlist);
+      playlistCardMenuControls?.close();
+    });
+  }
 }
 
 // Updated helper function with isSaved parameter

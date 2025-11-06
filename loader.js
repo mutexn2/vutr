@@ -227,6 +227,7 @@
       "pages/localFollowsPage.js",
       "pages/followsFeedPage.js",
       "pages/bookmarksPage.js",
+      "pages/bookmarkedListsPage.js",
       "pages/tagPage.js",
       "pages/nakPage.js",
       "pages/shortsPage.js",

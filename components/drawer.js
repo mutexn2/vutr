@@ -426,8 +426,9 @@ function getSectionOneItems() {
 function getSectionTwoItems() {
   return [
     { id: "saved", icon: "🔖", text: "Bookmarks" },
+    { id: "bookmarkedplaylists", icon: "🔖", text: "Playlist Bookmarks" },
     { id: "localfollows", icon: "📺", text: "Following" },
-    { id: "localplaylists", icon: "📒", text: "My Playlists" },
+    { id: "localplaylists", icon: "📒", text: "Local Playlists" },
     { id: "liked", icon: "👍", text: "liked" },
     { id: "kind1follows", icon: "🫂", text: "friends" },
     { id: "singlerelay", icon: "🔭", text: "Relay" },    

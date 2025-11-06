@@ -40,7 +40,7 @@ async function playlistsPageHandler() {
     playlists = playlists.map(sanitizeNostrEvent).filter((v) => v !== null);
 
     // Filter to only include playlists with valid kind-21 references
-    playlists = filterValidPlaylists(playlists);
+  //  playlists = filterValidPlaylists(playlists);
 
     if (playlists.length === 0) {
       let listContainer = document.getElementById("playlistPage-container");
@@ -88,28 +88,15 @@ grid.addEventListener("click", async (event) => {
   if (card && card.dataset.playlistId) {
     const author = card.dataset.author;
     const dtag = card.dataset.dtag;
-    const isSaved = card.dataset.isSaved === 'true';
     
-    if (isSaved) {
-      // Navigate to local playlist page
-      const localPlaylist = app.playlists.find(p => 
-        p.pubkey === author && 
-        getValueFromTags(p, "d", "") === dtag
-      );
-      if (localPlaylist) {
-        const localDTag = getValueFromTags(localPlaylist, "d", "");
-        window.location.hash = `#localplaylist/${localDTag}`;
-      }
-    } else {
-      // Navigate to network playlist page
-      const discoveryRelays = app.relays.slice(0, 3).map(cleanRelayUrl);
-      const uniqueDiscoveryRelays = [...new Set(discoveryRelays)];
-      const discoveryParam = uniqueDiscoveryRelays.join(",");
-      
-      const playlistUrl = `#playlist/params?author=${author}&dtag=${dtag}&discovery=${discoveryParam}`;
-      console.log("Navigating to playlist URL:", playlistUrl);
-      window.location.hash = playlistUrl;
-    }
+    // Always navigate to network playlist page (this page shows network playlists)
+    const discoveryRelays = app.relays.slice(0, 3).map(cleanRelayUrl);
+    const uniqueDiscoveryRelays = [...new Set(discoveryRelays)];
+    const discoveryParam = uniqueDiscoveryRelays.join(",");
+    
+    const playlistUrl = `#playlist/params?author=${author}&dtag=${dtag}&discovery=${discoveryParam}`;
+    console.log("Navigating to playlist URL:", playlistUrl);
+    window.location.hash = playlistUrl;
   }
 });
   } catch (error) {

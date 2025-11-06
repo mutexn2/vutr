@@ -11,7 +11,31 @@ async function localPlaylistsPageHandler() {
     }
 
     playlists.sort((a, b) => b.created_at - a.created_at);
-    renderPlaylistsGrid(playlists);
+    
+    mainContent.innerHTML = `
+      <div class="playlists-header">
+        <h1>My Playlists</h1>
+        <div class="playlists-actions">
+          <button class="create-playlist-btn btn-primary">Create Playlist</button>
+        </div>
+      </div>
+      
+      <div class="playlists-section">
+        <div class="playlists-grid local-playlists-grid"></div>
+      </div>
+    `;
+    
+    const localGrid = document.querySelector('.local-playlists-grid');
+    playlists.forEach(playlist => {
+      const card = createPlaylistCard(playlist, {
+        showEditControls: true,
+        showAuthor: false,
+        badgeText: 'Local',
+        badgeIcon: '💾'
+      });
+      localGrid.appendChild(card);
+    });
+    
     setupPlaylistsEventListeners();
     
   } catch (error) {
@@ -54,34 +78,60 @@ function renderPlaylistsGrid(playlists) {
   
   mainContent.innerHTML = `
       <div class="playlists-header">
-        <h1>Local Playlists (${playlists.length})</h1>
         <div class="playlists-actions">
           <button class="create-playlist-btn btn-primary">Create Playlist</button>
           ${networkPlaylists.length > 0 ? 
-            '<button class="sync-all-btn btn-secondary">Sync All Network Playlists</button>' 
+            '<button class="sync-all-btn btn-secondary">Sync External Playlists</button>' 
             : ''}
         </div>
       </div>
       
       ${networkPlaylists.length > 0 ? `
         <div class="playlists-section">
-          <h2>Read-only (${networkPlaylists.length})</h2>
-          <div class="playlists-grid">
-            ${networkPlaylists.map(playlist => renderPlaylistCard(playlist)).join('')}
-          </div>
+          <h2>Not My Playlists <span class="section-count">(${networkPlaylists.length})</span></h2>
+          <div class="playlists-grid network-playlists-grid"></div>
         </div>
       ` : ''}
       
       ${localPlaylists.length > 0 ? `
         <div class="playlists-section">
-          <h2>My Playlists (${localPlaylists.length})</h2>
-          <div class="playlists-grid">
-            ${localPlaylists.map(playlist => renderPlaylistCard(playlist)).join('')}
-          </div>
+          <h2>My Playlists <span class="section-count">(${localPlaylists.length})</span></h2>
+          <div class="playlists-grid local-playlists-grid"></div>
         </div>
       ` : ''}
   `;
+
+  // Render network playlists
+  if (networkPlaylists.length > 0) {
+    const networkGrid = document.querySelector('.network-playlists-grid');
+    networkPlaylists.forEach(playlist => {
+      const card = createPlaylistCard(playlist, {
+        showEditControls: false,
+        showAuthor: true,
+        badgeText: 'Network',
+        badgeIcon: '📡'
+      });
+      networkGrid.appendChild(card);
+    });
+  }
+
+  // Render local playlists
+  if (localPlaylists.length > 0) {
+    const localGrid = document.querySelector('.local-playlists-grid');
+    localPlaylists.forEach(playlist => {
+      const card = createPlaylistCard(playlist, {
+        showEditControls: true,
+        showAuthor: false,
+        badgeText: 'Local',
+        badgeIcon: '💾'
+      });
+      localGrid.appendChild(card);
+    });
+  }
 }
+
+
+
 function renderPlaylistCard(playlist) {
   const dTag = getValueFromTags(playlist, "d", "");
   const title = getValueFromTags(playlist, "title", "Untitled Playlist");
@@ -107,15 +157,6 @@ function renderPlaylistCard(playlist) {
           `<img src="${escapeHtml(image)}" alt="Playlist thumbnail" loading="lazy">` :
           `<div class="no-thumbnail">📹</div>`
         }
-        <div class="playlist-badge ${isLocal ? 'local-badge' : 'network-badge'}">
-          ${isLocal ? '💾 Local' : '📡 Network'}
-        </div>
-        ${isLocal ? `
-          <div class="playlist-overlay">
-            <button class="edit-playlist-btn" data-d-tag="${escapeHtml(dTag)}" title="Edit playlist">✏️</button>
-            <button class="delete-playlist-btn" data-d-tag="${escapeHtml(dTag)}" title="Delete playlist">🗑️</button>
-          </div>
-        ` : ''}
       </div>
       <div class="playlist-info">
         <h3 class="playlist-title">${escapeHtml(title)}</h3>
@@ -178,12 +219,21 @@ function setupPlaylistsEventListenersForGrid(gridElement) {
   });
 }
 
-// Update the main setup function to use the grid-specific version
 function setupPlaylistsEventListeners() {
   const playlistsGrids = document.querySelectorAll('.playlists-grid');
   
   playlistsGrids.forEach(grid => {
-    setupPlaylistsEventListenersForGrid(grid);
+    // Playlist card clicks
+    grid.addEventListener('click', (event) => {
+      let card = event.target.closest('.playlist-card');
+      if (card && card.dataset.playlistId) {
+        // Don't navigate if clicking edit controls
+        if (event.target.closest('.playlist-edit-overlay')) return;
+        
+        const dtag = card.dataset.dtag;
+        window.location.hash = `#localplaylist/${dtag}`;
+      }
+    });
   });
   
   // Create playlist button
@@ -197,38 +247,40 @@ function setupPlaylistsEventListeners() {
   // Sync all network playlists button
   const syncAllBtn = document.querySelector('.sync-all-btn');
   if (syncAllBtn) {
-    syncAllBtn.addEventListener('click', async () => {
-      const originalText = syncAllBtn.textContent;
-      syncAllBtn.textContent = 'Syncing...';
-      syncAllBtn.disabled = true;
-      
-      const networkPlaylists = app.playlists.filter(isNetworkPlaylist);
-      let updatedCount = 0;
-      
-      for (const playlist of networkPlaylists) {
-        try {
-          const updatedPlaylist = await syncNetworkPlaylist(playlist);
-          if (updatedPlaylist) {
-            updatedCount++;
-          }
-        } catch (error) {
-          console.error('Error syncing playlist:', error);
-        }
-      }
-      
-      if (updatedCount > 0) {
-        savePlaylistsToStorage();
-        showTemporaryNotification(`Updated ${updatedCount} playlist(s)`);
-        setTimeout(() => location.reload(), 1000);
-      } else {
-        showTemporaryNotification('All playlists are up to date');
-        syncAllBtn.textContent = originalText;
-        syncAllBtn.disabled = false;
-      }
-    });
+    syncAllBtn.addEventListener('click', handleSyncAllPlaylists);
   }
 }
 
+async function handleSyncAllPlaylists() {
+  const syncAllBtn = document.querySelector('.sync-all-btn');
+  const originalText = syncAllBtn.textContent;
+  syncAllBtn.textContent = 'Syncing...';
+  syncAllBtn.disabled = true;
+  
+  const networkPlaylists = app.playlists.filter(isNetworkPlaylist);
+  let updatedCount = 0;
+  
+  for (const playlist of networkPlaylists) {
+    try {
+      const updatedPlaylist = await syncNetworkPlaylist(playlist);
+      if (updatedPlaylist) {
+        updatedCount++;
+      }
+    } catch (error) {
+      console.error('Error syncing playlist:', error);
+    }
+  }
+  
+  if (updatedCount > 0) {
+    savePlaylistsToStorage();
+    showTemporaryNotification(`Updated ${updatedCount} playlist(s)`);
+    setTimeout(() => location.reload(), 1000);
+  } else {
+    showTemporaryNotification('All playlists are up to date');
+    syncAllBtn.textContent = originalText;
+    syncAllBtn.disabled = false;
+  }
+}
 
 function handlePlaylistCardClick(e) {
   if (e.target.closest('.playlist-overlay')) return;
@@ -473,6 +525,9 @@ function savePlaylistsToStorage() {
   localStorage.setItem('playlists', JSON.stringify(app.playlists || []));
 }
 
+function saveBookmarkedPlaylistsToStorage() {
+  localStorage.setItem('bookmarkedPlaylists', JSON.stringify(app.bookmarkedPlaylists || []));
+}
 function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).substring(2);
 }

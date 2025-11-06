@@ -10,7 +10,7 @@ async function localPlaylistPageHandler() {
   showPlaylistLoadingState();
 
   try {
-    const playlists = app.playlists || [];
+    const playlists = app.playlists || []; // Only local playlists now
     const playlist = playlists.find(p => getValueFromTags(p, "d", "") === dTag);
     
     if (!playlist) {
@@ -20,7 +20,6 @@ async function localPlaylistPageHandler() {
 
     await new Promise((resolve) => setTimeout(resolve, 300));
     
-    // Fetch video events before rendering
     const videoTags = playlist.tags.filter(tag => tag[0] === "a");
     const videoEvents = await fetchVideoEvents(videoTags);
     
@@ -130,7 +129,6 @@ function renderSinglePlaylist(playlist, dTag, videoEvents = []) {
   const description = getValueFromTags(playlist, "description", "");
   const image = getValueFromTags(playlist, "image", "") || getValueFromTags(playlist, "thumb", "");
   
-  // Count both kind 21 and kind 22 video references
   const videoTags = playlist.tags.filter(tag => {
     if (tag[0] !== "a") return false;
     const aTagValue = tag[1];
@@ -138,62 +136,49 @@ function renderSinglePlaylist(playlist, dTag, videoEvents = []) {
   });
   
   const validVideoCount = videoEvents.filter(event => !event.isPlaceholder).length;
-  const isLocal = isLocalPlaylist(playlist);
   
   mainContent.innerHTML = `
-      <div class="playlist-header">
-        <div class="playlist-info">
-          <div class="playlist-thumbnail">
-            ${image ? 
-              `<img src="${escapeHtml(image)}" alt="Playlist thumbnail" loading="lazy">` :
-              `<div class="no-thumbnail">📹</div>`
-            }
+    <div class="playlist-header">
+      <div class="playlist-info">
+        <div class="playlist-thumbnail">
+          ${image ? 
+            `<img src="${escapeHtml(image)}" alt="Playlist thumbnail" loading="lazy">` :
+            `<div class="no-thumbnail">📹</div>`
+          }
+        </div>
+        <div class="playlist-details">
+          <h1 class="playlist-title">${escapeHtml(title)}</h1>
+          ${description ? `<p class="playlist-description">${escapeHtml(description)}</p>` : ''}
+          <div class="playlist-meta">
+            <span class="video-count">${validVideoCount} videos</span>
+            <span class="created-date">Created ${escapeHtml(getRelativeTime(playlist.created_at))}</span>
+            <span class="local-badge">💾 Local</span>
           </div>
-          <div class="playlist-details">
-            <h1 class="playlist-title">${escapeHtml(title)}</h1>
-            ${description ? `<p class="playlist-description">${escapeHtml(description)}</p>` : ''}
-            <div class="playlist-meta">
-              <span class="video-count">${validVideoCount} videos (${videoTags.length} total)</span>
-              <span class="created-date">Created ${escapeHtml(getRelativeTime(playlist.created_at))}</span>
-              ${!isLocal ? '<span class="network-badge">📡 Network Playlist (Read-only)</span>' : '<span class="local-badge">💾 Local Playlist</span>'}
-            </div>
-          </div>
-        </div>
-        <div class="playlist-actions">
-          ${isLocal ? `
-            <button class="btn-primary share-playlist-btn" data-d-tag="${escapeHtml(dTag)}">Share to Network</button>
-            <button class="btn-secondary edit-playlist-btn" data-d-tag="${escapeHtml(dTag)}">Edit Playlist</button>
-            <button class="btn-danger delete-playlist-btn" data-d-tag="${escapeHtml(dTag)}">Delete Playlist</button>
-          ` : `
-            <button class="btn-primary copy-to-local-btn" data-d-tag="${escapeHtml(dTag)}">Copy to Local Playlist</button>
-            <button class="btn-secondary sync-playlist-btn" data-d-tag="${escapeHtml(dTag)}">Check for Updates</button>
-            <button class="btn-danger delete-playlist-btn" data-d-tag="${escapeHtml(dTag)}">Remove from Library</button>
-          `}
         </div>
       </div>
-      
-      ${!isLocal ? `
-        <div class="playlist-publisher-info">
-          <nostr-picture pubkey="${playlist.pubkey}"></nostr-picture>
-          <nostr-name pubkey="${playlist.pubkey}"></nostr-name>
-        </div>
-      ` : ''}
-      
-      <div class="playlist-content">
-        <div class="playlist-videos" id="playlist-videos">
-          ${renderPlaylistVideos(videoEvents, dTag, isLocal)}
-        </div>
+      <div class="playlist-actions">
+        <button class="btn-primary share-playlist-btn" data-d-tag="${escapeHtml(dTag)}">Share to Network</button>
+        <button class="btn-secondary edit-playlist-btn" data-d-tag="${escapeHtml(dTag)}">Edit Metadata</button>
+        <button class="btn-danger delete-playlist-btn" data-d-tag="${escapeHtml(dTag)}">Delete Playlist</button>
       </div>
-      
-      <!-- Add JSON display for local playlists -->
-      <div class="playlist-raw-data">
-        <details>
-          <summary><strong>Raw Event JSON</strong></summary>
-          <pre>${JSON.stringify(playlist, null, 2)}</pre>
-        </details>
+    </div>
+    
+    <div class="playlist-content">
+      <div class="playlist-videos" id="playlist-videos">
+        ${renderPlaylistVideos(videoEvents, dTag, true)}
       </div>
+    </div>
+    
+    <div class="playlist-raw-data">
+      <details>
+        <summary><strong>Raw Event JSON</strong></summary>
+        <pre>${JSON.stringify(playlist, null, 2)}</pre>
+      </details>
+    </div>
   `;
 }
+
+
 async function syncNetworkPlaylist(playlist) {
   if (isLocalPlaylist(playlist)) {
     return null; // Can't sync local playlists

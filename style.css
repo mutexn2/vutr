@@ -8504,6 +8504,8 @@ noscript {
 
 .playlist-details {
   flex: 1;
+  margin: 4px;
+  padding: 4px;
 }
 
 .playlist-details h1 {
@@ -8534,7 +8536,7 @@ noscript {
   display: flex;
   align-items: center;
 }
-/* Improved Playlist Video Items */
+
 .playlist-videos {
   display: flex;
   flex-direction: column;
@@ -11478,13 +11480,6 @@ noscript {
 
 
 /********************/
-/* .playlist-card.network-playlist {
-  border-left: 4px solid #4a90e2;
-}
-
-.playlist-card.local-playlist {
-  border-left: 4px solid #50c878;
-}
 
 .playlist-badge {
   position: absolute;
@@ -11508,29 +11503,29 @@ noscript {
 
 .playlist-author {
   margin-top: 8px;
-  color: #666;
+  color: var(--text);
   font-style: italic;
 }
 
-.playlist-overlay {
+/* .playlist-overlay {
   display: none;
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: var(--background);
   justify-content: center;
   align-items: center;
   gap: 8px;
-}
+} */
 
 .playlist-card.local-playlist:hover .playlist-overlay {
   display: flex;
 }
 
 .playlist-overlay button {
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--background);
   border: none;
   border-radius: 50%;
   width: 32px;
@@ -11542,9 +11537,9 @@ noscript {
 }
 
 .playlist-overlay button:hover {
-  background: white;
+  background: var(--surface);
   transform: scale(1.1);
-} */
+}
 
 /* Saved indicator in playlist cards */
 .saved-indicator {

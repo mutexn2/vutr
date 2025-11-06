@@ -23,7 +23,7 @@ A prototype video client built around [Nostr (NIP-71)](https://github.com/nostr-
 
 ## Technology
 
-- Vanilla JavaScript HTML CSS
+- JavaScript HTML CSS
 - Nostr-Tools
 - SPA
 - PWA

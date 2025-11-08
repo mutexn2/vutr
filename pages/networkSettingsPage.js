@@ -29,10 +29,10 @@ async function networkSettingsPageHandler() {
     </select>
   </div>
 <div class="set-actions">
-  <button id="createNewSetBtn" class="btn-primary">Create New Set</button>
   <button id="editActiveSetMetadataBtn" class="btn-secondary" ${isGlobalSet(app.activeRelayList) ? 'style="display:none"' : ''}>Edit Metadata</button>
-  <button id="shareActiveSetBtn" class="btn-primary" ${isGlobalSet(app.activeRelayList) ? 'style="display:none"' : ''}>Share Set</button>
-  <button id="deleteActiveSetBtn" class="btn-danger" ${isGlobalSet(app.activeRelayList) ? 'style="display:none"' : ''}>Delete Set</button>
+  <button id="shareActiveSetBtn" class="btn-primary" ${isGlobalSet(app.activeRelayList) ? 'style="display:none"' : ''}>Share</button>
+  <button id="deleteActiveSetBtn" class="btn-danger" ${isGlobalSet(app.activeRelayList) ? 'style="display:none"' : ''}>Delete</button>
+  <button id="createNewSetBtn" class="btn-primary">Create a New Set</button>
 </div>
 </div>
 

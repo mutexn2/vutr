@@ -31,13 +31,11 @@ async function faqPageHandler() {
       </p>
       <p>Experimental project exploring Nostr.</p>
       <p>Nostr works as the discovery/social layer for the URLs.</p>      
-
-      <p>Not using a new technology for media hosting other than <a href="https://github.com/hzrd149/blossom"
-          target="_blank">Blossom</a> which is currently optional and not fully applied, any file server should work.
+      <p>Normal media hosting on any http file server should work. <a href="https://github.com/hzrd149/blossom"
+          target="_blank">Blossom</a> is currently optional and not fully applied. 
       </p>
-
       <p>Runs fully local on device.</p>
-      <p>Just a client, not running or related to any nostr relay or media server.</p>      
+      <p>Just a frontend and not running or related to any nostr relay or media server.</p>      
       <a href="https://github.com/mutexn2/vutr" target="_blank">Open-source</a>
     </div>
 

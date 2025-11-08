@@ -268,6 +268,9 @@ function handleRoute() {
   cleanupVideoResources();
   cleanupChatResources();
   cancelActiveQueries();
+/*   if (window.location.hash !== '#relaysetsdiscover' && app.currentRelaySetSubscription) {
+  cleanupRelaySetDiscovery();
+} */
   stopAllSubscriptions();
   let hash = window.location.hash || "#";
   let baseHash = hash.split("/")[0];

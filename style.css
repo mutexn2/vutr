@@ -483,7 +483,6 @@ h1 {
 #colorPicker svg,
 .searchToggle svg,
 #toggleTheme svg,
-.video-action-tabs svg,
 .profile-info svg {
   width: 24px;
   height: 24px;
@@ -495,7 +494,6 @@ h1 {
 .light-theme #colorPicker svg,
 .light-theme .searchToggle svg,
 .light-theme #toggleTheme svg,
-.light-theme .video-action-tabs svg,
 .light-theme .profile-info svg {
   fill: var(--primary);
   stroke: var(--text);
@@ -7406,6 +7404,22 @@ noscript {
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
+.relay-set-card .relay-actions {
+  display: none;
+}
+
+.relay-set-card .relay-header {
+  width: 100%;
+  border: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.relay-set-card .relay-identity {
+  border: none;
+  background: var(--background);
+}
+
 .relay-set-card.active-set {
   border-color: var(--primary);
   background: var(--background);
@@ -10255,10 +10269,10 @@ noscript {
 
 .relays-discovery-page .relay-item {
   display: flex;
-  flex-direction: row;
-  align-items: center;
+  flex-direction: column;
+  align-items: start;
   justify-content: center;
-  padding: 12px;
+  padding: 4px;
   background: var(--background);
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -10554,6 +10568,11 @@ noscript {
   border-color: var(--border);
 }
 
+.ranking-item-wrapper .relay-header {
+  width: 100%;
+  max-width: 700px;
+}
+
 .relays-discovery-page .rank-badge {
   width: 2rem;
   height: 2rem;
@@ -10593,8 +10612,8 @@ noscript {
 }
 
 .relays-discovery-page .mention-stats {
-  font-size: 0.8rem;
-  color: var(--text);
+  font-size: large;
+  color: var(--primary);
 }
 
 .relays-discovery-page .ranking-actions {
@@ -10654,6 +10673,13 @@ noscript {
   -webkit-box-orient: vertical;
 }
 
+@media (max-width: 770px) {
+.relays-discovery-page .ranking-item {
+  flex-direction: column;
+  align-items: start;
+}
+
+}
 /************************/
 /******kind-1 follows*****/
 /* Skeleton loading states */

@@ -472,17 +472,32 @@ async function fetchRelayDocumentAndUpdate(relayUrl, index) {
     checkRelayStatus(relayUrl, index);
   }
 }
+
 // Helper function to normalize relay URLs
 function normalizeRelayUrl(url) {
-  if (!url.startsWith("wss://") && !url.startsWith("ws://")) {
-    return "wss://" + url;
+  let normalized = url.trim().toLowerCase(); // trim whitespace and lowercase
+  
+  // Add protocol if missing
+  if (!normalized.startsWith("wss://") && !normalized.startsWith("ws://")) {
+    normalized = "wss://" + normalized;
   }
-  return url;
+  
+  // Remove trailing slash
+  if (normalized.endsWith('/')) {
+    normalized = normalized.slice(0, -1);
+  }
+  
+  // Remove default ports (optional)
+//  normalized = normalized.replace(':80/', '/').replace(':443/', '/');
+  
+  return normalized;
 }
+
 function truncateText(text, maxLength) {
   if (!text || text.length <= maxLength) return text;
   return text.substring(0, maxLength) + '...';
 }
+
 // Helper functions
 function extractSoftwareName(softwareUrl) {
   try {
@@ -1204,10 +1219,15 @@ function showShareRelaySetModal(setName, setData) {
   const relays = setData.tags.filter(tag => tag[0] === "relay");
   const relayList = relays.map(relay => relay[1]).join('\n');
   
+  // Extract description tag
+  const descriptionTag = setData.tags.find(tag => tag[0] === "description");
+  const description = descriptionTag ? descriptionTag[1] : "";
+  
   const content = `
     <div class="share-relay-set-modal">
       <div class="set-preview">
         <h4>Relay Set: ${escapeHtml(setName)}</h4>
+        ${description ? `<p><strong>Description:</strong> ${escapeHtml(description)}</p>` : ''}
         <p><strong>Relays (${relays.length}):</strong></p>
         <pre class="relay-list-preview">${relayList}</pre>
       </div>

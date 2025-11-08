@@ -669,6 +669,9 @@ updateBlockButtonState();
 //////////////////////////////
 
 function showRelaySetSelector(relayUrl) {
+  // Normalize the incoming relay URL first
+  const normalizedRelayUrl = normalizeRelayUrl(relayUrl);
+  
   const relaySets = Object.entries(app.relayLists || {});
 
   const content = `
@@ -685,9 +688,9 @@ function showRelaySetSelector(relayUrl) {
                   (tag) => tag[0] === "relay"
                 ).length;
                 
-                // Check if relay is already in this set
+                // Check if relay is already in this set using normalized comparison
                 const hasRelay = setData.tags.some(
-                  (tag) => tag[0] === "relay" && tag[1] === relayUrl
+                  (tag) => tag[0] === "relay" && isUrlEquivalent(tag[1], normalizedRelayUrl)
                 );
 
                 return `
@@ -741,7 +744,7 @@ function showRelaySetSelector(relayUrl) {
       return;
     }
 
-    const success = createRelaySetAndAdd(name, relayUrl);
+    const success = createRelaySetAndAdd(name, normalizedRelayUrl);
 
     if (success) {
       showTemporaryNotification(`Relay added to new set "${name}"`);
@@ -758,7 +761,7 @@ function showRelaySetSelector(relayUrl) {
   setItems.forEach((item) => {
     item.addEventListener("click", () => {
       const setName = item.dataset.setName;
-      const success = addRelayToSet(setName, relayUrl);
+      const success = addRelayToSet(setName, normalizedRelayUrl);
 
       if (success) {
         showTemporaryNotification(`Relay added to "${setName}"`);

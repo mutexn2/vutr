@@ -41,7 +41,7 @@ async function relaySetsDiscoveryPageHandler() {
   let subscription = null;
 
   try {
-    const relays = app.globalRelays || [];
+    const relays = app.relays || [];
     
     if (relays.length === 0) {
       mainContent.innerHTML = `
@@ -62,7 +62,7 @@ async function relaySetsDiscoveryPageHandler() {
     rSets._receivedEvents = receivedEvents;
 
     // Setup unified event delegation once
-    setupUnifiedEventDelegation(mainContent, receivedEvents);
+    setupUnifiedEventDelegationForDiscoveryPage(mainContent, receivedEvents);
 
     let pendingCards = [];
     const BATCH_SIZE = 10;
@@ -137,37 +137,111 @@ function enableRankingTab() {
 }
 
 // UNIFIED event delegation for both tabs - fixes the double-firing issue
-function setupUnifiedEventDelegation(pageContainer, receivedEventsMap) {
+function setupUnifiedEventDelegationForDiscoveryPage(pageContainer, receivedEventsMap) {
   if (pageContainer._unifiedDelegationSetUp) return;
   pageContainer._unifiedDelegationSetUp = true;
   
-  pageContainer.addEventListener('click', (e) => {
-    const target = e.target;
+pageContainer.addEventListener('click', (e) => {
+  const target = e.target;
+  
+  // Helper function to get button text from SVG structure
+  const getButtonText = (target) => {
+    const button = target.closest('button');
+    if (!button) return null;
+    const span = button.querySelector('span');
+    return span ? span.textContent.trim() : null;
+  };
+  
+  const buttonText = getButtonText(target);
+  
+  // Handle "Add to Set" button specifically in ranking tab
+  if (target.classList.contains('ranking-add-to-set-btn') || 
+      target.closest('.ranking-add-to-set-btn')) {
+    e.stopPropagation();
+    const relayItem = target.closest('.relay-item');
+    const relayUrl = relayItem.dataset.relay;
+    showRelaySetSelector(relayUrl);
+    return;
+  }
+  
+  // Handle Check Status button
+  if (buttonText === "Check Status") {
+    e.stopPropagation();
+    const relayItem = target.closest(".relay-item");
+    const relayUrl = relayItem.dataset.relay;
+    const index = parseInt(relayItem.dataset.index);
     
-    // Handle "Add to relay set" buttons from ANY tab (unified handling)
-    if (target.classList.contains('add-relay-to-set-btn') || 
-        target.closest('.add-relay-to-set-btn')) {
-      e.stopPropagation();
-      const button = target.closest('.add-relay-to-set-btn');
-      const url = button.dataset.url;
-      console.log('Add relay to set:', url);
-      showRelaySetSelector(url);
-      return;
+    // Get the correct status ID for ranking items
+    const statusId = `status-ranking-${index}`;
+    const statusElement = document.getElementById(statusId);
+    if (statusElement) {
+      checkRelayStatusForRanking(relayUrl, statusId, true);
     }
+    return;
+  }
+  
+  // Handle Relay Info button
+  if (buttonText === "Relay Info" || buttonText === "Info") {
+    e.preventDefault(); 
+    e.stopPropagation();
+    const relayUrl = target.closest(".relay-item").dataset.relay;
+    getRelayInfo(relayUrl);
+    return;
+  }
+  
+  // Handle Visit button
+/*   if (buttonText === "Visit") {
+    e.stopPropagation();
+    let relayUrl = target.closest(".relay-item").dataset.relay;
+    if (relayUrl.startsWith('wss://')) {
+      relayUrl = relayUrl.slice(6);
+    } else if (relayUrl.startsWith('ws://')) {
+      relayUrl = relayUrl.slice(5);
+    }
+    window.location.hash = `#singlerelay/${relayUrl}`;
+    return;
+  } */
+  
+  // Handle Block/Unblock button
+  if (buttonText === "Block" || buttonText === "Unblock") {
+    e.stopPropagation();
+    const relayItem = target.closest(".relay-item");
+    const relayUrl = relayItem.dataset.relay;
+    const button = target.closest('button');
+    const buttonSpan = button.querySelector('span');
     
-    // Handle "Visit relay" buttons from ANY tab (unified handling)
-    if (target.classList.contains('relay-action-btn') || 
-        target.closest('.relay-action-btn')) {
-      e.stopPropagation();
-      const button = target.closest('.relay-action-btn');
-      const url = button.dataset.url;
-      console.log('WebSocket URL:', url);
-      const cleanUrl = url.replace(/^(wss?:\/\/|https?:\/\/)/, '');
-      window.location.hash = `#singlerelay/${cleanUrl}`;
-      return;
+    if (buttonText === "Block") {
+      if (confirm(`Block all future connections to:\n${extractDomainName(relayUrl)}?`)) {
+        window.WebSocketManager.blockURL(relayUrl);
+        
+        button.style.backgroundColor = '#ff00005c';
+        button.style.borderColor = 'red';
+        buttonSpan.textContent = 'Unblock';
+        
+        const originalText = buttonSpan.textContent;
+        buttonSpan.textContent = 'Blocked!';
+        setTimeout(() => {
+          buttonSpan.textContent = 'Unblock';
+        }, 1000);
+      }
+    } else if (buttonText === "Unblock") {
+      if (confirm(`Unblock connections to:\n${extractDomainName(relayUrl)}?`)) {
+        window.WebSocketManager.unblockURL(relayUrl);
+        
+        button.style.backgroundColor = '';
+        button.style.borderColor = '';
+        buttonSpan.textContent = 'Block';
+        
+        const originalText = buttonSpan.textContent;
+        buttonSpan.textContent = 'Unblocked!';
+        setTimeout(() => {
+          buttonSpan.textContent = 'Block';
+        }, 1000);
+      }
     }
-
-    // Rest of the handlers only apply to relay-set-card elements (Sets tab)
+    return;
+  }
+    // Rest of the handlers for relay-set-card elements...
     const card = target.closest('.relay-set-card');
     if (!card) return;
     
@@ -327,25 +401,38 @@ function handleCollapseRelaysClick(collapseBtn, card) {
   ` : '') + allUrls.slice(0, 3).map(url => createRelayItemHtml(url)).join('');
 }
 
-// Helper function to avoid HTML duplication
+// Updated createRelayItemHtml for feed tab - now uses relay-identity
 function createRelayItemHtml(url) {
-  return `
-    <div class="relay-item">
-      <span class="relay-url">${escapeHtml(url)}</span>
-      <button class="add-relay-to-set-btn" data-url="${escapeHtml(url)}" title="Add to relay set">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-        </svg>
-      </button>
-      <button class="relay-action-btn" data-url="${escapeHtml(url)}" title="Visit relay">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M15.59 14.37a6 6 0 0 1-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 0 0 6.16-12.12A14.98 14.98 0 0 0 9.631 8.41m5.96 5.96a14.926 14.926 0 0 1-5.841 2.58m-.119-8.54a6 6 0 0 0-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 0 0-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 0 1-2.448-2.448 14.9 14.9 0 0 1 .06-.312m-2.24 2.39a4.493 4.493 0 0 0-1.757 4.306 4.493 4.493 0 0 0 4.306-1.758M16.5 9a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z" />
-        </svg>
-      </button>
+  const { html: identityHtml, iconId } = createRelayIdentityHTML(url);
+  
+  // Store iconId for lazy loading
+  const itemHtml = `
+    <div class="relay-item" data-relay="${escapeHtml(url)}" data-icon-id="${iconId}">
+      <div class="relay-header">
+        ${identityHtml}
+      </div>
+      <div class="relay-actions">
+        <button class="btn btn-primary relay-add-btn" data-url="${escapeHtml(url)}" title="Add to relay set">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 4.5v15m7.5-7.5h-15" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span>Add to Set</span>
+        </button>
+      <!--  <button class="btn btn-secondary relay-visit-btn" data-url="${escapeHtml(url)}" title="Visit relay">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M15 13.5V9M15 9H10.5M15 9L9.00019 14.9999M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z"/>
+          </svg>
+          <span>Visit</span>
+        </button> -->
+      </div>
     </div>
   `;
+  
+  // Queue icon loading (will be done when visible)
+  setTimeout(() => loadRelayIcon(url, iconId), 0);
+  
+  return itemHtml;
 }
-
 function showImportPreviewModal(event) {
   const titleTag = event.tags.find(tag => tag[0] === 'title');
   const originalTitle = titleTag ? titleTag[1] : 'Untitled Set';
@@ -601,33 +688,18 @@ function renderRelayRanking(rankedRelays, container, totalSets) {
     const rank = index + 1;
     const percentage = totalSets > 0 ? Math.round((relay.count / totalSets) * 100) : 0;
     
+    const mentionStats = `
+      <div class="mention-stats" style="margin-top: 8px; padding: 8px; background: var(--background-secondary); border-radius: 4px;">
+        <strong>Rank #${rank}</strong> • Mentioned in ${relay.count} of ${totalSets} sets (${percentage}%)
+      </div>
+    `;
+    
+    // Create full relay item exactly like network page
+    const relayItemHTML = createRankingRelayItemHTML(relay.url, index, null, mentionStats);
+    
     return `
-      <div class="ranking-item" data-rank="${rank}" data-relay-url="${escapeHtml(relay.url)}">
-        <div class="rank-badge">${rank}</div>
-        <div class="ranking-details">
-          <div class="relay-info-header-compact">
-            <div class="relay-icon-placeholder"></div>
-            <div class="relay-text-info">
-              <div class="relay-url-ranking">${escapeHtml(relay.url)}</div>
-              <div class="relay-name-description"></div>
-            </div>
-          </div>
-          <div class="mention-stats">
-            Mentioned in ${relay.count} of ${totalSets} sets (${percentage}%)
-          </div>
-        </div>
-        <div class="ranking-actions">
-          <button class="add-relay-to-set-btn" data-url="${escapeHtml(relay.url)}" title="Add to relay set">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-          </button>
-          <button class="relay-action-btn" data-url="${escapeHtml(relay.url)}" title="Visit relay">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15.59 14.37a6 6 0 0 1-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 0 0 6.16-12.12A14.98 14.98 0 0 0 9.631 8.41m5.96 5.96a14.926 14.926 0 0 1-5.841 2.58m-.119-8.54a6 6 0 0 0-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 0 0-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 0 1-2.448-2.448 14.9 14.9 0 0 1 .06-.312m-2.24 2.39a4.493 4.493 0 0 0-1.757 4.306 4.493 4.493 0 0 0 4.306-1.758M16.5 9a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z" />
-            </svg>
-          </button>
-        </div>
+      <div class="ranking-item-wrapper" data-rank="${rank}" data-relay-url="${escapeHtml(relay.url)}" data-index="${index}">
+        ${relayItemHTML}
       </div>
     `;
   }).join('');
@@ -635,9 +707,55 @@ function renderRelayRanking(rankedRelays, container, totalSets) {
   container.innerHTML = rankingHtml;
   
   // Set up lazy loading for relay info
-  setupLazyRelayInfoLoading(container);
+  setupLazyRelayInfoLoadingForRanking(container);
 }
-
+function setupLazyRelayInfoLoadingForRanking(container) {
+  const observer = new IntersectionObserver(async (entries) => {
+    for (const entry of entries) {
+      if (entry.isIntersecting) {
+        const rankingWrapper = entry.target;
+        
+        if (rankingWrapper.dataset.infoLoaded === 'true') {
+          observer.unobserve(rankingWrapper);
+          continue;
+        }
+        
+        const relayUrl = rankingWrapper.dataset.relayUrl;
+        const index = rankingWrapper.dataset.index;
+        
+        rankingWrapper.dataset.infoLoaded = 'loading';
+        
+        // Fetch relay info
+        const relayInfo = await fetchRelayInfo(relayUrl);
+        
+        if (relayInfo) {
+          // Get the mention stats HTML before replacing
+          const mentionStats = rankingWrapper.querySelector('.mention-stats')?.outerHTML || '';
+          
+          // Re-create the relay item with full info
+          const newHTML = createRankingRelayItemHTML(relayUrl, index, relayInfo, mentionStats);
+          const relayItem = rankingWrapper.querySelector('.relay-item');
+          relayItem.outerHTML = newHTML;
+        }
+        
+        // Load icon (works for both cases)
+        const iconId = `icon-ranking-${index}`;
+        loadRelayIcon(relayUrl, iconId);
+        
+        rankingWrapper.dataset.infoLoaded = 'true';
+        observer.unobserve(rankingWrapper);
+      }
+    }
+  }, {
+    rootMargin: '50px'
+  });
+  
+  container.querySelectorAll('.ranking-item-wrapper').forEach(item => {
+    observer.observe(item);
+  });
+  
+  container._relayInfoObserver = observer;
+}
 
 async function fetchRelayInfo(relayUrl) {
   try {
@@ -776,4 +894,233 @@ function setupLazyRelayInfoLoading(container) {
   
   // Store observer for cleanup
   container._relayInfoObserver = observer;
+}
+
+
+
+
+
+
+
+
+///////////////
+// global helpers
+// Shared function to create relay identity element (icon + name + url)
+function createRelayIdentityHTML(relayUrl, relayDoc = null) {
+  const domain = extractDomainName(relayUrl);
+  const name = relayDoc?.name || domain;
+  const uniqueId = `icon-${crypto.randomUUID().slice(0, 8)}`;
+  
+  return {
+    html: `
+      <div class="relay-identity">
+        <img id="${uniqueId}" class="relay-icon" alt="" style="display: none;">
+        <div class="relay-text-info">
+          <h3 class="relay-name">${escapeHtml(name)}</h3>
+          <div class="relay-url">${escapeHtml(relayUrl)}</div>
+        </div>
+      </div>
+    `,
+    iconId: uniqueId
+  };
+}
+
+// Shared function to create full relay item (like in network page)
+function createDiscoveryRelayItemHTML(relayUrl, relayDoc = null, options = {}) {
+  const domain = extractDomainName(relayUrl);
+  const name = relayDoc?.name || domain;
+  const description = relayDoc?.description || "";
+  const uniqueId = `icon-${crypto.randomUUID().slice(0, 8)}`;
+  
+  const supportedNips = relayDoc?.supported_nips?.length || 0;
+  const software = relayDoc?.software ? extractSoftwareName(relayDoc.software) : "";
+  const authRequired = relayDoc?.limitation?.auth_required || false;
+  const paymentRequired = relayDoc?.limitation?.payment_required || false;
+  
+  // Optional extra content (like mention stats for ranking)
+  const extraContent = options.extraContent || '';
+  
+  return {
+    html: `
+      <div class="relay-item" data-relay="${escapeHtml(relayUrl)}">
+        <div class="relay-header">
+          <div class="relay-main-info">
+            <div class="relay-identity">
+              <img id="${uniqueId}" class="relay-icon" alt="" style="display: none;">
+              <div class="relay-text-info">
+                <h3 class="relay-name">${escapeHtml(name)}</h3>
+                <div class="relay-url">${escapeHtml(relayUrl)}</div>
+              </div>
+            </div>
+          </div>
+          
+          ${description ? `<div class="relay-description">${escapeHtml(truncateText(description, 120))}</div>` : ''}
+          
+          ${(supportedNips > 0 || software || authRequired || paymentRequired) ? `
+            <div class="relay-badges">
+              ${supportedNips > 0 ? `<span class="badge badge-info">NIPs: ${supportedNips}</span>` : ''}
+              ${software ? `<span class="badge badge-info">${software}</span>` : ''}
+              ${authRequired ? '<span class="badge badge-warning">Auth Required</span>' : ''}
+              ${paymentRequired ? '<span class="badge badge-warning">Payment Required</span>' : ''}
+            </div>
+          ` : ''}
+          
+          ${extraContent}
+        </div>
+        
+        <div class="relay-actions">
+         <!-- <button class="btn btn-secondary relay-visit-btn" data-url="${escapeHtml(relayUrl)}">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M15 13.5V9M15 9H10.5M15 9L9.00019 14.9999M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z"/>
+            </svg>
+            <span>Visit</span>
+          </button> -->
+          <button class="btn btn-primary relay-add-btn" data-url="${escapeHtml(relayUrl)}">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 4.5v15m7.5-7.5h-15" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>Add to Set</span>
+          </button>
+        </div>
+      </div>
+    `,
+    iconId: uniqueId
+  };
+}
+
+// Shared function to load relay icon
+async function loadRelayIcon(relayUrl, iconId) {
+  const iconElement = document.getElementById(iconId);
+  if (!iconElement) return;
+  
+  try {
+    const httpUrl = relayUrl
+      .replace("wss://", "https://")
+      .replace("ws://", "http://");
+    
+    const response = await fetch(httpUrl, {
+      headers: { Accept: "application/nostr+json" },
+    });
+    
+    if (response.ok) {
+      const relayDoc = await response.json();
+      if (relayDoc.icon) {
+        iconElement.src = relayDoc.icon;
+        iconElement.style.display = "inline";
+        return;
+      }
+    }
+    
+    // Fallback to favicon
+    const faviconUrl = `${httpUrl}/favicon.ico`;
+    const img = new Image();
+    img.onload = () => {
+      iconElement.src = faviconUrl;
+      iconElement.style.display = "inline";
+    };
+    img.onerror = () => {
+      iconElement.style.display = "none";
+    };
+    img.src = faviconUrl;
+  } catch (error) {
+    iconElement.style.display = "none";
+  }
+}
+
+function createRankingRelayItemHTML(relayUrl, index, relayDoc = null, extraContent = '') {
+  const domain = extractDomainName(relayUrl);
+  const name = relayDoc?.name || domain;
+  const description = relayDoc?.description || "";
+  const uniqueIconId = `icon-ranking-${index}`;
+  const uniqueStatusId = `status-ranking-${index}`;
+  
+  // Check if this relay is blocked
+  const isBlocked = window.WebSocketManager && window.WebSocketManager.isURLBlocked(relayUrl);
+  
+  const supportedNips = relayDoc?.supported_nips?.length || 0;
+  const software = relayDoc?.software ? extractSoftwareName(relayDoc.software) : "";
+  const authRequired = relayDoc?.limitation?.auth_required || false;
+  const paymentRequired = relayDoc?.limitation?.payment_required || false;
+  
+  return `
+    <div class="relay-item" data-relay="${relayUrl}" data-index="${index}">
+      <div class="relay-header">
+        <div class="relay-main-info">
+          <div class="relay-identity">
+            <img id="${uniqueIconId}" class="relay-icon" alt="" style="display: none;">
+            <div class="relay-text-info">
+              <h3 class="relay-name">${escapeHtml(name)}</h3>
+              <div class="relay-url">${escapeHtml(relayUrl)}</div>
+            </div>
+          </div>
+          <div class="relay-status" id="${uniqueStatusId}">
+           <!-- <span class="status-checking">Ready</span> -->
+          </div>
+        </div>
+        
+        ${description ? `<div class="relay-description">${escapeHtml(truncateText(description, 120))}</div>` : ''}
+        
+        ${(supportedNips > 0 || software || authRequired || paymentRequired) ? `
+          <div class="relay-badges">
+            ${supportedNips > 0 ? `<span class="badge badge-info">NIPs: ${supportedNips}</span>` : ''}
+            ${software ? `<span class="badge badge-info">${software}</span>` : ''}
+            ${authRequired ? '<span class="badge badge-warning">Auth Required</span>' : ''}
+            ${paymentRequired ? '<span class="badge badge-warning">Payment Required</span>' : ''}
+          </div>
+        ` : ''}
+        
+        ${extraContent}
+      </div>
+      
+      <div class="relay-actions">
+        <button class="btn btn-primary">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+          </svg>
+          <span>Check Status</span>
+        </button>
+        <button class="btn btn-secondary">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" stroke-linejoin="round"/>
+            <path d="M12 16v-4" stroke-linecap="round"/>
+            <circle cx="12" cy="8" r="1" fill="currentColor"/>
+          </svg>
+          <span>Relay Info</span>
+        </button>
+   <!--     <button class="btn btn-secondary">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M15 13.5V9M15 9H10.5M15 9L9.00019 14.9999M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z"/>
+          </svg>
+          <span>Visit</span>
+        </button> -->
+        <button class="btn btn-primary ranking-add-to-set-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 4.5v15m7.5-7.5h-15" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span>Add to Set</span>
+        </button>
+        <button class="btn btn-secondary" ${isBlocked ? 'style="background-color: #ff00005c; border-color: red;"' : ''}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="4" y1="20" x2="20" y2="4"/>
+          </svg>
+          <span>${isBlocked ? 'Unblock' : 'Block'}</span>
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+
+async function checkRelayStatusForRanking(relayUrl, statusId, verbose = false) {
+  const statusElement = document.getElementById(statusId);
+  if (!statusElement) return;
+  
+  if (!verbose) {
+    statusElement.innerHTML = '<span class="status-checking">Checking...</span>';
+    return performBasicCheck(relayUrl, statusId, statusElement);
+  } else {
+    statusElement.innerHTML = '<span class="status-checking">Running analysis...</span>';
+    return performDetailedAnalysis(relayUrl, statusId, statusElement);
+  }
 }

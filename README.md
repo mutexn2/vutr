@@ -14,8 +14,8 @@ A prototype video client built around [Nostr (NIP-71)](https://github.com/nostr-
 ## Features
 
 - Uses Nostr protocol as the social/discovery layer
-- Runs fully locally on your device
 - Compatible (mostly) with any file server ([Blossom](https://github.com/hzrd149/blossom) optional)
+- Runs fully locally on your device
 - Just a frontend and Not affiliated with any relay or media server
 
 

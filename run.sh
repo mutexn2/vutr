@@ -73,6 +73,7 @@ start_file_watcher() {
         echo -e "${YELLOW}File change detected → updating version...${NC}"
         update_version
         echo "Refresh the app"
+        echo "http://localhost:8081"
     done
 }
 

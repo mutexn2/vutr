@@ -52,7 +52,7 @@ function renderMainForm() {
     <input type="text" id="video-url" placeholder="Enter video URL (mp4, webm, etc.)">
     <button type="button" id="add-video">Add Video</button>
   </div>
-  <div class="validation-options">
+  <div class="validation-options" style="display: none;">
     <label>
       <input type="checkbox" id="lightweight-mode">
       skip blossom validation and accurate metadata

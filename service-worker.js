@@ -1,4 +1,4 @@
-const CACHE_VERSION = "vutr-v0.00026321258";
+const CACHE_VERSION = "vutr-v0.00026321270";
 
 const BASE_PATH = self.location.pathname.replace("service-worker.js", "");
 

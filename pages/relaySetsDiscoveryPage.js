@@ -11,7 +11,7 @@ async function relaySetsDiscoveryPageHandler() {
     <div class="relays-discovery-page">
       <div class="discovery-tabs">
         <button class="tab-button active" data-tab="sets">Relay Sets</button>
-        <button class="tab-button disabled" data-tab="ranking" id="ranking-tab-btn" disabled title="Available after discovery completes">Relay Ranking</button>
+        <button class="tab-button disabled" data-tab="ranking" id="ranking-tab-btn" disabled title="Available after discovery completes">Working...</button>
       </div>
       <div class="tab-content">
         <div class="tab-pane active" id="sets-tab">
@@ -133,6 +133,7 @@ function enableRankingTab() {
     rankingTabBtn.disabled = false;
     rankingTabBtn.classList.remove('disabled'); // Remove the CSS class
     rankingTabBtn.title = '';
+    rankingTabBtn.textContent = 'Relay Ranking';
   }
 }
 
@@ -639,39 +640,40 @@ function setupDiscoveryTabs() {
 }
 
 function showRelayRanking(rankingContainer) {
-  const rSets = document.querySelector('.videos-listview');
-  const receivedEvents = rSets ? rSets._receivedEvents : null;
-  
-  // Disconnect previous observer if exists
-  if (rankingContainer._relayInfoObserver) {
-    rankingContainer._relayInfoObserver.disconnect();
-  }
-  
-  if (!receivedEvents || receivedEvents.size === 0) {
-    rankingContainer.innerHTML = `
-      <div class="no-data-message">
-        <p>No relay sets data available yet. Relay ranking will appear here once relay sets are discovered.</p>
-      </div>
-    `;
-    return;
-  }
+    const rSets = document.querySelector('.videos-listview');
+    const receivedEvents = rSets ? rSets._receivedEvents : null;
 
-  const relayMentions = new Map();
-  
-  receivedEvents.forEach(event => {
-    const relayUrls = extractWebSocketUrls(event);
-    relayUrls.forEach(url => {
-      const cleanUrl = url.toLowerCase().trim();
-      const currentCount = relayMentions.get(cleanUrl) || 0;
-      relayMentions.set(cleanUrl, currentCount + 1);
+    // Disconnect previous observer if exists
+    if (rankingContainer._relayInfoObserver) {
+        rankingContainer._relayInfoObserver.disconnect();
+    }
+
+    if (!receivedEvents || receivedEvents.size === 0) {
+        rankingContainer.innerHTML = `
+            <div class="no-data-message">
+                <p>No relay sets data available yet. Relay ranking will appear here once relay sets are discovered.</p>
+            </div>
+        `;
+        return;
+    }
+
+    const relayMentions = new Map();
+    
+    receivedEvents.forEach(event => {
+        const relayUrls = extractWebSocketUrls(event);
+        relayUrls.forEach(url => {
+            // Use your existing normalization function
+            const cleanUrl = normalizeRelayUrl(url);
+            const currentCount = relayMentions.get(cleanUrl) || 0;
+            relayMentions.set(cleanUrl, currentCount + 1);
+        });
     });
-  });
 
-  const rankedRelays = Array.from(relayMentions.entries())
-    .map(([url, count]) => ({ url, count }))
-    .sort((a, b) => b.count - a.count);
+    const rankedRelays = Array.from(relayMentions.entries())
+        .map(([url, count]) => ({ url, count }))
+        .sort((a, b) => b.count - a.count);
 
-  renderRelayRanking(rankedRelays, rankingContainer, receivedEvents.size);
+    renderRelayRanking(rankedRelays, rankingContainer, receivedEvents.size);
 }
 
 function renderRelayRanking(rankedRelays, container, totalSets) {
@@ -1045,6 +1047,7 @@ function createRankingRelayItemHTML(relayUrl, index, relayDoc = null, extraConte
   return `
     <div class="relay-item" data-relay="${relayUrl}" data-index="${index}">
       <div class="relay-header">
+      ${extraContent}
         <div class="relay-main-info">
           <div class="relay-identity">
             <img id="${uniqueIconId}" class="relay-icon" alt="" style="display: none;">
@@ -1069,7 +1072,7 @@ function createRankingRelayItemHTML(relayUrl, index, relayDoc = null, extraConte
           </div>
         ` : ''}
         
-        ${extraContent}
+        
       </div>
       
       <div class="relay-actions">

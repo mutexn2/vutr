@@ -55,12 +55,13 @@ async function websocketsPageHandler() {
       statsGrid.className = 'stats-grid';
       
       const statItems = [
-      //  { value: stats.workingConnections, label: 'Working Connections' },
         { value: stats.workingURLs, label: 'Working URLs' },
-      //  { value: stats.activeConnections, label: 'Total Active' },
-      //  { value: stats.totalCreated, label: 'Total Created' },
         { value: stats.totalErrors, label: 'Errors' }
       ];
+      
+      if (stats.authRequestedURLs > 0) {
+        statItems.push({ value: stats.authRequestedURLs, label: 'AUTH Requested' });
+      }
       
       if (stats.blockedURLs > 0) {
         statItems.push({ value: stats.blockedURLs, label: 'Blocked URLs' });
@@ -124,10 +125,14 @@ async function websocketsPageHandler() {
       
       meta.appendChild(createStatusBadge(statusClass));
       
-  //    const countSpan = document.createElement('span');
-  //    countSpan.className = 'connection-count';
-  //    countSpan.textContent = `${urlInfo.workingCount}/${urlInfo.activeCount} working`;
-  //    meta.appendChild(countSpan);
+      // Show AUTH badge if relay requested auth
+      if (urlInfo.authRequested) {
+        const authBadge = document.createElement('span');
+        authBadge.className = 'auth-badge';
+        authBadge.textContent = '🔐 AUTH';
+        authBadge.title = 'This relay has requested authentication';
+        meta.appendChild(authBadge);
+      }
       
       const timeSpan = document.createElement('span');
       timeSpan.className = 'connection-time';
@@ -145,23 +150,59 @@ async function websocketsPageHandler() {
         `URL: ${urlInfo.url}`,
         `First Connected: ${urlInfo.firstConnected.toLocaleString()}`,
         `Last Activity: ${urlInfo.lastActivity.toLocaleString()} (${formatTimeAgo(lastActivityAgo)})`,
-        `Total Messages: ${urlInfo.totalMessages} | Total Errors: ${urlInfo.totalErrors}`,
-    //    `Working Connections: ${urlInfo.workingCount} | Total Active: ${urlInfo.activeCount}`
+        `Messages: ${urlInfo.totalMessages} sent, ${urlInfo.totalSentMessages} received | Errors: ${urlInfo.totalErrors}`,
       ];
       
-  //    if (urlInfo.originalURLs.length > 1) {
-  //      detailItems.splice(1, 0, `Original URLs: ${urlInfo.originalURLs.join(', ')}`);
-  //    }
+      // Add AUTH info if applicable
+      if (urlInfo.authRequested) {
+        const lastAuthAgo = Math.floor((Date.now() - urlInfo.lastAuthRequest.getTime()) / 1000);
+        detailItems.push(`AUTH Requested: ${formatTimeAgo(lastAuthAgo)} (${urlInfo.authChallengeCount} time${urlInfo.authChallengeCount > 1 ? 's' : ''})`);
+      }
       
       detailItems.forEach(text => {
         const small = document.createElement('small');
-        small.innerHTML = `<strong>${text.split(': ')[0]}:</strong> ${text.split(': ').slice(1).join(': ')}`;
+        const parts = text.split(': ');
+        const label = parts[0];
+        const value = parts.slice(1).join(': ');
+        small.innerHTML = `<strong>${label}:</strong> ${value}`;
         details.appendChild(small);
       });
       
       // Actions
       const actions = document.createElement('div');
       actions.className = 'connection-actions';
+      
+      // AUTH actions (if relay requested auth)
+      if (urlInfo.authRequested) {
+        const authActions = document.createElement('div');
+        authActions.className = 'auth-actions';
+        
+        // Auth Now button
+        const authNowBtn = createActionButton('🔐 Auth Now', 'auth-now-btn', () => {
+          console.log('Auth Now clicked for:', urlInfo.url);
+          // Future: Trigger AUTH flow with nostr-tools
+        });
+        authActions.appendChild(authNowBtn);
+        
+        // Auto-Auth toggle
+        const autoAuthToggle = document.createElement('label');
+        autoAuthToggle.className = 'auto-auth-toggle';
+        autoAuthToggle.innerHTML = `
+          <input type="checkbox" data-url="${urlInfo.url}">
+          <span>Auto-AUTH</span>
+        `;
+        autoAuthToggle.querySelector('input').addEventListener('change', (e) => {
+          console.log('Auto-AUTH toggled for:', urlInfo.url, 'enabled:', e.target.checked);
+          // Future: Save to localStorage and handle auto-auth
+        });
+        authActions.appendChild(autoAuthToggle);
+        
+        actions.appendChild(authActions);
+      }
+      
+      // Connection management actions
+      const connectionActions = document.createElement('div');
+      connectionActions.className = 'connection-management-actions';
       
       if (urlInfo.isActive) {
         const closeBtn = createActionButton('Close All', 'close-all-btn', (e) => {
@@ -172,16 +213,18 @@ async function websocketsPageHandler() {
             setTimeout(render, 500);
           }
         });
-        actions.appendChild(closeBtn);
+        connectionActions.appendChild(closeBtn);
       }
       
       const blockBtn = createActionButton('Block', 'block-btn', () => {
-        if (confirm(`Block all future connections to:\n${hostname}?\n (Refresh the app to see the changes)`)) {
+        if (confirm(`Block all future connections to:\n${hostname}?\n(Refresh the app to see the changes)`)) {
           window.WebSocketManager.blockURL(urlInfo.url);
           setTimeout(render, 500);
         }
       });
-      actions.appendChild(blockBtn);
+      connectionActions.appendChild(blockBtn);
+      
+      actions.appendChild(connectionActions);
       
       connectionDiv.appendChild(header);
       connectionDiv.appendChild(details);
@@ -232,7 +275,7 @@ async function websocketsPageHandler() {
       actions.className = 'connection-actions';
       
       const unblockBtn = createActionButton('Unblock', 'unblock-btn', () => {
-        if (confirm(`Unblock connections to:\n${hostname}?\n (Refresh the app to see the changes)`)) {
+        if (confirm(`Unblock connections to:\n${hostname}?\n(Refresh the app to see the changes)`)) {
           window.WebSocketManager.unblockURL(url);
           render();
         }
@@ -322,8 +365,9 @@ async function websocketsPageHandler() {
         return;
       }
       
-      // Sort by working status first, then by most recent activity
+      // Sort: AUTH requested first, then by working status, then by activity
       aggregatedConnections.sort((a, b) => {
+        if (a.authRequested !== b.authRequested) return a.authRequested ? -1 : 1;
         if (a.isWorking !== b.isWorking) return a.isWorking ? -1 : 1;
         if (a.isActive !== b.isActive) return a.isActive ? -1 : 1;
         return b.lastActivity - a.lastActivity;

@@ -10276,7 +10276,7 @@ noscript {
   background: var(--background);
   border: 1px solid var(--border);
   border-radius: 4px;
-  gap: 8px;
+  gap: 0;
   font-size: large;
 }
 
@@ -10543,6 +10543,14 @@ noscript {
   max-width: 100%;
 }
 
+.ranking-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  justify-content: start;
+  width: 100%;
+}
+
 .relays-discovery-page .ranking-info {
   background-color: var(--background);
   padding: 0.75rem 1rem;
@@ -10571,6 +10579,8 @@ noscript {
 .ranking-item-wrapper .relay-header {
   width: 100%;
   max-width: 700px;
+  padding-bottom: none;
+  border-bottom: none;
 }
 
 .relays-discovery-page .rank-badge {
@@ -11037,6 +11047,56 @@ noscript {
   display: block;
 }
 
+.auth-badge {
+  background: var(--surface);
+  color: var(--text);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.auth-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.5rem;
+  background: var(--background);
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+}
+
+.auth-now-btn {
+  background: #3b82f6;
+  color: var(--text);
+}
+
+.auth-now-btn:hover {
+  background: #2563eb;
+}
+
+.auto-auth-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.auto-auth-toggle input[type="checkbox"] {
+  cursor: pointer;
+}
+
+.connection-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.connection-management-actions {
+  display: flex;
+  gap: 0.5rem;
+}
 /* Connection Items */
 .connection-item {
   border: 1px solid var(--border);

@@ -152,7 +152,7 @@
   let scriptGroups = [
     // core libraries
     // normally imported via CDN if possible then saved locally, all statically served within app
-    // uncomment to get latest version and manually update (cope/paste to local file)
+    // uncomment to get latest version and manually update (copy/paste to local file)
     [
       //"https://unpkg.com/nostr-tools/lib/nostr.bundle.js",
       // 8-2025
@@ -167,11 +167,9 @@
       // @nostr/gadgets@0.0.39 | latest: 0.0.39 | versions: 38
       "lib/nostr-gadgets.js",
 
-
       //"https://cdn.jsdelivr.net/npm/nostr-web-components/dist/index.js",
       // 9-2025
       "lib/nostr-web-components.js",
-
 
       //"https://unpkg.com/window.nostr.js/dist/window.nostr.js",
       //
@@ -197,7 +195,7 @@
       "components/videoComments.js",
       "components/zapButton.js",
       "config.js",
- //     "indexeddb.js",
+      //     "indexeddb.js",
     ],
 
     // page handlers and nostr
@@ -215,7 +213,7 @@
       "pages/relaySetsDiscoveryPage.js",
       "pages/playlistPage.js",
       "pages/playlistsPage.js",
-    //  "pages/queueHistoryPage.js",
+      //  "pages/queueHistoryPage.js",
       "pages/localPlaylistsPage.js",
       "pages/localPlaylistPage.js",
       "pages/profilePage.js",
@@ -232,7 +230,7 @@
       "pages/nakPage.js",
       "pages/shortsPage.js",
       "pages/homePage.js",
- //     "pages/newHomePage.js",
+      //     "pages/newHomePage.js",
       "pages/offlinePage.js",
       "pages/aboutPage.js",
       "nostr.js",
@@ -247,7 +245,6 @@
     return new Promise((resolve, reject) => {
       let script = document.createElement("script");
       script.src = src;
-     
 
       if (src.startsWith("http")) {
         script.defer = true;
@@ -304,20 +301,13 @@
   loadAllScripts();
 })();
 
-
-
-
-
-
-
-
 //////////////////////////
 //////////////////////////
 // websocket interceptor
 (function() {
   const originalWebSocket = window.WebSocket;
   const activeConnections = new Map();
-  const urlConnections = new Map(); // Track connections by normalized URL
+  const urlConnections = new Map();
   let blockedURLs = new Set();
   const connectionStats = {
     totalCreated: 0,
@@ -329,28 +319,20 @@
   function normalizeWebSocketURL(url) {
     try {
       const urlObj = new URL(url);
-      // Remove trailing slash unless it's the root path
       if (urlObj.pathname.endsWith('/') && urlObj.pathname.length > 1) {
         urlObj.pathname = urlObj.pathname.slice(0, -1);
       }
       return urlObj.toString();
     } catch (error) {
-      // If URL parsing fails, just remove trailing slash if present
       return url.endsWith('/') && url.length > url.indexOf('://') + 4 ? url.slice(0, -1) : url;
     }
   }
   
   // Determine if a connection is truly working
   function isConnectionWorking(connectionInfo) {
-    // Connection is working if:
-    // 1. It's in OPEN state, OR
-    // 2. It has successfully sent/received messages, OR  
-    // 3. It's still connecting and hasn't had errors yet
-    
     if (connectionInfo.readyState === 1) return true; // OPEN
     if (connectionInfo.messageCount > 0) return true; // Has messages
     if (connectionInfo.readyState === 0 && connectionInfo.errorCount === 0) return true; // Still connecting without errors
-    
     return false;
   }
   
@@ -395,7 +377,7 @@
     // Track this connection
     const connectionInfo = {
       id,
-      url: url, // Keep original URL
+      url: url,
       normalizedURL: normalizedURL,
       protocols: protocols || [],
       websocket: ws,
@@ -403,10 +385,14 @@
       readyState: ws.readyState,
       lastActivity: new Date(),
       messageCount: 0,
+      sentMessageCount: 0,
       errorCount: 0,
       isActive: true,
-      hasBeenOpen: false, // Track if connection was ever successfully opened
-      connectionStatus: 'connecting' // connecting, open, failed, closed
+      hasBeenOpen: false,
+      connectionStatus: 'connecting',
+      authRequested: false,
+      authRequestedAt: null,
+      lastAuthChallenge: null
     };
     
     activeConnections.set(id, connectionInfo);
@@ -415,14 +401,18 @@
     if (!urlConnections.has(normalizedURL)) {
       urlConnections.set(normalizedURL, {
         url: normalizedURL,
-        originalURLs: new Set([url]), // Track all original URLs that map to this normalized URL
+        originalURLs: new Set([url]),
         connections: [],
         totalMessages: 0,
+        totalSentMessages: 0,
         totalErrors: 0,
         firstConnected: new Date(),
         lastActivity: new Date(),
         activeCount: 0,
-        workingCount: 0 // Count of connections that are actually working
+        workingCount: 0,
+        authRequested: false,
+        lastAuthRequest: null,
+        authChallengeCount: 0
       });
     }
     
@@ -431,6 +421,16 @@
     urlInfo.connections.push(connectionInfo);
     urlInfo.activeCount++;
     urlInfo.lastActivity = new Date();
+    
+    // Wrap send to track outgoing messages (lightweight tracking only)
+    const originalSend = ws.send.bind(ws);
+    ws.send = function(data) {
+      connectionInfo.sentMessageCount++;
+      connectionInfo.lastActivity = new Date();
+      urlInfo.totalSentMessages++;
+      urlInfo.lastActivity = new Date();
+      return originalSend.call(this, data);
+    };
     
     // Update working count
     function updateWorkingCount() {
@@ -455,6 +455,35 @@
         if (type === 'message') {
           connectionInfo.messageCount++;
           urlInfo.totalMessages++;
+          
+          // Detect AUTH requests from relay (simple detection only)
+          try {
+            const data = event.data;
+            if (typeof data === 'string') {
+              const parsed = JSON.parse(data);
+              // Check if it's an AUTH message: ["AUTH", "<challenge>"]
+              if (Array.isArray(parsed) && parsed[0] === 'AUTH' && typeof parsed[1] === 'string') {
+                connectionInfo.authRequested = true;
+                connectionInfo.authRequestedAt = new Date();
+                connectionInfo.lastAuthChallenge = parsed[1];
+                urlInfo.authRequested = true;
+                urlInfo.lastAuthRequest = new Date();
+                urlInfo.authChallengeCount++;
+                
+                // Dispatch custom event so other parts of your app can listen
+                window.dispatchEvent(new CustomEvent('nostr-relay-auth-requested', {
+                  detail: {
+                    url: normalizedURL,
+                    challenge: parsed[1],
+                    connectionId: id,
+                    timestamp: new Date()
+                  }
+                }));
+              }
+            }
+          } catch (e) {
+            // Not JSON or can't parse, ignore silently
+          }
         }
         
         if (type === 'error') {
@@ -462,7 +491,6 @@
           urlInfo.totalErrors++;
           connectionStats.totalErrors++;
           
-          // If we get errors without ever being open, mark as failed
           if (!connectionInfo.hasBeenOpen && connectionInfo.readyState !== 1) {
             connectionInfo.connectionStatus = 'failed';
           }
@@ -477,7 +505,6 @@
           // Clean up after 30 seconds
           setTimeout(() => {
             activeConnections.delete(id);
-            // Remove connection from URL tracking
             const urlInfo = urlConnections.get(normalizedURL);
             if (urlInfo) {
               urlInfo.connections = urlInfo.connections.filter(c => c.id !== id);
@@ -488,7 +515,6 @@
           }, 30000);
         }
         
-        // Update working count after any state change
         updateWorkingCount();
         
         return listener.call(this, event);
@@ -505,7 +531,7 @@
         set(handler) {
           originalHandler = handler;
           if (handler) {
-            const eventType = prop.slice(2); // remove 'on' prefix
+            const eventType = prop.slice(2);
             ws.addEventListener(eventType, handler);
           }
         }
@@ -521,7 +547,7 @@
     value: originalWebSocket.prototype
   });
   
-  // API for the websockets page
+  // API for the websockets page and other parts of your app
   window.WebSocketManager = {
     getActiveConnections() {
       return Array.from(activeConnections.values());
@@ -536,14 +562,18 @@
         workingCount: urlInfo.workingCount,
         totalConnections: urlInfo.connections.length,
         totalMessages: urlInfo.totalMessages,
+        totalSentMessages: urlInfo.totalSentMessages,
         totalErrors: urlInfo.totalErrors,
         firstConnected: urlInfo.firstConnected,
         lastActivity: urlInfo.lastActivity,
         isActive: urlInfo.activeCount > 0,
         isWorking: urlInfo.workingCount > 0,
-        connections: urlInfo.connections.filter(c => c.isActive), // Only active connections
+        connections: urlInfo.connections.filter(c => c.isActive),
         status: urlInfo.workingCount > 0 ? 'working' : 
-                urlInfo.activeCount > 0 ? 'connecting' : 'failed'
+                urlInfo.activeCount > 0 ? 'connecting' : 'failed',
+        authRequested: urlInfo.authRequested,
+        lastAuthRequest: urlInfo.lastAuthRequest,
+        authChallengeCount: urlInfo.authChallengeCount
       }));
     },
     
@@ -575,7 +605,6 @@
       const normalizedURL = normalizeWebSocketURL(url);
       blockedURLs.add(normalizedURL);
       saveBlockedURLs();
-      // Close existing connections to this URL
       this.closeConnectionsByURL(normalizedURL);
     },
     
@@ -589,20 +618,21 @@
       return Array.from(blockedURLs);
     },
     
-  normalizeWebSocketURL(url) {
-    return normalizeWebSocketURL(url);
-  },
-  
-  isURLBlocked(url) {
-    const normalizedURL = normalizeWebSocketURL(url);
-    return blockedURLs.has(normalizedURL);
-  },
+    normalizeWebSocketURL(url) {
+      return normalizeWebSocketURL(url);
+    },
+    
+    isURLBlocked(url) {
+      const normalizedURL = normalizeWebSocketURL(url);
+      return blockedURLs.has(normalizedURL);
+    },
 
     getStats() {
       const active = Array.from(activeConnections.values()).filter(c => c.isActive).length;
       const working = Array.from(activeConnections.values()).filter(c => c.isActive && isConnectionWorking(c)).length;
       const uniqueURLs = urlConnections.size;
       const workingURLs = Array.from(urlConnections.values()).filter(u => u.workingCount > 0).length;
+      const authRequestedURLs = Array.from(urlConnections.values()).filter(u => u.authRequested).length;
       
       return {
         ...connectionStats,
@@ -611,7 +641,8 @@
         totalConnections: activeConnections.size,
         uniqueURLs,
         workingURLs,
-        blockedURLs: blockedURLs.size
+        blockedURLs: blockedURLs.size,
+        authRequestedURLs
       };
     },
     
@@ -624,13 +655,11 @@
       });
       toRemove.forEach(id => activeConnections.delete(id));
       
-      // Clean up URL connections with no active connections
       urlConnections.forEach((urlInfo, url) => {
         urlInfo.connections = urlInfo.connections.filter(c => c.isActive);
         if (urlInfo.connections.length === 0) {
           urlConnections.delete(url);
         } else {
-          // Update counts
           urlInfo.activeCount = urlInfo.connections.filter(c => c.isActive).length;
           urlInfo.workingCount = urlInfo.connections.filter(c => c.isActive && isConnectionWorking(c)).length;
         }
@@ -640,5 +669,3 @@
     }
   };
 })();
-
-

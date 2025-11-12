@@ -24,23 +24,38 @@ function initVideoManager() {
   const miniplayerVideoContainer = miniplayer.querySelector('.miniplayer-video-container');
   const dragHandle = miniplayer.querySelector('.miniplayer-drag-handle');
   
-  // Setup event listeners - be more specific about what gets click handlers
   miniplayer.querySelector('.miniplayer-close').addEventListener('click', stopVideoPlayback);
   miniplayer.querySelector('.miniplayer-expand').addEventListener('click', expandToVideoPage);
   
-  // Only make the video itself (not controls) clickable to expand
+  // Playlist controls
+  const prevBtn = miniplayer.querySelector('.miniplayer-prev');
+  const nextBtn = miniplayer.querySelector('.miniplayer-next');
+  
+  if (prevBtn) {
+    prevBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      playPreviousInPlaylist();
+    });
+  }
+  
+  if (nextBtn) {
+    nextBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      playNextInPlaylist();
+    });
+  }
+  
   miniplayerVideoContainer.addEventListener('click', (e) => {
-    // Only expand if clicking directly on the video container (not on controls or drag handle)
     if (e.target === miniplayerVideoContainer || e.target.tagName === 'VIDEO') {
       expandToVideoPage(e);
     }
   });
   
-  // Initialize dragging
   initMiniplayerDrag(miniplayer, dragHandle);
   
   console.log("Video manager initialized");
 }
+
 function initMiniplayerDrag(miniplayer, dragHandle) {
   let isDragging = false;
   let startX, startY, initialLeft, initialTop;
@@ -252,6 +267,7 @@ function setupVideoEventListeners(videoElement) {
   newVideoElement.addEventListener('ended', () => {
     app.videoPlayer.isPlaying = false;
     console.log("Video ended");
+    playNextInPlaylist();
   });
   
   newVideoElement.addEventListener('timeupdate', () => {
@@ -267,7 +283,6 @@ function setupVideoEventListeners(videoElement) {
 
 function showMiniplayer() {
   if (!app.videoPlayer.currentVideo || !shouldShowMiniplayer()) {
-    // If video shouldn't be in miniplayer, stop it completely
     stopVideoPlayback();
     return;
   }
@@ -275,15 +290,85 @@ function showMiniplayer() {
   const miniplayer = document.getElementById('miniplayer');
   const miniplayerVideoContainer = miniplayer.querySelector('.miniplayer-video-container');
   
-  // Clear any existing video in miniplayer (avoid duplicates)
   miniplayerVideoContainer.innerHTML = '';
-  
-  // Move video to miniplayer
   miniplayerVideoContainer.appendChild(app.videoPlayer.currentVideo);
+  
+  // Update playlist info
+  updateMiniplayerPlaylistInfo();
+  
   miniplayer.classList.remove('hidden');
   app.videoPlayer.isMiniplayerVisible = true;
 }
 
+function updateMiniplayerPlaylistInfo() {
+  const playlistInfo = document.querySelector('.miniplayer-playlist-info');
+  const prevBtn = document.querySelector('.miniplayer-prev');
+  const nextBtn = document.querySelector('.miniplayer-next');
+  
+  if (!app.currentPlaylist) {
+    playlistInfo.innerHTML = '';
+    if (prevBtn) prevBtn.style.display = 'none';
+    if (nextBtn) nextBtn.style.display = 'none';
+    return;
+  }
+  
+  const title = getValueFromTags(app.currentPlaylist, "title", "Playlist");
+  const videoTags = app.currentPlaylist.tags.filter(tag => tag[0] === "a");
+  const totalVideos = videoTags.length;
+  const currentPosition = app.currentPlaylistIndex + 1;
+  
+  playlistInfo.innerHTML = `
+    <div class="playlist-badge">
+      📋 ${escapeHtml(title)} (${currentPosition}/${totalVideos})
+    </div>
+  `;
+  
+  // Show/hide prev/next buttons
+  if (prevBtn) {
+    prevBtn.style.display = app.currentPlaylistIndex > 0 ? 'inline-block' : 'none';
+  }
+  if (nextBtn) {
+    nextBtn.style.display = app.currentPlaylistIndex < totalVideos - 1 ? 'inline-block' : 'none';
+  }
+}
+
+function playNextInPlaylist() {
+  if (!app.currentPlaylist) return;
+  
+  const videoTags = app.currentPlaylist.tags.filter(tag => tag[0] === "a");
+  if (app.currentPlaylistIndex >= videoTags.length - 1) {
+    console.log("Already at last video in playlist");
+    return;
+  }
+  
+  app.currentPlaylistIndex++;
+  const nextVideoTag = videoTags[app.currentPlaylistIndex];
+  const [kind, videoId] = nextVideoTag[1].split(':');
+  
+  const dTag = getValueFromTags(app.currentPlaylist, "d", "");
+  const pubkey = app.currentPlaylist.pubkey;
+  
+  window.location.hash = `#watch/params?v=${videoId}&listp=${pubkey}&listd=${dTag}`;
+}
+
+function playPreviousInPlaylist() {
+  if (!app.currentPlaylist) return;
+  
+  if (app.currentPlaylistIndex <= 0) {
+    console.log("Already at first video in playlist");
+    return;
+  }
+  
+  app.currentPlaylistIndex--;
+  const videoTags = app.currentPlaylist.tags.filter(tag => tag[0] === "a");
+  const prevVideoTag = videoTags[app.currentPlaylistIndex];
+  const [kind, videoId] = prevVideoTag[1].split(':');
+  
+  const dTag = getValueFromTags(app.currentPlaylist, "d", "");
+  const pubkey = app.currentPlaylist.pubkey;
+  
+  window.location.hash = `#watch/params?v=${videoId}&listp=${pubkey}&listd=${dTag}`;
+}
 
 function hideMiniplayer() {
   const miniplayer = document.getElementById('miniplayer');
@@ -323,9 +408,16 @@ function stopVideoPlayback() {
   app.videoPlayer.currentVideoId = null;
   app.videoPlayer.currentVideoData = null;
   app.videoPlayer.isPlaying = false;
+  
+  // Move current playlist to history when stopping
+  if (app.currentPlaylist) {
+    addPlaylistToHistory(app.currentPlaylist);
+    app.currentPlaylist = null;
+    app.currentPlaylistIndex = 0;
+  }
+  
   hideMiniplayer();
 }
-
 function handleVideoRouteChange(newHash) {
   if (!app.videoPlayer.currentVideo) {
     console.log("No current video, skipping route change handling");

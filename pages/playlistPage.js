@@ -276,10 +276,11 @@ function renderNetworkPlaylist(playlist, videoEvents, playlistId) {
         </div>
       </div>
       <div class="playlist-actions">
-<button class="btn-primary bookmark-playlist-btn ${isBookmarked ? 'bookmarked' : ''}" 
-        data-playlist-id="${escapeHtml(playlistId)}">
-  ${isBookmarked ? '❌ Remove Bookmark' : '🔖 Bookmark Playlist'}
-</button>
+        ${validVideoCount > 0 ? `<button class="btn-primary play-all-btn">▶ Play All</button>` : ''}
+        <button class="btn-primary bookmark-playlist-btn ${isBookmarked ? 'bookmarked' : ''}" 
+                data-playlist-id="${escapeHtml(playlistId)}">
+          ${isBookmarked ? '❌ Remove Bookmark' : '🔖 Bookmark Playlist'}
+        </button>
         <button class="btn-secondary copy-local-btn" 
                 data-playlist-id="${escapeHtml(playlistId)}">
           📋 Create Local Copy
@@ -307,7 +308,6 @@ function renderNetworkPlaylist(playlist, videoEvents, playlistId) {
     </div>
   `;
 }
-
 function isPlaylistBookmarked(playlist) {
   const bookmarkedPlaylists = app.bookmarkedPlaylists || [];
   const dTag = getValueFromTags(playlist, "d", "");
@@ -340,12 +340,29 @@ return `
 }
 
 function setupNetworkPlaylistEventListeners(playlist) {
-  // Make entire video item clickable
+  const dTag = getValueFromTags(playlist, "d", "");
+  const author = playlist.pubkey;
+  
+  // Play All button
+  const playAllBtn = document.querySelector('.play-all-btn');
+  if (playAllBtn) {
+    playAllBtn.addEventListener('click', () => {
+      const firstVideo = document.querySelector('.network-playlist-video');
+      if (firstVideo) {
+        const videoId = firstVideo.dataset.videoId;
+        // Navigate with playlist params
+        window.location.hash = `#watch/params?v=${videoId}&listp=${author}&listd=${dTag}`;
+      }
+    });
+  }
+  
+  // Make entire video item clickable WITH playlist params
   document.querySelectorAll('.network-playlist-video').forEach(item => {
     if (!item.classList.contains('placeholder-video')) {
       item.addEventListener('click', (e) => {
         const videoId = item.dataset.videoId;
-        window.location.hash = `#watch/${videoId}`;
+        // ADD playlist params when clicking video
+        window.location.hash = `#watch/params?v=${videoId}&listp=${author}&listd=${dTag}`;
       });
       item.style.cursor = 'pointer';
     }

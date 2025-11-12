@@ -789,6 +789,29 @@ function formatErrorForDisplay(error) {
 
 //////////////////////////////
 // cleaners
+// Helper to register cleanup handlers
+function registerCleanup(cleanupFn) {
+  if (typeof cleanupFn === 'function') {
+    app.cleanupHandlers.push(cleanupFn);
+  }
+}
+
+// Helper to run all cleanup handlers
+function runCleanup() {
+  console.log(`Running ${app.cleanupHandlers.length} cleanup handlers`);
+  
+  app.cleanupHandlers.forEach((handler, index) => {
+    try {
+      handler();
+    } catch (error) {
+      console.error(`Error in cleanup handler ${index}:`, error);
+    }
+  });
+  
+  // Clear the array for the next page
+  app.cleanupHandlers = [];
+}
+
 /* function cleanupVideoResources() {
   let videos = document.querySelectorAll("video");
   videos.forEach(cleanupVideo);

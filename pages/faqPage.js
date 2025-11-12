@@ -26,15 +26,15 @@ async function faqPageHandler() {
     <div class="faq-item">
       <h3>What is this?</h3>
       <p>
-        A prototype video client built around <a href="https://github.com/nostr-protocol/nips/blob/master/71.md"
+        - A prototype video client built around <a href="https://github.com/nostr-protocol/nips/blob/master/71.md"
           target="_blank">Nostr (NIP-71)</a>.
       </p>
-      <p>Experimental project exploring Nostr.</p>
+      <p>- Experimental project.</p>
       <p>Nostr works as the discovery/social layer for the URLs.</p>      
-      <p>Normal media hosting on any http file server should work. <a href="https://github.com/hzrd149/blossom"
+     <!-- <p>Normal media hosting on any http file server should work. <a href="https://github.com/hzrd149/blossom"
           target="_blank">Blossom</a> is currently optional and not fully applied. 
-      </p>
-      <p>Runs fully local on device.</p>
+      </p> -->
+      <p>Runs fully locally on your device.</p> 
       <p>Just a frontend and not running or related to any nostr relay or media server.</p>      
       <a href="https://github.com/mutexn2/vutr" target="_blank">Open-source</a>
     </div>

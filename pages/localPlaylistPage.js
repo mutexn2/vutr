@@ -157,6 +157,7 @@ function renderSinglePlaylist(playlist, dTag, videoEvents = []) {
         </div>
       </div>
       <div class="playlist-actions">
+        ${validVideoCount > 0 ? `<button class="btn-primary play-all-btn">▶ Play All</button>` : ''}
         <button class="btn-primary share-playlist-btn" data-d-tag="${escapeHtml(dTag)}">Share to Network</button>
         <button class="btn-secondary edit-playlist-btn" data-d-tag="${escapeHtml(dTag)}">Edit Metadata</button>
         <button class="btn-danger delete-playlist-btn" data-d-tag="${escapeHtml(dTag)}">Delete Playlist</button>
@@ -177,7 +178,6 @@ function renderSinglePlaylist(playlist, dTag, videoEvents = []) {
     </div>
   `;
 }
-
 
 async function syncNetworkPlaylist(playlist) {
   if (isLocalPlaylist(playlist)) {
@@ -361,7 +361,21 @@ function setupSinglePlaylistEventListeners(dTag) {
   const playlist = app.playlists.find(p => getValueFromTags(p, "d", "") === dTag);
   const isLocal = isLocalPlaylist(playlist);
   
-  // Make entire video item clickable to watch video
+  // Play All button
+  const playAllBtn = document.querySelector('.play-all-btn');
+  if (playAllBtn) {
+    playAllBtn.addEventListener('click', () => {
+      const firstVideo = document.querySelector('.playlist-video-item:not(.placeholder-video)');
+      if (firstVideo) {
+        const videoId = firstVideo.dataset.videoId;
+        // For local playlists, use 'local' as pubkey
+        const pubkey = isLocal ? 'local' : playlist.pubkey;
+        window.location.hash = `#watch/params?v=${videoId}&listp=${pubkey}&listd=${dTag}`;
+      }
+    });
+  }
+  
+  // Make entire video item clickable WITH playlist params
   document.querySelectorAll('.playlist-video-item').forEach(item => {
     if (!item.classList.contains('placeholder-video')) {
       item.addEventListener('click', (e) => {
@@ -370,7 +384,8 @@ function setupSinglePlaylistEventListeners(dTag) {
           return;
         }
         const videoId = item.dataset.videoId;
-        window.location.hash = `#watch/${videoId}`;
+        const pubkey = isLocal ? 'local' : playlist.pubkey;
+        window.location.hash = `#watch/params?v=${videoId}&listp=${pubkey}&listd=${dTag}`;
       });
       
       item.style.cursor = 'pointer';

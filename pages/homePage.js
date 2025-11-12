@@ -1,14 +1,4 @@
 async function homePageHandler() {
-  // Clean up any existing home subscription
-  if (app.homeSubscription) {
-    app.homeSubscription.close();
-    app.homeSubscription = null;
-  }
-  if (app.homePool) {
-    app.homePool.close(app.relays);
-    app.homePool = null;
-  }
-
   mainContent.innerHTML = `
   <div id="homePage-container">
     <h1>Discovering Videos</h1>
@@ -21,7 +11,6 @@ async function homePageHandler() {
   let pageContainer = document.getElementById("homePage-container");
 
   try {
-    // Parse URL parameters
     const filterParams = parseFilterUrl();
     console.log("Current filter params:", filterParams);
 
@@ -83,6 +72,23 @@ async function homePageHandler() {
 
     // Initialize SimplePool
     app.homePool = new window.NostrTools.SimplePool();
+
+    // ========== REGISTER CLEANUP ==========
+    registerCleanup(() => {
+      console.log("Cleaning up home page resources");
+      
+      // Close home subscription
+      if (app.homeSubscription) {
+        app.homeSubscription.close();
+        app.homeSubscription = null;
+      }
+      
+      // Close home pool
+      if (app.homePool) {
+        app.homePool.close(app.relays);
+        app.homePool = null;
+      }
+    });
 
     // Function to render a single event immediately
     function renderEventImmediately(event) {
@@ -292,8 +298,7 @@ async function homePageHandler() {
     }
 
     // ========== SET UP EVENT LISTENERS BEFORE LOADING DATA ==========
-    
-    // Video card click handler - MOVED BEFORE loadMoreEvents()
+
     grid.addEventListener("click", (event) => {
       let card = event.target.closest(".video-card");
       if (card && card.dataset.videoId) {

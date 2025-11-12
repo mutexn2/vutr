@@ -1,9 +1,10 @@
 async function videoPageHandler() {
-  // Parse the URL to extract videoId and optional parameters
   const urlParts = window.location.hash.split("/");
   let videoId = urlParts[1];
   let discoveryRelays = [];
   let authorPubkey = null;
+  let playlistPubkey = null;
+  let playlistDTag = null;
 
   console.log("video ID:", videoId);
 
@@ -15,11 +16,8 @@ async function videoPageHandler() {
   // Check if this is the same video that's already playing in miniplayer
   if (app.videoPlayer.currentVideoId === videoId && app.videoPlayer.currentVideo) {
     console.log("Same video already playing - moving from miniplayer to main player");
-    
-    // IMPORTANT: Call handleVideoRouteChange to ensure miniplayer hides
     handleVideoRouteChange(window.location.hash);
     
-    // Show loading state briefly
     mainContent.innerHTML = `
       <div id="videoPage-container">
         <h1>Loading Video</h1>
@@ -30,23 +28,16 @@ async function videoPageHandler() {
     `;
     
     let videoPageContainer = document.getElementById("videoPage-container");
-    
-    // Small delay to ensure DOM is ready, then render with existing video
     setTimeout(() => {
       renderVideoPageWithExistingVideo(videoPageContainer, app.videoPlayer.currentVideoData, videoId);
     }, 50);
     
     return;
   }
-  
-  
-  
 
-  // Check if the videoId contains URL parameters
+  // Parse URL parameters
   if (videoId && videoId.includes("?")) {
     const [baseId, queryString] = videoId.split("?");
-
-    // Manual parsing to handle URLs with protocols correctly
     const params = new Map();
     const pairs = queryString.split("&");
 
@@ -59,26 +50,33 @@ async function videoPageHandler() {
       }
     }
 
-    // Extract the actual video ID from 'v' parameter
     const vParam = params.get("v");
     if (vParam) {
       videoId = vParam;
     }
 
-    // Extract discovery relays from 'discovery' parameter
     const discoveryParam = params.get("discovery");
     if (discoveryParam) {
       discoveryRelays = discoveryParam.split(",").map((relay) => relay.trim());
-      console.log("Discovery relays found:", discoveryRelays);
     }
 
-    // Extract author parameter
     const authorParam = params.get("author");
     if (authorParam) {
       authorPubkey = authorParam;
-      console.log("Author pubkey found:", authorPubkey);
+    }
+
+    // Extract playlist params
+    const listpParam = params.get("listp");
+    const listdParam = params.get("listd");
+    if (listpParam && listdParam) {
+      playlistPubkey = listpParam;
+      playlistDTag = listdParam;
+      console.log("Playlist params found:", { playlistPubkey, playlistDTag });
     }
   }
+
+  // Handle playlist setup
+  await setupPlaylistIfNeeded(playlistPubkey, playlistDTag, videoId);
 
   // Handle nevent1 format
   if (videoId.startsWith("nevent1")) {
@@ -94,6 +92,7 @@ async function videoPageHandler() {
   }
 
   console.log("Final video ID:", videoId);
+
   if (discoveryRelays.length > 0) {
     console.log("Will use discovery relays:", discoveryRelays);
   }
@@ -116,17 +115,13 @@ async function videoPageHandler() {
     let video;
 
     if (authorPubkey) {
-      // Use author-based relay discovery (same logic as profile page)
-      console.log("Getting extended relays for author:", authorPubkey);
       const extendedRelays = await getExtendedRelaysForProfile(authorPubkey);
-
       video = await NostrClient.getEventsFromRelays(extendedRelays, {
         kinds: [21, 22],
         limit: 1,
         id: videoId,
       });
     } else if (discoveryRelays.length > 0) {
-      // Use discovery relays if available (existing logic)
       const formattedDiscoveryRelays = discoveryRelays.map((relay) => {
         let cleanRelay = relay.trim();
         cleanRelay = cleanRelay.replace(/^wss?::\/\//, "wss://");
@@ -161,7 +156,6 @@ async function videoPageHandler() {
         id: videoId,
       });
     } else {
-      // Use regular getEvents
       video = await NostrClient.getEvents({
         kinds: [21, 22],
         limit: 1,
@@ -172,11 +166,9 @@ async function videoPageHandler() {
     if (video) {
       video = sanitizeNostrEvent(video);
       console.log(JSON.stringify(video, null, 2));
-      // console.log(JSON.parse(JSON.stringify(video)));
     }
 
     if (!video) {
-      // Show "video not found" message with extensive search button
       videoPageContainer.innerHTML = `
         <div class="video-not-found">
           <h1>Video Not Found</h1>
@@ -1764,4 +1756,114 @@ function removeDomainFromWhitelist(url) {
     return true;
   }
   return false;
+}
+
+
+//////////////////////////
+async function setupPlaylistIfNeeded(playlistPubkey, playlistDTag, currentVideoId) {
+  // If no playlist params, clear current playlist
+  if (!playlistPubkey || !playlistDTag) {
+    if (app.currentPlaylist) {
+      console.log("No playlist params - moving current playlist to history");
+      addPlaylistToHistory(app.currentPlaylist);
+      app.currentPlaylist = null;
+      app.currentPlaylistIndex = 0;
+    }
+    return;
+  }
+
+  // Try to find the playlist
+  let playlist = null;
+  
+  if (playlistPubkey === 'local') {
+    // Find in local playlists
+    playlist = (app.playlists || []).find(p => 
+      getValueFromTags(p, "d", "") === playlistDTag && 
+      (p.pubkey === "local" || p.sig === "local")
+    );
+  } else {
+    // Find in bookmarked playlists first
+    playlist = (app.bookmarkedPlaylists || []).find(p => 
+      p.pubkey === playlistPubkey && 
+      getValueFromTags(p, "d", "") === playlistDTag
+    );
+    
+    // If not bookmarked, try to fetch from network
+    if (!playlist) {
+      try {
+        const extendedRelays = await getExtendedRelaysForProfile(playlistPubkey);
+        const result = await NostrClient.getEventsFromRelays(extendedRelays, {
+          kinds: [30005],
+          authors: [playlistPubkey],
+          tags: { d: [playlistDTag] },
+          limit: 1,
+        });
+        playlist = Array.isArray(result) ? result[0] : result;
+      } catch (error) {
+        console.error("Error fetching playlist from network:", error);
+      }
+    }
+  }
+
+  if (!playlist) {
+    console.warn("Playlist not found, continuing without playlist");
+    return;
+  }
+
+  // Find current video index in playlist
+  const videoTags = playlist.tags.filter(tag => tag[0] === "a");
+  const videoIndex = videoTags.findIndex(tag => {
+    const videoRef = tag[1];
+    const [kind, id] = videoRef.split(':');
+    return id === currentVideoId;
+  });
+
+  if (videoIndex === -1) {
+    console.warn("Current video not found in playlist");
+    return;
+  }
+
+  // Check if this is a different playlist
+  const currentIdentifier = app.currentPlaylist ? 
+    `${app.currentPlaylist.pubkey}:${getValueFromTags(app.currentPlaylist, "d", "")}` : null;
+  const newIdentifier = `${playlist.pubkey}:${getValueFromTags(playlist, "d", "")}`;
+
+  if (currentIdentifier && currentIdentifier !== newIdentifier) {
+    console.log("Different playlist - moving current to history");
+    addPlaylistToHistory(app.currentPlaylist);
+  }
+
+  // Set as current playlist
+  app.currentPlaylist = playlist;
+  app.currentPlaylistIndex = videoIndex;
+  
+  console.log(`Playlist set: ${getValueFromTags(playlist, "title", "Untitled")} (${videoIndex + 1}/${videoTags.length})`);
+}
+
+function addPlaylistToHistory(playlist) {
+  if (!playlist) return;
+  
+  const history = app.playlistHistory || [];
+  const identifier = `${playlist.pubkey}:${getValueFromTags(playlist, "d", "")}`;
+  
+  // Don't add if already in history (check last 10)
+  const recentHistory = history.slice(-10);
+  const alreadyInRecent = recentHistory.some(p => 
+    `${p.pubkey}:${getValueFromTags(p, "d", "")}` === identifier
+  );
+  
+  if (!alreadyInRecent) {
+    history.push({
+      ...playlist,
+      addedToHistoryAt: Math.floor(Date.now() / 1000)
+    });
+    
+    // Keep only last 50 playlists in history
+    if (history.length > 50) {
+      history.splice(0, history.length - 50);
+    }
+    
+    app.playlistHistory = history;
+    localStorage.setItem("playlistHistory", JSON.stringify(history));
+  }
 }

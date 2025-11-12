@@ -46,6 +46,11 @@ let app = {
     temporarilyAllowedVideos: new Set() // Track videos allowed "once"
   },
 
+  // ======== Play all ==========
+  currentPlaylist: null, // The full playlist event object
+  currentPlaylistIndex: 0, // Current video index in playlist
+  playlistHistory: JSON.parse(localStorage.getItem("playlistHistory") || "[]"),
+
   // ========== FOLLOWED PROFILES ==========
   followSet: JSON.parse(
     localStorage.getItem("followSet") || JSON.stringify(config.defaultFollowSet)
@@ -136,6 +141,8 @@ let app = {
 
 chatRelays: ["wss://nos.lol", "wss://nostr.mom"],
   
+  // ========== CLEANUP MANAGEMENT ==========
+  cleanupHandlers: [], // Array of cleanup functions to call on route change
 
 };
 
@@ -265,6 +272,7 @@ function initializeApp() {
 }
 
 function handleRoute() {
+  runCleanup();
   cleanupVideoResources();
   cleanupChatResources();
   cancelActiveQueries();

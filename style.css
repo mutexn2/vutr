@@ -2286,60 +2286,6 @@ main {
   font-size: 14px;
 }
 
-/* 
-.miniplayer {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  width: 300px;
-  height: 170px;
-  background: #000;
-  border-radius: 8px;
-  z-index: 1000;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-}
-
-.miniplayer.hidden {
-  display: none;
-}
-
-.miniplayer-video-container {
-  width: 100%;
-  height: 100%;
-}
-
-.miniplayer video {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  border-radius: 8px;
-}
-
-.miniplayer-controls {
-  position: absolute;
-  top: 5px;
-  right: 5px;
-  display: flex;
-  gap: 5px;
-}
-
-.miniplayer-controls button {
-  background: rgba(0,0,0,0.7);
-  color: white;
-  border: none;
-  border-radius: 50%;
-  width: 24px;
-  height: 24px;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-@media (max-width: 768px) {
-.miniplayer {
-  bottom: 11vh;
-}
-}
- */
 
  /* Add default position as fallback */
 .miniplayer:not([style*="left"]) {
@@ -3001,10 +2947,10 @@ details[open] .arrow {
 /* Comment input sticky and collapsible */
 .video-page-layout .chat-input-container {
   position: sticky;
-  top: 0;
+  top: var(--playlist-height, 0px); /* Will be dynamically set */
   z-index: 100;
   background: var(--background);
-  padding: 12px 0;
+  padding-top: 48px;
   margin-bottom: 16px;
   border-bottom: 1px solid var(--border);
   transition: all 0.3s ease;
@@ -3015,7 +2961,7 @@ details[open] .arrow {
 }
 
 .video-page-layout .chat-input-container.collapsed {
-  padding: 8px 0;
+ 
   height: auto;
 }
 
@@ -3096,6 +3042,100 @@ details[open] .arrow {
   width: 20px;
   height: 20px;
   color: var(--text-secondary);
+}
+/*****************************/
+.video-page-playlist {
+  position: sticky;
+  top: 0;
+  z-index: 101; /* Higher than chat-input-container's 100 */
+  background: rgba(0, 0, 0, 0.95);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 8px;
+  border-radius: 8px 8px 0 0;
+  width: 100%;
+  max-width: 720px;
+}
+.video-page-playlist.hidden {
+  display: none;
+}
+
+.video-page-layout .playlist-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  gap: 12px;
+}
+
+.video-page-layout .playlist-title {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.video-page-layout .playlist-position {
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.video-page-layout .playlist-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.playlist-prev-btn,
+.playlist-next-btn {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.playlist-prev-btn:hover:not(:disabled),
+.playlist-next-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.playlist-prev-btn:disabled,
+.playlist-next-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* Responsive adjustments */
+@media (max-width: 480px) {
+  .video-page-layout .playlist-content {
+    padding: 6px 12px;
+  }
+  
+  .video-page-layout .playlist-title {
+    font-size: 12px;
+  }
+  
+  .video-page-layout .playlist-position {
+    font-size: 11px;
+  }
+  
+  .playlist-prev-btn,
+  .playlist-next-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 12px;
+  }
 }
 /*********************************************/
 /* Cross-browser thin scrollbar with dynamic color */

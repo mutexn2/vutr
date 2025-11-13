@@ -292,6 +292,9 @@ function renderVideoPage(video, videoId, useExistingVideo = false, shouldAutopla
 
   mainContent.innerHTML = `
 <div class="video-page-layout">
+
+ <div id="video-page-playlist" class="video-page-playlist hidden"></div>
+
   <div class="video-container"></div>
 
   <div class="scrollable-content">
@@ -903,6 +906,10 @@ function renderVideoPage(video, videoId, useExistingVideo = false, shouldAutopla
   setTimeout(() => {
     renderComments(videoId, video);
   }, 1000);
+
+
+    // Update playlist info if playlist exists
+  updateVideoPagePlaylistInfo();
 }
 
 function renderVideoPageWithExistingVideo(container, videoData, videoId) {
@@ -1940,5 +1947,62 @@ function addPlaylistToHistory(playlist) {
     
     app.playlistHistory = history;
     localStorage.setItem("playlistHistory", JSON.stringify(history));
+  }
+}
+
+function updateVideoPagePlaylistInfo() {
+  const playlistElement = document.getElementById('video-page-playlist');
+  
+  if (!playlistElement) return;
+  
+  if (!app.currentPlaylist) {
+    playlistElement.classList.add('hidden');
+    // Reset chat input position when no playlist
+    updateChatInputPosition(0);
+    return;
+  }
+  
+  const title = getValueFromTags(app.currentPlaylist, "title", "Playlist");
+  const videoTags = app.currentPlaylist.tags.filter(tag => tag[0] === "a");
+  const totalVideos = videoTags.length;
+  const currentPosition = app.currentPlaylistIndex + 1;
+  
+  playlistElement.innerHTML = `
+    <div class="playlist-content">
+      <div class="playlist-title">📋 ${escapeHtml(title)}</div>
+      <div class="playlist-position">${currentPosition}/${totalVideos}</div>
+      <div class="playlist-controls">
+        <button class="playlist-prev-btn" ${app.currentPlaylistIndex === 0 ? 'disabled' : ''}>⏮</button>
+        <button class="playlist-next-btn" ${app.currentPlaylistIndex >= totalVideos - 1 ? 'disabled' : ''}>⏭</button>
+      </div>
+    </div>
+  `;
+  
+  playlistElement.classList.remove('hidden');
+  
+  // Update chat input position to account for playlist height
+  setTimeout(() => {
+    const playlistHeight = playlistElement.offsetHeight;
+    updateChatInputPosition(playlistHeight);
+  }, 0);
+  
+  // Add event listeners for the buttons
+  const prevBtn = playlistElement.querySelector('.playlist-prev-btn');
+  const nextBtn = playlistElement.querySelector('.playlist-next-btn');
+  
+  if (prevBtn) {
+    prevBtn.addEventListener('click', playPreviousInPlaylist);
+  }
+  
+  if (nextBtn) {
+    nextBtn.addEventListener('click', playNextInPlaylist);
+  }
+}
+
+function updateChatInputPosition(playlistHeight) {
+  const chatInputContainer = document.querySelector('.video-page-layout .chat-input-container');
+  if (chatInputContainer) {
+    chatInputContainer.style.setProperty('--playlist-height', `${playlistHeight}px`);
+    chatInputContainer.style.top = `${playlistHeight}px`;
   }
 }

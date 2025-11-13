@@ -1006,7 +1006,7 @@ function forceGarbageCollection() {
 }
 
 // Call this periodically or when memory pressure is detected
-setInterval(forceGarbageCollection, 30000); // Every 30 seconds
+setInterval(forceGarbageCollection, 60000); // Every 1 minute
 
 // to help detect memory issues
 let videoLoadCounter = 0;

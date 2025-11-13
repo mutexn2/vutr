@@ -162,20 +162,20 @@ function initMiniplayerDrag(miniplayer, dragHandle) {
     e.stopPropagation();
   }
 
-  function updatePosition(element, left, top) {
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-    const elementWidth = element.offsetWidth;
-    const elementHeight = element.offsetHeight;
-    
-    left = Math.max(0, Math.min(left, viewportWidth - elementWidth));
-    top = Math.max(0, Math.min(top, viewportHeight - elementHeight));
-    
-    element.style.left = left + 'px';
-    element.style.top = top + 'px';
-    element.style.right = 'auto';
-    element.style.bottom = '11vh';
-  }
+function updatePosition(element, left, top) {
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  const elementWidth = element.offsetWidth;
+  const elementHeight = element.offsetHeight;
+  
+  left = Math.max(0, Math.min(left, viewportWidth - elementWidth));
+  top = Math.max(0, Math.min(top, viewportHeight - elementHeight));
+  
+  element.style.left = left + 'px';
+  element.style.top = top + 'px';
+  element.style.right = 'auto';
+  element.style.bottom = 'auto';
+}
 
   // Double-click to reset position
   dragHandle.addEventListener('dblclick', () => {
@@ -367,7 +367,7 @@ function updateMiniplayerPlaylistInfo() {
   const nextBtn = document.querySelector('.miniplayer-next');
   
   if (!app.currentPlaylist) {
-    playlistInfo.innerHTML = '';
+    playlistInfo.innerHTML = '<div style="opacity: 0.5; font-size: 11px;">Playing video</div>';
     if (prevBtn) prevBtn.style.display = 'none';
     if (nextBtn) nextBtn.style.display = 'none';
     return;
@@ -380,17 +380,43 @@ function updateMiniplayerPlaylistInfo() {
   
   playlistInfo.innerHTML = `
     <div class="playlist-badge">
-      📋 ${escapeHtml(title)} (${currentPosition}/${totalVideos})
+      <div class="playlist-title" title="${escapeHtml(title)}">
+        📋 ${escapeHtml(title)}
+      </div>
+      <div class="playlist-position">
+        ${currentPosition} of ${totalVideos}
+      </div>
     </div>
   `;
   
   // Show/hide prev/next buttons
   if (prevBtn) {
-    prevBtn.style.display = app.currentPlaylistIndex > 0 ? 'inline-block' : 'none';
+    prevBtn.style.display = app.currentPlaylistIndex > 0 ? 'flex' : 'none';
   }
   if (nextBtn) {
-    nextBtn.style.display = app.currentPlaylistIndex < totalVideos - 1 ? 'inline-block' : 'none';
+    nextBtn.style.display = app.currentPlaylistIndex < totalVideos - 1 ? 'flex' : 'none';
   }
+}
+
+// Update the position function to not mess with bottom
+function updatePosition(element, left, top) {
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  const elementWidth = element.offsetWidth;
+  const elementHeight = element.offsetHeight;
+  
+  left = Math.max(0, Math.min(left, viewportWidth - elementWidth));
+  top = Math.max(0, Math.min(top, viewportHeight - elementHeight));
+  
+  element.style.left = left + 'px';
+  element.style.top = top + 'px';
+  element.style.right = 'auto';
+  element.style.bottom = 'auto';
+}
+
+function truncateText(text, maxLength) {
+  if (text.length <= maxLength) return text;
+  return text.substring(0, maxLength - 3) + '...';
 }
 
 function playNextInPlaylist() {

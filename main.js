@@ -10,11 +10,6 @@ let app = {
   loginMethod: null, // 'extension' | 'guest' | null
   currentEditingProfile: null,
 
-
-  mediaServerWhitelist: JSON.parse(
-    localStorage.getItem("mediaServerWhitelist") || "[]"
-  ),    
-
   // ========== NAVIGATION ==========
   currentPage: null,
   currentSidebar: null,
@@ -36,6 +31,14 @@ let app = {
   playlists: JSON.parse(localStorage.getItem("playlists") || "[]"),
   bookmarkedPlaylists: JSON.parse(localStorage.getItem("playlists") || "[]"),
 
+  mediaServerWhitelist: JSON.parse(
+    localStorage.getItem("mediaServerWhitelist") || "[]"
+  ),
+  // for playlist page items
+  playlistVideoCache: {
+    videos: null,
+    playlistId: null
+  },
  // ========== VIDEO PLAYER STATE ==========
   videoPlayer: {
     currentVideo: null,
@@ -302,7 +305,7 @@ function handleRoute() {
 
   updateSidebar();
   updateDrawerContent();
-
+  forceGarbageCollection();
   handler();
 
   forceScrollToTop();

@@ -113,7 +113,6 @@ async function playlistPageHandler() {
     if (playlistResult) {
       console.log("Playlist result:", JSON.stringify(playlistResult, null, 2));
       
-      // Handle array or single event
       const playlist = Array.isArray(playlistResult) ? playlistResult[0] : playlistResult;
       
       if (!playlist) {
@@ -121,17 +120,21 @@ async function playlistPageHandler() {
         return;
       }
       
-      // Sanitize the event
       const sanitizedPlaylist = sanitizeNostrEvent(playlist);
-      
-      // Filter valid video tags (only kind:21 and kind:22)
       const videoTags = filterValidVideoTags(sanitizedPlaylist.tags);
       
       // Fetch video events
       const videoEvents = await fetchVideoEvents(videoTags);
       
-      renderNetworkPlaylist(sanitizedPlaylist, videoEvents, id || `${author}:${dtag}`);
-      setupNetworkPlaylistEventListeners(sanitizedPlaylist);
+      // **CACHE THE VIDEO EVENTS HERE**
+      const playlistId = id || `${author}:${dtag}`;
+      app.playlistVideoCache = {
+        videos: videoEvents,
+        playlistId: playlistId
+      };
+      
+      renderNetworkPlaylist(sanitizedPlaylist, videoEvents, playlistId);
+      setupNetworkPlaylistEventListeners(sanitizedPlaylist, videoEvents); // Pass videoEvents
       
     } else {
       showPlaylistNotFoundWithSearch(author, dtag, id);
@@ -339,18 +342,37 @@ return `
   }).join('');
 }
 
-function setupNetworkPlaylistEventListeners(playlist) {
+function setupNetworkPlaylistEventListeners(playlist, cachedVideoEvents = null) {
   const dTag = getValueFromTags(playlist, "d", "");
   const author = playlist.pubkey;
+  const playlistId = `${author}:${dTag}`;
   
   // Play All button
   const playAllBtn = document.querySelector('.play-all-btn');
   if (playAllBtn) {
-    playAllBtn.addEventListener('click', () => {
+    playAllBtn.addEventListener('click', async () => {
       const firstVideo = document.querySelector('.network-playlist-video');
       if (firstVideo) {
+        // Use cached video events or fetch if needed
+        let videoEvents = cachedVideoEvents;
+        
+        if (!videoEvents && app.playlistVideoCache.playlistId === playlistId) {
+          videoEvents = app.playlistVideoCache.videos;
+        }
+        
+        if (!videoEvents) {
+          const videoTags = filterValidVideoTags(playlist.tags);
+          videoEvents = await fetchVideoEvents(videoTags);
+        }
+        
+        // Check for non-whitelisted domains
+        const nonWhitelistedDomains = await checkPlaylistDomains(videoEvents);
+        
+        if (nonWhitelistedDomains.length > 0) {
+          await promptWhitelistDomains(nonWhitelistedDomains);
+        }
+        
         const videoId = firstVideo.dataset.videoId;
-        // Navigate with playlist params
         window.location.hash = `#watch/params?v=${videoId}&listp=${author}&listd=${dTag}`;
       }
     });
@@ -359,9 +381,27 @@ function setupNetworkPlaylistEventListeners(playlist) {
   // Make entire video item clickable WITH playlist params
   document.querySelectorAll('.network-playlist-video').forEach(item => {
     if (!item.classList.contains('placeholder-video')) {
-      item.addEventListener('click', (e) => {
+      item.addEventListener('click', async (e) => {
+        // Use cached video events or fetch if needed
+        let videoEvents = cachedVideoEvents;
+        
+        if (!videoEvents && app.playlistVideoCache.playlistId === playlistId) {
+          videoEvents = app.playlistVideoCache.videos;
+        }
+        
+        if (!videoEvents) {
+          const videoTags = filterValidVideoTags(playlist.tags);
+          videoEvents = await fetchVideoEvents(videoTags);
+        }
+        
+        // Check for non-whitelisted domains
+        const nonWhitelistedDomains = await checkPlaylistDomains(videoEvents);
+        
+        if (nonWhitelistedDomains.length > 0) {
+          await promptWhitelistDomains(nonWhitelistedDomains);
+        }
+        
         const videoId = item.dataset.videoId;
-        // ADD playlist params when clicking video
         window.location.hash = `#watch/params?v=${videoId}&listp=${author}&listd=${dTag}`;
       });
       item.style.cursor = 'pointer';
@@ -595,4 +635,61 @@ function getPlaylistIdentifier(playlist) {
   } else {
     return `${playlist.pubkey}:${dTag}`;
   }
+}
+
+
+
+////////////////
+/**
+ * Check all videos in a playlist for non-whitelisted domains
+ * Returns array of unique non-whitelisted domains
+ */
+async function checkPlaylistDomains(videoEvents) {
+  const nonWhitelistedDomains = new Set();
+  
+  for (const event of videoEvents) {
+    // Skip placeholder videos
+    if (event.isPlaceholder) continue;
+    
+    const url = getValueFromTags(event, "url", "");
+    if (!url) continue;
+    
+    const domain = extractDomain(url);
+    if (!domain) continue;
+    
+    // Check if domain is whitelisted
+    if (!isDomainWhitelisted(url)) {
+      nonWhitelistedDomains.add(domain);
+    }
+  }
+  
+  return Array.from(nonWhitelistedDomains);
+}
+
+/**
+ * Prompt user to whitelist domains for seamless playlist experience
+ * Returns true if user accepts, false if cancelled
+ */
+async function promptWhitelistDomains(domains) {
+  if (domains.length === 0) return true;
+  
+  const domainList = domains.map(d => `  • ${d}`).join('\n');
+  const message = `This playlist contains videos from the following servers that are not in your whitelist:\n\n${domainList}\n\nWould you like to add these servers to your whitelist for seamless playback?\n\n(If you cancel, you can still manually allow servers as needed)`;
+  
+  const userConfirmed = confirm(message);
+  
+  if (userConfirmed) {
+    // Add all domains to whitelist
+    domains.forEach(domain => {
+      if (!app.mediaServerWhitelist.includes(domain.toLowerCase())) {
+        app.mediaServerWhitelist.push(domain.toLowerCase());
+      }
+    });
+    
+    // Save to localStorage
+    localStorage.setItem("mediaServerWhitelist", JSON.stringify(app.mediaServerWhitelist));
+    console.log(`Added ${domains.length} domain(s) to whitelist:`, domains);
+  }
+  
+  return userConfirmed;
 }

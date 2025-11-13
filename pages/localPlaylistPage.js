@@ -10,7 +10,7 @@ async function localPlaylistPageHandler() {
   showPlaylistLoadingState();
 
   try {
-    const playlists = app.playlists || []; // Only local playlists now
+    const playlists = app.playlists || [];
     const playlist = playlists.find(p => getValueFromTags(p, "d", "") === dTag);
     
     if (!playlist) {
@@ -23,8 +23,16 @@ async function localPlaylistPageHandler() {
     const videoTags = playlist.tags.filter(tag => tag[0] === "a");
     const videoEvents = await fetchVideoEvents(videoTags);
     
+    // **CACHE THE VIDEO EVENTS HERE**
+    const isLocal = isLocalPlaylist(playlist);
+    const playlistId = isLocal ? `local:${dTag}` : `${playlist.pubkey}:${dTag}`;
+    app.playlistVideoCache = {
+      videos: videoEvents,
+      playlistId: playlistId
+    };
+    
     renderSinglePlaylist(playlist, dTag, videoEvents);
-    setupSinglePlaylistEventListeners(dTag);
+    setupSinglePlaylistEventListeners(dTag, videoEvents); // Pass videoEvents
     setupDragAndDrop(dTag);
     
   } catch (error) {
@@ -32,7 +40,6 @@ async function localPlaylistPageHandler() {
     showPlaylistError(error);
   }
 }
-
 async function fetchVideoEvents(videoTags) {
   if (videoTags.length === 0) return [];
   
@@ -357,18 +364,37 @@ function formatDuration(seconds) {
   }
 }
 
-function setupSinglePlaylistEventListeners(dTag) {
+function setupSinglePlaylistEventListeners(dTag, cachedVideoEvents = null) {
   const playlist = app.playlists.find(p => getValueFromTags(p, "d", "") === dTag);
   const isLocal = isLocalPlaylist(playlist);
+  const playlistId = isLocal ? `local:${dTag}` : `${playlist.pubkey}:${dTag}`;
   
   // Play All button
   const playAllBtn = document.querySelector('.play-all-btn');
   if (playAllBtn) {
-    playAllBtn.addEventListener('click', () => {
+    playAllBtn.addEventListener('click', async () => {
       const firstVideo = document.querySelector('.playlist-video-item:not(.placeholder-video)');
       if (firstVideo) {
+        // Use cached video events or fetch if needed
+        let videoEvents = cachedVideoEvents;
+        
+        if (!videoEvents && app.playlistVideoCache.playlistId === playlistId) {
+          videoEvents = app.playlistVideoCache.videos;
+        }
+        
+        if (!videoEvents) {
+          const videoTags = playlist.tags.filter(tag => tag[0] === "a");
+          videoEvents = await fetchVideoEvents(videoTags);
+        }
+        
+        // Check for non-whitelisted domains
+        const nonWhitelistedDomains = await checkPlaylistDomains(videoEvents);
+        
+        if (nonWhitelistedDomains.length > 0) {
+          await promptWhitelistDomains(nonWhitelistedDomains);
+        }
+        
         const videoId = firstVideo.dataset.videoId;
-        // For local playlists, use 'local' as pubkey
         const pubkey = isLocal ? 'local' : playlist.pubkey;
         window.location.hash = `#watch/params?v=${videoId}&listp=${pubkey}&listd=${dTag}`;
       }
@@ -378,11 +404,30 @@ function setupSinglePlaylistEventListeners(dTag) {
   // Make entire video item clickable WITH playlist params
   document.querySelectorAll('.playlist-video-item').forEach(item => {
     if (!item.classList.contains('placeholder-video')) {
-      item.addEventListener('click', (e) => {
-        // Don't navigate if clicking on remove button or drag handle
+      item.addEventListener('click', async (e) => {
         if (e.target.closest('.remove-video-btn') || e.target.closest('.drag-handle')) {
           return;
         }
+        
+        // Use cached video events or fetch if needed
+        let videoEvents = cachedVideoEvents;
+        
+        if (!videoEvents && app.playlistVideoCache.playlistId === playlistId) {
+          videoEvents = app.playlistVideoCache.videos;
+        }
+        
+        if (!videoEvents) {
+          const videoTags = playlist.tags.filter(tag => tag[0] === "a");
+          videoEvents = await fetchVideoEvents(videoTags);
+        }
+        
+        // Check for non-whitelisted domains
+        const nonWhitelistedDomains = await checkPlaylistDomains(videoEvents);
+        
+        if (nonWhitelistedDomains.length > 0) {
+          await promptWhitelistDomains(nonWhitelistedDomains);
+        }
+        
         const videoId = item.dataset.videoId;
         const pubkey = isLocal ? 'local' : playlist.pubkey;
         window.location.hash = `#watch/params?v=${videoId}&listp=${pubkey}&listd=${dTag}`;
@@ -391,6 +436,7 @@ function setupSinglePlaylistEventListeners(dTag) {
       item.style.cursor = 'pointer';
     }
   });
+  
   
   // Remove video buttons (only for local playlists)
   if (isLocal) {

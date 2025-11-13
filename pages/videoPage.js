@@ -1,4 +1,26 @@
 async function videoPageHandler() {
+  logMemoryUsage();
+  
+  // === CRITICAL: Clean up previous page FIRST ===
+  if (app.currentPageCleanupKey) {
+    console.log("Cleaning up previous page listeners");
+    removeTrackedEventListeners(app.currentPageCleanupKey);
+  }
+  
+  // Create new cleanup key
+  app.currentPageCleanupKey = `videoPage_${Date.now()}`;
+  
+  // Close any open menus
+  if (shareMenuControls?.isOpen()) {
+    shareMenuControls.close();
+  }
+  if (moreMenuControls?.isOpen()) {
+    moreMenuControls.close();
+  }
+
+  // SAVE THE CURRENT URL EARLY - RIGHT AT THE START
+  const currentURL = window.location.hash;
+  
   const urlParts = window.location.hash.split("/");
   let videoId = urlParts[1];
   let discoveryRelays = [];
@@ -13,29 +35,7 @@ async function videoPageHandler() {
     return;
   }
 
-  // Check if this is the same video that's already playing in miniplayer
-  if (app.videoPlayer.currentVideoId === videoId && app.videoPlayer.currentVideo) {
-    console.log("Same video already playing - moving from miniplayer to main player");
-    handleVideoRouteChange(window.location.hash);
-    
-    mainContent.innerHTML = `
-      <div id="videoPage-container">
-        <h1>Loading Video</h1>
-        <div class="loading-indicator">
-          <p>Resuming video...</p>
-        </div>
-      </div>
-    `;
-    
-    let videoPageContainer = document.getElementById("videoPage-container");
-    setTimeout(() => {
-      renderVideoPageWithExistingVideo(videoPageContainer, app.videoPlayer.currentVideoData, videoId);
-    }, 50);
-    
-    return;
-  }
-
-  // Parse URL parameters
+  // Parse URL parameters first
   if (videoId && videoId.includes("?")) {
     const [baseId, queryString] = videoId.split("?");
     const params = new Map();
@@ -65,7 +65,6 @@ async function videoPageHandler() {
       authorPubkey = authorParam;
     }
 
-    // Extract playlist params
     const listpParam = params.get("listp");
     const listdParam = params.get("listd");
     if (listpParam && listdParam) {
@@ -75,10 +74,7 @@ async function videoPageHandler() {
     }
   }
 
-  // Handle playlist setup
-  await setupPlaylistIfNeeded(playlistPubkey, playlistDTag, videoId);
-
-  // Handle nevent1 format
+  // Handle nevent1 format early
   if (videoId.startsWith("nevent1")) {
     try {
       let decoded = window.NostrTools.nip19.decode(videoId);
@@ -90,6 +86,72 @@ async function videoPageHandler() {
       return;
     }
   }
+
+  // Check if this is the same video/URL that's already playing
+  // Compare FULL URLs for exact match
+  const isSameVideo = app.videoPlayer.currentVideoURL === currentURL && app.videoPlayer.currentVideo;
+  
+  console.log("URL comparison:", {
+    current: currentURL,
+    saved: app.videoPlayer.currentVideoURL,
+    isSame: isSameVideo
+  });
+  
+  if (isSameVideo) {
+    console.log("Same video URL - reusing existing element");
+    handleVideoRouteChange(window.location.hash);
+    
+    mainContent.innerHTML = `<div id="videoPage-container">...</div>`;
+    let videoPageContainer = document.getElementById("videoPage-container");
+    
+    setTimeout(() => {
+      renderVideoPageWithExistingVideo(videoPageContainer, app.videoPlayer.currentVideoData, videoId);
+    }, 50);
+    
+    return;
+  }
+  
+  // DIFFERENT VIDEO - aggressive cleanup
+  if (app.videoPlayer.currentVideo && app.videoPlayer.currentVideoURL !== currentURL) {
+    console.log("Different video - full cleanup");
+    
+    const oldVideo = app.videoPlayer.currentVideo;
+    const oldVideoData = app.videoPlayer.currentVideoData;
+    
+    // Clear references FIRST
+    app.videoPlayer.currentVideo = null;
+    app.videoPlayer.currentVideoId = null;
+    app.videoPlayer.currentVideoData = null;
+    app.videoPlayer.currentVideoURL = null;
+    app.videoPlayer.isPlaying = false;
+    
+    // Remove listeners
+    removeVideoEventListeners(oldVideo);
+    
+    // Pause
+    oldVideo.pause();
+    
+    // Schedule cleanup
+    setTimeout(() => {
+      cleanupVideo(oldVideo);
+      // Help GC by nullifying the old data
+      oldVideoData = null;
+    }, 100);
+  }
+  
+  // Save the URL for this video NOW (after we know it's different)
+  app.videoPlayer.currentVideoURL = currentURL;
+
+  // Clean up previous page's event listeners
+  if (app.currentPageCleanupKey) {
+    removeTrackedEventListeners(app.currentPageCleanupKey);
+  }
+  
+  // Create new cleanup key for this page load
+  app.currentPageCleanupKey = `videoPage_${Date.now()}`;
+
+  // Handle playlist setup
+  await setupPlaylistIfNeeded(playlistPubkey, playlistDTag, videoId);
 
   console.log("Final video ID:", videoId);
 
@@ -113,7 +175,6 @@ async function videoPageHandler() {
 
   try {
     let video;
-
     if (authorPubkey) {
       const extendedRelays = await getExtendedRelaysForProfile(authorPubkey);
       video = await NostrClient.getEventsFromRelays(extendedRelays, {
@@ -199,7 +260,10 @@ async function videoPageHandler() {
       return;
     }
 
-    renderVideoPage(video, videoId);
+    // Determine if this should autoplay (part of playlist or temporarily allowed)
+    const shouldAutoplay = !!(app.currentPlaylist || isVideoTemporarilyAllowed(videoId));
+    
+    renderVideoPage(video, videoId, false, shouldAutoplay);
   } catch (error) {
     console.error("Error rendering vid page:", error);
     showError(`Error rendering vid page: ${formatErrorForDisplay(error)}`);
@@ -217,7 +281,7 @@ function showError(message) {
   `;
 }
 
-function renderVideoPage(video, videoId, useExistingVideo = false) {
+function renderVideoPage(video, videoId, useExistingVideo = false, shouldAutoplay = false) {
   // Extract and sanitize data
   let url = getValueFromTags(video, "url", "No URL found");
   let mimeType = getValueFromTags(video, "m", "Unknown MIME type");
@@ -225,7 +289,6 @@ function renderVideoPage(video, videoId, useExistingVideo = false) {
   let content = escapeHtml(video.content);
   let relativeTime = escapeHtml(getRelativeTime(video.created_at));
   let pubkey = escapeHtml(video.pubkey);
-
 
   mainContent.innerHTML = `
 <div class="video-page-layout">
@@ -336,287 +399,284 @@ function renderVideoPage(video, videoId, useExistingVideo = false) {
 
   `;
 
-// Get references to containers
-let videoContainer = mainContent.querySelector(".video-container");
-let channelInfo = mainContent.querySelector(".channel-info");
-let videoTitle = mainContent.querySelector(".video-title");
-let videoDescription = mainContent.querySelector(".video-description");
-let videoTags = mainContent.querySelector(".video-tags");
-let videoRelays = mainContent.querySelector(".video-relays");
-let videoTime = mainContent.querySelector(".video-time");
+  // Get references to containers
+  let videoContainer = mainContent.querySelector(".video-container");
+  let channelInfo = mainContent.querySelector(".channel-info");
+  let videoTitle = mainContent.querySelector(".video-title");
+  let videoDescription = mainContent.querySelector(".video-description");
+  let videoTags = mainContent.querySelector(".video-tags");
+  let videoRelays = mainContent.querySelector(".video-relays");
+  let videoTime = mainContent.querySelector(".video-time");
 
-// Technical info references
-let technicalSummary = mainContent.querySelector(".technical-summary");
-let technicalUrl = mainContent.querySelector(".technical-url");
-let technicalFilename = mainContent.querySelector(".technical-filename");
-let technicalHash = mainContent.querySelector(".technical-hash");
+  // Technical info references
+  let technicalSummary = mainContent.querySelector(".technical-summary");
+  let technicalUrl = mainContent.querySelector(".technical-url");
+  let technicalFilename = mainContent.querySelector(".technical-filename");
+  let technicalHash = mainContent.querySelector(".technical-hash");
 
+  // Get the cleanup key for this page
+  const pageKey = app.currentPageCleanupKey || 'videoPage_default';
 
-  // Special handling for existing video
+  // Special handling for existing video (from miniplayer)
   if (useExistingVideo && app.videoPlayer.currentVideo) {
-    console.log("Using existing video element for seamless transition");
+    console.log("Using existing video element for seamless transition from miniplayer");
     
-    // Just move the existing video to the main container
-    videoContainer.appendChild(app.videoPlayer.currentVideo);
-    
-    // Make sure it has the right classes
-    app.videoPlayer.currentVideo.className = 'custom-video-element';
-    app.videoPlayer.currentVideo.controls = true;
-    
-    // Update app state to reflect we're in main player now
-    app.videoPlayer.isMiniplayerVisible = false;
+    // Move the video from miniplayer to main container
+    moveVideoToMainPlayer(videoContainer);
     
   } else {
     // Normal rendering for new video
-    renderVideoPlayer(videoContainer, video);
+    renderVideoPlayer(videoContainer, video, shouldAutoplay);
   }
 
+  // Channel info with custom elements
+  let channelImage = document.createElement("nostr-picture");
+  channelImage.className = "channel-image";
+  channelImage.setAttribute("pubkey", pubkey);
 
+  let channelName = document.createElement("nostr-name");
+  channelName.className = "channel-name";
+  channelName.setAttribute("pubkey", pubkey);
 
+  channelInfo.children[0].appendChild(channelImage);
+  channelInfo.children[1].appendChild(channelName);
 
-// Channel info with custom elements
-let channelImage = document.createElement("nostr-picture");
-channelImage.className = "channel-image";
-channelImage.setAttribute("pubkey", pubkey);
+  // Channel info click handlers - tracked
+  const channelImageHandler = () => {
+    window.location.hash = `#profile/${pubkey}`;
+  };
+  addTrackedEventListener(channelImage, 'click', channelImageHandler, pageKey);
 
-let channelName = document.createElement("nostr-name");
-channelName.className = "channel-name";
-channelName.setAttribute("pubkey", pubkey);
+  const channelNameHandler = () => {
+    window.location.hash = `#profile/${pubkey}`;
+  };
+  addTrackedEventListener(channelName, 'click', channelNameHandler, pageKey);
 
-channelInfo.children[0].appendChild(channelImage);
-channelInfo.children[1].appendChild(channelName);
+  // Social info - Video title and content
+  let titleSpan = document.createElement("span");
+  titleSpan.textContent = title;
+  videoTitle.insertBefore(titleSpan, videoTitle.querySelector(".arrow"));
 
-// Add click handler to channel info
-/* channelInfo.addEventListener("click", () => {
-  window.location.hash = `#profile/${pubkey}`;
-}); */
+  videoDescription.textContent = content;
+  videoTime.textContent = relativeTime;
 
-channelImage.addEventListener("click", () => {
-  window.location.hash = `#profile/${pubkey}`;
-});
-channelName.addEventListener("click", () => {
-  window.location.hash = `#profile/${pubkey}`;
-});
-
-// Social info - Video title and content
-let titleSpan = document.createElement("span");
-titleSpan.textContent = title;
-videoTitle.insertBefore(titleSpan, videoTitle.querySelector(".arrow"));
-
-videoDescription.textContent = content;
-videoTime.textContent = relativeTime;
-
-// Extract and display tags (make them clickable)
-const tTags = video.tags.filter(tag => tag[0] === 't').map(tag => tag[1]);
-if (tTags.length > 0) {
-  // Create clickable tag elements
-  videoTags.innerHTML = '';
-  tTags.forEach((tag, index) => {
-    const tagSpan = document.createElement('span');
-    tagSpan.textContent = tag;
-    tagSpan.className = 'clickable-tag';
-    tagSpan.style.cursor = 'pointer';
-    tagSpan.addEventListener('click', () => {
-      window.location.hash = `#tag/params?tags=${tag}`;
+  // Extract and display tags (make them clickable)
+  const tTags = video.tags.filter(tag => tag[0] === 't').map(tag => tag[1]);
+  if (tTags.length > 0) {
+    videoTags.innerHTML = '';
+    tTags.forEach((tag, index) => {
+      const tagSpan = document.createElement('span');
+      tagSpan.textContent = tag;
+      tagSpan.className = 'clickable-tag';
+      tagSpan.style.cursor = 'pointer';
+      
+      // Tracked event listener
+      const tagHandler = () => {
+        window.location.hash = `#tag/params?tags=${tag}`;
+      };
+      addTrackedEventListener(tagSpan, 'click', tagHandler, pageKey);
+      
+      videoTags.appendChild(tagSpan);
+      
+      if (index < tTags.length - 1) {
+        const separator = document.createTextNode(', ');
+        videoTags.appendChild(separator);
+      }
     });
-    
-    videoTags.appendChild(tagSpan);
-    
-    // Add comma separator except for last tag
-    if (index < tTags.length - 1) {
-      const separator = document.createTextNode(', ');
-      videoTags.appendChild(separator);
-    }
-  });
-} else {
-  videoTags.textContent = 'No tags';
-}
+  } else {
+    videoTags.textContent = 'No tags';
+  }
 
-// Extract and display relays (make them clickable)
-const relayTags = video.tags.filter(tag => tag[0] === 'relay').map(tag => tag[1]);
-if (relayTags.length > 0) {
-  // Create clickable relay elements
-  videoRelays.innerHTML = '';
-  relayTags.forEach((relay, index) => {
-    const relaySpan = document.createElement('span');
-    relaySpan.textContent = relay;
-    relaySpan.className = 'clickable-relay';
-    relaySpan.style.cursor = 'pointer';
-    relaySpan.addEventListener('click', () => {
-      window.location.hash = `#singlerelay/${relay}`;
+  // Extract and display relays (make them clickable)
+  const relayTags = video.tags.filter(tag => tag[0] === 'relay').map(tag => tag[1]);
+  if (relayTags.length > 0) {
+    videoRelays.innerHTML = '';
+    relayTags.forEach((relay, index) => {
+      const relaySpan = document.createElement('span');
+      relaySpan.textContent = relay;
+      relaySpan.className = 'clickable-relay';
+      relaySpan.style.cursor = 'pointer';
+      
+      // Tracked event listener
+      const relayHandler = () => {
+        window.location.hash = `#singlerelay/${relay}`;
+      };
+      addTrackedEventListener(relaySpan, 'click', relayHandler, pageKey);
+      
+      videoRelays.appendChild(relaySpan);
+      
+      if (index < relayTags.length - 1) {
+        const separator = document.createTextNode(', ');
+        videoRelays.appendChild(separator);
+      }
     });
-    
-    videoRelays.appendChild(relaySpan);
-    
-    // Add comma separator except for last relay
-    if (index < relayTags.length - 1) {
-      const separator = document.createTextNode(', ');
-      videoRelays.appendChild(separator);
-    }
-  });
-} else {
-  videoRelays.textContent = 'No relays specified';
-}
+  } else {
+    videoRelays.textContent = 'No relays specified';
+  }
 
-// Technical info processing
-const imetaTag = video.tags.find(tag => tag[0] === 'imeta');
-if (imetaTag) {
-  // Parse imeta tag
-  let mimeType = '';
-  let dimensions = '';
-  let xHash = '';
-  let fileSize = '';
-  let directUrl = url; // Use the existing url variable
+  // Technical info processing
+  const imetaTag = video.tags.find(tag => tag[0] === 'imeta');
+  let directUrl = url; // Declare here for use in validate button
   
-  // Extract data from imeta tag
-  for (let i = 1; i < imetaTag.length; i++) {
-    const item = imetaTag[i];
-    if (item.startsWith('m ')) {
-      mimeType = item.substring(2); // Remove 'm ' prefix
-    } else if (item.startsWith('dim ')) {
-      dimensions = item.substring(4); // Remove 'dim ' prefix
-    } else if (item.startsWith('x ')) {
-      xHash = item.substring(2); // Remove 'x ' prefix
-    } else if (item.startsWith('url ')) {
-      directUrl = item.substring(4); // Remove 'url ' prefix
-    } else if (item.startsWith('size ')) {
-      const sizeBytes = parseInt(item.substring(5));
-      if (!isNaN(sizeBytes)) {
-        fileSize = formatBytes(sizeBytes);
+  if (imetaTag) {
+    // Parse imeta tag
+    let mimeType = '';
+    let dimensions = '';
+    let xHash = '';
+    let fileSize = '';
+    
+    // Extract data from imeta tag
+    for (let i = 1; i < imetaTag.length; i++) {
+      const item = imetaTag[i];
+      if (item.startsWith('m ')) {
+        mimeType = item.substring(2);
+      } else if (item.startsWith('dim ')) {
+        dimensions = item.substring(4);
+      } else if (item.startsWith('x ')) {
+        xHash = item.substring(2);
+      } else if (item.startsWith('url ')) {
+        directUrl = item.substring(4);
+      } else if (item.startsWith('size ')) {
+        const sizeBytes = parseInt(item.substring(5));
+        if (!isNaN(sizeBytes)) {
+          fileSize = formatBytes(sizeBytes);
+        }
       }
     }
-  }
-  
-  // Extract filename from URL
-  let filename = '';
-  try {
-    const urlObj = new URL(directUrl);
-    filename = urlObj.pathname.split('/').pop() || 'Unknown';
-  } catch (e) {
-    filename = 'Invalid URL';
-  }
-  
-  // Validate blossom (check if filename without extension matches x hash)
-  const filenameWithoutExt = filename.split('.')[0];
-  const isValidBlossom = filenameWithoutExt === xHash;
-  
-  // Set technical summary (collapsed state)
-  const fileExtension = mimeType.split('/')[1] || 'unknown';
-  const blossomStatus = isValidBlossom ? 'blossom (?)' : ' ';
-  
-  // Build the summary with optional file size
-  let summaryParts = [fileExtension, dimensions, blossomStatus];
-  if (fileSize) {
-    summaryParts.push(fileSize);
-  }
-  technicalSummary.textContent = summaryParts.join(' - ');
-
-  // Set expanded technical data
-  technicalUrl.textContent = directUrl;
-  technicalFilename.textContent = filename;
-  technicalHash.textContent = xHash;
-
-let validateBtn = mainContent.querySelector(".validate-blossom-btn");
-let fullCheckBtn = mainContent.querySelector(".full-check-btn");
-let validationResults = mainContent.querySelector("#validationResults");
-
-// Validate button handler (now validates in place)
-validateBtn.addEventListener('click', async () => {
-  console.log('Validating blossom for x hash:', xHash);
-  console.log('Filename without extension:', filenameWithoutExt);
-  console.log('Is claiming valid blossom:', isValidBlossom);
-  
-  // Show loading state
-  validationResults.innerHTML = '<div class="result loading">Preparing validation...</div>';
-  validateBtn.disabled = true;
-  
-  // Progress callback for download feedback
-  const updateProgress = (progress) => {
-    if (progress.indeterminate) {
-      validationResults.innerHTML = `
-        <div class="result loading">
-          <div class="progress-message">Downloading video...</div>
-          <div class="progress-bar-container">
-            <div class="progress-bar indeterminate">
-              <div class="progress-fill"></div>
-            </div>
-          </div>
-        </div>
-      `;
-    } else {
-      validationResults.innerHTML = `
-        <div class="result loading">
-          <div class="progress-message">Downloading video...</div>
-          <div class="progress-info">
-            <span class="progress-percentage">${progress.percentage}%</span>
-            <span class="progress-size">${formatBytes(progress.loaded)} / ${formatBytes(progress.total)}</span>
-          </div>
-          <div class="progress-bar-container">
-            <div class="progress-bar">
-              <div class="progress-fill" style="width: ${progress.percentage}%"></div>
-            </div>
-          </div>
-        </div>
-      `;
+    
+    // Extract filename from URL
+    let filename = '';
+    try {
+      const urlObj = new URL(directUrl);
+      filename = urlObj.pathname.split('/').pop() || 'Unknown';
+    } catch (e) {
+      filename = 'Invalid URL';
     }
-  };
-  
-  // Perform validation
-  const result = await validateBlossomInPlace(directUrl, updateProgress);
-  
-  // Display results
-  if (result.success) {
-    const statusClass = result.isValid ? 'success' : 'warning';
-    const statusText = result.isValid 
-      ? '🌸🌸🌸 Valid Blossom! Hash matches filename' 
-      : '⚠ Hash does not match filename';
     
-    validationResults.innerHTML = `
-      <div class="result ${statusClass}">
-        <h4>Blossom Validation Result</h4>
-        <div class="info-grid">
-          <div><strong>Status:</strong> ${statusText}</div>
-          <div><strong>Calculated Hash:</strong><br><code class="hash">${result.hash}</code></div>
-          <div><strong>URL Filename:</strong> ${result.urlHash || 'N/A'}</div>
-        </div>
-      </div>
-    `;
+    // Validate blossom (check if filename without extension matches x hash)
+    const filenameWithoutExt = filename.split('.')[0];
+    const isValidBlossom = filenameWithoutExt === xHash;
     
-    // Show the full check button
-    fullCheckBtn.style.display = 'inline-block';
+    // Set technical summary (collapsed state)
+    const fileExtension = mimeType.split('/')[1] || 'unknown';
+    const blossomStatus = isValidBlossom ? 'blossom (?)' : ' ';
+    
+    // Build the summary with optional file size
+    let summaryParts = [fileExtension, dimensions, blossomStatus];
+    if (fileSize) {
+      summaryParts.push(fileSize);
+    }
+    technicalSummary.textContent = summaryParts.join(' - ');
+
+    // Set expanded technical data
+    technicalUrl.textContent = directUrl;
+    technicalFilename.textContent = filename;
+    technicalHash.textContent = xHash;
+
+    let validateBtn = mainContent.querySelector(".validate-blossom-btn");
+    let fullCheckBtn = mainContent.querySelector(".full-check-btn");
+    let validationResults = mainContent.querySelector("#validationResults");
+
+    // Validate button handler - tracked
+    const validateBtnHandler = async () => {
+      console.log('Validating blossom for x hash:', xHash);
+      console.log('Filename without extension:', filenameWithoutExt);
+      console.log('Is claiming valid blossom:', isValidBlossom);
+      
+      // Show loading state
+      validationResults.innerHTML = '<div class="result loading">Preparing validation...</div>';
+      validateBtn.disabled = true;
+      
+      // Progress callback for download feedback
+      const updateProgress = (progress) => {
+        if (progress.indeterminate) {
+          validationResults.innerHTML = `
+            <div class="result loading">
+              <div class="progress-message">Downloading video...</div>
+              <div class="progress-bar-container">
+                <div class="progress-bar indeterminate">
+                  <div class="progress-fill"></div>
+                </div>
+              </div>
+            </div>
+          `;
+        } else {
+          validationResults.innerHTML = `
+            <div class="result loading">
+              <div class="progress-message">Downloading video...</div>
+              <div class="progress-info">
+                <span class="progress-percentage">${progress.percentage}%</span>
+                <span class="progress-size">${formatBytes(progress.loaded)} / ${formatBytes(progress.total)}</span>
+              </div>
+              <div class="progress-bar-container">
+                <div class="progress-bar">
+                  <div class="progress-fill" style="width: ${progress.percentage}%"></div>
+                </div>
+              </div>
+            </div>
+          `;
+        }
+      };
+      
+      // Perform validation
+      const result = await validateBlossomInPlace(directUrl, updateProgress);
+      
+      // Display results
+      if (result.success) {
+        const statusClass = result.isValid ? 'success' : 'warning';
+        const statusText = result.isValid 
+          ? '🌸🌸🌸 Valid Blossom! Hash matches filename' 
+          : '⚠ Hash does not match filename';
+        
+        validationResults.innerHTML = `
+          <div class="result ${statusClass}">
+            <h4>Blossom Validation Result</h4>
+            <div class="info-grid">
+              <div><strong>Status:</strong> ${statusText}</div>
+              <div><strong>Calculated Hash:</strong><br><code class="hash">${result.hash}</code></div>
+              <div><strong>URL Filename:</strong> ${result.urlHash || 'N/A'}</div>
+            </div>
+          </div>
+        `;
+        
+        // Show the full check button
+        fullCheckBtn.style.display = 'inline-block';
+      } else {
+        validationResults.innerHTML = `
+          <div class="result error">
+            <strong>Validation Error:</strong> ${result.error}
+          </div>
+        `;
+      }
+      
+      validateBtn.disabled = false;
+    };
+    addTrackedEventListener(validateBtn, 'click', validateBtnHandler, pageKey);
+
+    // Full check button handler - tracked
+    const fullCheckBtnHandler = () => {
+      window.location.hash = `#blob/${directUrl}`;
+    };
+    addTrackedEventListener(fullCheckBtn, 'click', fullCheckBtnHandler, pageKey);
+    
   } else {
-    validationResults.innerHTML = `
-      <div class="result error">
-        <strong>Validation Error:</strong> ${result.error}
-      </div>
-    `;
+    // No imeta tag found
+    technicalSummary.textContent = 'No technical data available';
+    technicalUrl.textContent = url;
+    technicalFilename.textContent = 'N/A';
+    technicalHash.textContent = 'N/A';
+    
+    let validateBtn = mainContent.querySelector(".validate-blossom-btn");
+    const validateBtnHandler = () => {
+      console.log('No x tag found for validation');
+      window.location.hash = `#blob/${encodeURIComponent(url)}`;
+    };
+    addTrackedEventListener(validateBtn, 'click', validateBtnHandler, pageKey);
   }
-  
-  validateBtn.disabled = false;
-});
 
-// Full check button handler (navigate to blob page)
-fullCheckBtn.addEventListener('click', () => {
-  window.location.hash = `#blob/${directUrl}`;
-});
-} else {
-  // No imeta tag found
-  technicalSummary.textContent = 'No technical data available';
-  technicalUrl.textContent = url;
-  technicalFilename.textContent = 'N/A';
-  technicalHash.textContent = 'N/A';
-  
-validateBtn.addEventListener('click', () => {
-  console.log('No x tag found for validation');
-  // Navigate to blob page with the main video URL
-  window.location.hash = `#blob/${encodeURIComponent(url)}`;
-});
-}
-
-
-//////////////////////////
-// video actions
-//////////////////
+  //////////////////////////
+  // video actions
+  //////////////////
   setTimeout(() => {
     const tabScrollContainer = document.querySelector(".tab-scroll-container");
     enableDragScroll(tabScrollContainer);
@@ -636,7 +696,6 @@ validateBtn.addEventListener('click', () => {
     .then((count) => {
       if (likeCountSpan) {
         likeCountSpan.textContent = count > 0 ? count : "";
-        // Update button text based on count
         if (count > 0) {
           likeTextSpan.textContent = count === 1 ? "Like" : "Likes";
         }
@@ -648,7 +707,6 @@ validateBtn.addEventListener('click', () => {
 
   // Set initial like button state and add event listener
   if (app.isLoggedIn && (app.myPk || app.guestSk)) {
-    // Check if user has already liked this video
     checkIfVideoLiked(videoId, video.pubkey)
       .then((isLiked) => {
         if (isLiked) {
@@ -661,149 +719,138 @@ validateBtn.addEventListener('click', () => {
         console.error("Error checking like status:", error);
       });
 
+    // Like button handler - tracked
+    const likeBtnHandler = async () => {
+      console.log(`Liked video: ${videoId} - ${title}`);
 
+      if (!app.isLoggedIn || (!app.myPk && !app.guestSk)) {
+        showTemporaryNotification("❌ Please log in to like videos");
+        return;
+      }
 
-likeBtn?.addEventListener("click", async () => {
-  console.log(`Liked video: ${videoId} - ${title}`);
+      const confirmed = await confirmModal(
+        "Likes are public and permanent. Once published, they cannot be undone.",
+        "Publish Kind-7 Event"
+      );
 
-  // Check if user is logged in
-  if (!app.isLoggedIn || (!app.myPk && !app.guestSk)) {
-    showTemporaryNotification("❌ Please log in to like videos");
-    return;
-  }
-
-  // Show confirmation modal before proceeding
-  const confirmed = await confirmModal(
-    "Likes are public and permanent. Once published, they cannot be undone.",
-    "Publish Kind-7 Event"
-  );
-
-  // If user canceled, exit early
-  if (!confirmed) {
-    console.log("User canceled the like action");
-    return;
-  }
-
-  try {
-    // Disable button to prevent double-clicking
-    likeBtn.disabled = true;
-    likeTextSpan.textContent = "Liking...";
-
-    // Get a relay hint (use first connected relay)
-    const relayHint =
-      app.relays && app.relays.length > 0 ? app.relays[0] : "";
-
-    // Create the reaction event (kind-7)
-    const reactionEvent = {
-      kind: 7,
-      created_at: Math.floor(Date.now() / 1000),
-      content: "+", // "+" indicates a like/upvote
-      tags: [
-        ["e", videoId, relayHint], // Reference to the video event with relay hint
-        ["p", video.pubkey, relayHint], // Author of the video with relay hint
-        ["k", video.kind.toString()], // Kind of the event being reacted to
-      ],
-    };
-
-    console.log("Creating reaction event:", reactionEvent);
-
-    // Sign the event using your existing signing function
-    const signedReactionEvent = await handleEventSigning(reactionEvent);
-
-    console.log("Reaction event signed successfully:", signedReactionEvent);
-
-    // Publish to connected relays
-    if (app.relays && app.relays.length > 0) {
-      const pool = new window.NostrTools.SimplePool();
+      if (!confirmed) {
+        console.log("User canceled the like action");
+        return;
+      }
 
       try {
-        const result = await publishEvent(signedReactionEvent, null, {
-          successMessage: "Like reaction published successfully",
-          errorMessage: "Failed to publish like reaction",
-        });
+        likeBtn.disabled = true;
+        likeTextSpan.textContent = "Liking...";
 
-        if (result.success) {
-          // Update UI to liked state
-          likeTextSpan.textContent = "Liked";
-          likeBtn.classList.add("liked");
-          likeBtn.disabled = true;
+        const relayHint = app.relays && app.relays.length > 0 ? app.relays[0] : "";
 
-          const currentCount = parseInt(likeCountSpan.textContent) || 0;
-          likeCountSpan.textContent = currentCount + 1;
+        const reactionEvent = {
+          kind: 7,
+          created_at: Math.floor(Date.now() / 1000),
+          content: "+",
+          tags: [
+            ["e", videoId, relayHint],
+            ["p", video.pubkey, relayHint],
+            ["k", video.kind.toString()],
+          ],
+        };
 
-          showTemporaryNotification("👍 Like published successfully!");
+        console.log("Creating reaction event:", reactionEvent);
+
+        const signedReactionEvent = await handleEventSigning(reactionEvent);
+
+        console.log("Reaction event signed successfully:", signedReactionEvent);
+
+        if (app.relays && app.relays.length > 0) {
+          const pool = new window.NostrTools.SimplePool();
+
+          try {
+            const result = await publishEvent(signedReactionEvent, null, {
+              successMessage: "Like reaction published successfully",
+              errorMessage: "Failed to publish like reaction",
+            });
+
+            if (result.success) {
+              likeTextSpan.textContent = "Liked";
+              likeBtn.classList.add("liked");
+              likeBtn.disabled = true;
+
+              const currentCount = parseInt(likeCountSpan.textContent) || 0;
+              likeCountSpan.textContent = currentCount + 1;
+
+              showTemporaryNotification("👍 Like published successfully!");
+            } else {
+              throw new Error(result.error);
+            }
+          } catch (publishError) {
+            console.error("Error publishing reaction event:", publishError);
+            showTemporaryNotification("❌ Failed to publish like reaction");
+
+            likeBtn.disabled = false;
+            likeTextSpan.textContent = "Like";
+          }
         } else {
-          throw new Error(result.error);
+          console.warn("No relays configured, reaction event not published");
+          showTemporaryNotification("❌ No relays configured");
+          likeBtn.disabled = false;
+          likeTextSpan.textContent = "Like";
         }
-      } catch (publishError) {
-        console.error("Error publishing reaction event:", publishError);
-        showTemporaryNotification("❌ Failed to publish like reaction");
+      } catch (error) {
+        console.error("Error creating reaction event:", error);
+        showTemporaryNotification(
+          "❌ Failed to create like reaction: " + error.message
+        );
 
-        // Re-enable button on publish failure
         likeBtn.disabled = false;
         likeTextSpan.textContent = "Like";
       }
-    } else {
-      console.warn("No relays configured, reaction event not published");
-      showTemporaryNotification("❌ No relays configured");
-      likeBtn.disabled = false;
-      likeTextSpan.textContent = "Like";
-    }
-  } catch (error) {
-    console.error("Error creating reaction event:", error);
-    showTemporaryNotification(
-      "❌ Failed to create like reaction: " + error.message
-    );
-
-    // Re-enable button on error
-    likeBtn.disabled = false;
-    likeTextSpan.textContent = "Like";
-  }
-});
-
+    };
+    addTrackedEventListener(likeBtn, 'click', likeBtnHandler, pageKey);
 
   } else {
-    // User not logged in, show login prompt on click
-    likeBtn?.addEventListener("click", () => {
+    // User not logged in - tracked handler
+    const likeLoginHandler = () => {
       showTemporaryNotification("❌ Please log in to like videos");
-    });
+    };
+    addTrackedEventListener(likeBtn, 'click', likeLoginHandler, pageKey);
   }
 
-bookmarkBtn?.addEventListener("click", () => {
-  console.log(`Bookmark video: ${videoId} - ${title}`);
+  // Bookmark button handler - tracked
+  const bookmarkBtnHandler = () => {
+    console.log(`Bookmark video: ${videoId} - ${title}`);
 
-  const isSaved = isVideoBookmarked(videoId);
+    const isSaved = isVideoBookmarked(videoId);
 
-  if (isSaved) {
-    // Remove from bookmarks
-    const success = removeVideoFromBookmarks(videoId);
-    if (success) {
-      bookmarkBtn.innerHTML = `
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor" class="size-6">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" />
-        </svg>
-        Bookmark
-      `;
-      bookmarkBtn.classList.remove("saved");
-      showTemporaryNotification("Video removed from your local bookmarks");
+    if (isSaved) {
+      const success = removeVideoFromBookmarks(videoId);
+      if (success) {
+        bookmarkBtn.innerHTML = `
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor" class="size-6">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" />
+          </svg>
+          Bookmark
+        `;
+        bookmarkBtn.classList.remove("saved");
+        showTemporaryNotification("Video removed from your local bookmarks");
+      }
+    } else {
+      const success = addVideoToBookmarks(video, videoId);
+      if (success) {
+        bookmarkBtn.innerHTML = `
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor" class="size-6">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" />
+          </svg>
+          Bookmarked
+        `;
+        bookmarkBtn.classList.add("saved");
+        showTemporaryNotification("Video added to your local bookmarks");
+      }
     }
-  } else {
-    // Add to bookmarks
-    const success = addVideoToBookmarks(video, videoId);
-    if (success) {
-      bookmarkBtn.innerHTML = `
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor" class="size-6">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" />
-        </svg>
-        Bookmarked
-      `;
-      bookmarkBtn.classList.add("saved");
-      showTemporaryNotification("Video added to your local bookmarks");
-    }
-  }
-});
+  };
+  addTrackedEventListener(bookmarkBtn, 'click', bookmarkBtnHandler, pageKey);
 
-  playlistBtn?.addEventListener("click", () => {
+  // Playlist button handler - tracked
+  const playlistBtnHandler = () => {
     console.log(`Add to playlist: ${videoId} - ${title}`);
     showPlaylistSelector(video, videoId, {
       title: title,
@@ -813,42 +860,44 @@ bookmarkBtn?.addEventListener("click", () => {
       relativeTime: relativeTime,
       pubkey: pubkey,
     });
-  });
+  };
+  addTrackedEventListener(playlistBtn, 'click', playlistBtnHandler, pageKey);
 
-// Set initial bookmark button state
-if (isVideoBookmarked(videoId)) {
-  bookmarkBtn.innerHTML = `
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor" class="size-6">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" />
-        </svg>
-    Bookmarked
-  `;
-  bookmarkBtn.classList.add("saved");
-} else {
-  bookmarkBtn.innerHTML = `
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor" class="size-6">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" />
-        </svg>
-    Bookmark
-  `;
-  bookmarkBtn.classList.remove("saved");
-}
+  // Set initial bookmark button state
+  if (isVideoBookmarked(videoId)) {
+    bookmarkBtn.innerHTML = `
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor" class="size-6">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" />
+          </svg>
+      Bookmarked
+    `;
+    bookmarkBtn.classList.add("saved");
+  } else {
+    bookmarkBtn.innerHTML = `
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor" class="size-6">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" />
+          </svg>
+      Bookmark
+    `;
+    bookmarkBtn.classList.remove("saved");
+  }
 
+  let shareBtn = mainContent.querySelector("#action-share-btn");
+  let moreBtn = mainContent.querySelector("#action-more-btn");
 
+  // Share button handler - tracked
+  const shareBtnHandler = (e) => {
+    console.log('Share button clicked');
+    showShareMenu(shareBtn, video, videoId, url);
+  };
+  addTrackedEventListener(shareBtn, 'click', shareBtnHandler, pageKey);
 
-let shareBtn = mainContent.querySelector("#action-share-btn");
-let moreBtn = mainContent.querySelector("#action-more-btn");
-
-shareBtn?.addEventListener("click", (e) => {
-  console.log('Share button clicked');
-  showShareMenu(shareBtn, video, videoId, url);
-});
-
-moreBtn?.addEventListener("click", (e) => {
-  console.log('More button clicked');  
-  showMoreMenu(moreBtn, video, videoId);
-});
-
+  // More button handler - tracked
+  const moreBtnHandler = (e) => {
+    console.log('More button clicked');  
+    showMoreMenu(moreBtn, video, videoId);
+  };
+  addTrackedEventListener(moreBtn, 'click', moreBtnHandler, pageKey);
 
   // Load comments after delay
   setTimeout(() => {
@@ -857,11 +906,11 @@ moreBtn?.addEventListener("click", (e) => {
 }
 
 function renderVideoPageWithExistingVideo(container, videoData, videoId) {
-  // Hide miniplayer here too as a backup
-  hideMiniplayer();
+  // This function is called when we're returning to the same video that's in miniplayer
+  console.log("Rendering video page with existing video from miniplayer");
   
   // Use the same render function but tell it to use existing video
-  renderVideoPage(videoData, videoId, true);
+  renderVideoPage(videoData, videoId, true); // true = useExistingVideo
 }
 //////////////////////////
 ////////////////////////////
@@ -881,6 +930,18 @@ async function showShareMenu(buttonElement, video, videoId, url) {
   }
 
   shareMenuControls.open();
+}
+async function showMoreMenu(buttonElement, video, videoId) {
+  if (moreMenuControls && moreMenuControls.isOpen()) {
+    moreMenuControls.close();
+    return;
+  }
+
+  if (!moreMenuControls) {
+    await createMoreMenu(buttonElement, video, videoId);
+  }
+
+  moreMenuControls.open();
 }
 
 
@@ -957,16 +1018,22 @@ async function createShareMenu(buttonElement, video, videoId, url) {
     }, 10);
   };
   
-  originalOverlay.onClose = function() {
-    menuElement.classList.remove('visible');
-    setTimeout(() => {
-      originalOnClose.call(this);
-      if (overlayElement.parentNode) {
-        overlayElement.remove();
-      }
-      shareMenuControls = null;
-    }, 150);
-  };
+originalOverlay.onClose = function() {
+  menuElement.classList.remove('visible');
+  setTimeout(() => {
+    // Clean up tracked listeners
+    const cleanupKey = menuElement.dataset.cleanupKey;
+    if (cleanupKey) {
+      removeTrackedEventListeners(cleanupKey);
+    }
+    
+    originalOnClose.call(this);
+    if (overlayElement.parentNode) {
+      overlayElement.remove();
+    }
+    shareMenuControls = null;
+  }, 150);
+};
 
   // Set up event listeners
   setupShareMenuEvents(menuElement, video, videoId, url);
@@ -976,20 +1043,6 @@ async function createShareMenu(buttonElement, video, videoId, url) {
     app.overlayControls.share = shareMenuControls;
   }
 }
-
-async function showMoreMenu(buttonElement, video, videoId) {
-  if (moreMenuControls && moreMenuControls.isOpen()) {
-    moreMenuControls.close();
-    return;
-  }
-
-  if (!moreMenuControls) {
-    await createMoreMenu(buttonElement, video, videoId);
-  }
-
-  moreMenuControls.open();
-}
-
 async function createMoreMenu(buttonElement, video, videoId) {
   // Create overlay container
   let overlayElement = document.createElement('div');
@@ -1061,16 +1114,22 @@ menuElement.innerHTML = `
     }, 10);
   };
   
-  originalOverlay.onClose = function() {
-    menuElement.classList.remove('visible');
-    setTimeout(() => {
-      originalOnClose.call(this);
-      if (overlayElement.parentNode) {
-        overlayElement.remove();
-      }
-      moreMenuControls = null;
-    }, 150);
-  };
+originalOverlay.onClose = function() {
+  menuElement.classList.remove('visible');
+  setTimeout(() => {
+    // Clean up tracked listeners
+    const cleanupKey = menuElement.dataset.cleanupKey;
+    if (cleanupKey) {
+      removeTrackedEventListeners(cleanupKey);
+    }
+    
+    originalOnClose.call(this);
+    if (overlayElement.parentNode) {
+      overlayElement.remove();
+    }
+    moreMenuControls = null;
+  }, 150);
+};
 
   // Set up event listeners
   setupMoreMenuEvents(menuElement, video, videoId);
@@ -1082,6 +1141,8 @@ menuElement.innerHTML = `
 }
 
 function setupShareMenuEvents(menuElement, video, videoId, url) {
+    const menuKey = `shareMenu_${Date.now()}`;
+
   menuElement.querySelector('.share-page-link')?.addEventListener('click', () => {
     console.log('Copy link clicked');
     handleShareOption('page-link', video, videoId, url);
@@ -1110,9 +1171,13 @@ function setupShareMenuEvents(menuElement, video, videoId, url) {
     console.log('Download video clicked');
     shareMenuControls?.close();
   });
-}
 
+    // Store key for cleanup
+  menuElement.dataset.cleanupKey = menuKey;
+}
 function setupMoreMenuEvents(menuElement, video, videoId) {
+    const menuKey = `moreMenu_${Date.now()}`;
+
   menuElement.querySelector('.more-video-json')?.addEventListener('click', () => {
     console.log('Video JSON clicked');
     handleMoreOption('show-json', video, videoId);
@@ -1136,6 +1201,8 @@ function setupMoreMenuEvents(menuElement, video, videoId) {
     moreMenuControls?.close();
   });
   
+    // Store key for cleanup
+  menuElement.dataset.cleanupKey = menuKey;
   
 }
 
@@ -1342,19 +1409,17 @@ async function checkIfVideoLiked(videoId, videoPubkey) {
 
   try {
     const pool = new window.NostrTools.SimplePool();
-
-    // Query for reaction events (kind 7) by current user for this video
+    
     const reactionEvents = await pool.querySync(app.relays || [], {
       kinds: [7],
       authors: [currentUserPk],
-      "#e": [videoId], // Filter by the video event ID
+      "#e": [videoId],
       limit: 1,
     });
 
-    // Don't close the pool - let it stay open for other operations
-
-    // Check if we found any like reactions (content "+" or empty)
-    const hasLike = reactionEvents.some(
+//    pool.close(app.relays || []);
+    
+        const hasLike = reactionEvents.some(
       (event) => event.content === "+" || event.content === ""
     );
 
@@ -1364,8 +1429,8 @@ async function checkIfVideoLiked(videoId, videoPubkey) {
       } like status for video ${videoId}:`,
       hasLike
     );
-
     return hasLike;
+    
   } catch (error) {
     console.error("Error checking like status:", error);
     return false;
@@ -1488,7 +1553,7 @@ function handleMoreOption(optionType, video, videoId) {
 
 ////////////////////
 // video player
-function renderVideoPlayer(container, video) {
+function renderVideoPlayer(container, video, shouldAutoplay = false) {
   container.innerHTML = `
     <div class="loading-spinner">
       <p>Loading video...</p>
@@ -1509,13 +1574,27 @@ function renderVideoPlayer(container, video) {
       return;
     }
 
-    // Always use custom player
-    container.innerHTML = createVideoPlayer(video);
+    // Create new player
+    container.innerHTML = createVideoPlayer(video, shouldAutoplay);
     const videoElement = container.querySelector('video');
     
     // Register with video manager - get videoId from current hash
-    const videoId = window.location.hash.split('/')[1];
+    const videoId = window.location.hash.split('/')[1]?.split('?')[0];
     playVideo(videoElement, videoId, video);
+
+    // Attempt autoplay if requested
+    if (shouldAutoplay) {
+      const playPromise = videoElement.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            console.log("Autoplay started successfully");
+          })
+          .catch((error) => {
+            console.warn("Autoplay was prevented:", error);
+          });
+      }
+    }
 
     // Error handling
     videoElement.addEventListener('error', (e) => {
@@ -1536,7 +1615,6 @@ function renderVideoPlayer(container, video) {
     
   }, 100);
 }
-
 ////////////////////
 // Utility functions for media server whitelist
 function extractDomain(url) {
@@ -1606,9 +1684,7 @@ function markVideoAsTemporarilyAllowed(videoId) {
   app.videoPlayer.temporarilyAllowedVideos.add(videoId);
 }
 
-// Update the allowVideoOnce function to mark the video
 function allowVideoOnce(url, container, video, useDefault) {
-  // Simply render the video player without adding to whitelist
   let videoElement;
   
   if (useDefault) {
@@ -1621,14 +1697,13 @@ function allowVideoOnce(url, container, video, useDefault) {
     `;
     videoElement = container.querySelector('video');
   } else {
-    container.innerHTML = createVideoPlayer(video);
+    // Don't use autoplay here since user explicitly allowed it
+    container.innerHTML = createVideoPlayer(video, false);
     videoElement = container.querySelector('video');
   }
   
-  // IMPORTANT: Register this video with VideoManager
-  const videoId = window.location.hash.split('/')[1];
+  const videoId = window.location.hash.split('/')[1]?.split('?')[0];
   if (videoElement && videoId) {
-    // Mark this video as temporarily allowed
     markVideoAsTemporarilyAllowed(videoId);
     playVideo(videoElement, videoId, video);
   }

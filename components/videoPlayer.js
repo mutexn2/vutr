@@ -1,4 +1,4 @@
-function createVideoPlayer(video) {
+function createVideoPlayer(video, shouldAutoplay = false) {
   let url = getValueFromTags(video, "url", "");
   let mimeType = getValueFromTags(video, "m", "video/mp4");
   
@@ -6,16 +6,15 @@ function createVideoPlayer(video) {
     return '<div class="video-error">No video URL provided</div>';
   }
 
+  const autoplayAttr = shouldAutoplay ? 'autoplay' : '';
+
   return `
-    <video controls class="custom-video-element">
+    <video controls ${autoplayAttr} class="custom-video-element">
       <source src="${escapeHtml(url)}" type="${escapeHtml(mimeType)}">
       Your browser does not support the video tag.
     </video>
   `;
 }
-
-
-
 
 ///////////////////////////////////////////////////////////////
 // video-manager.js
@@ -224,16 +223,50 @@ function expandToVideoPage(e) {
     return;
   }
   
-  if (app.videoPlayer.currentVideoId) {
+  // Use the saved URL if available, otherwise fall back to simple ID-based URL
+  if (app.videoPlayer.currentVideoURL) {
+    window.location.hash = app.videoPlayer.currentVideoURL;
+    console.log("expandToVideoPage using saved URL:", app.videoPlayer.currentVideoURL);
+  } else if (app.videoPlayer.currentVideoId) {
     window.location.hash = `#watch/${app.videoPlayer.currentVideoId}`;
+    console.log("expandToVideoPage using fallback ID:", app.videoPlayer.currentVideoId);
   }
 }
 function playVideo(videoElement, videoId, videoData) {
-  // Stop any existing video first
-  if (app.videoPlayer.currentVideo && app.videoPlayer.currentVideo !== videoElement) {
-    stopVideoPlayback();
+  // If trying to register the same video element again, just update route handling
+  if (app.videoPlayer.currentVideo === videoElement && 
+      app.videoPlayer.currentVideoId === videoId) {
+    console.log("Same video element already registered, just updating route");
+    handleVideoRouteChange(window.location.hash);
+    return;
   }
   
+  // Stop any DIFFERENT existing video first
+  if (app.videoPlayer.currentVideo && 
+      app.videoPlayer.currentVideo !== videoElement) {
+    console.log("Stopping and cleaning up different video before playing new one");
+    
+    // Get reference before clearing
+    const oldVideo = app.videoPlayer.currentVideo;
+    
+    // Remove listeners
+    removeVideoEventListeners(oldVideo);
+    
+    // Pause
+    oldVideo.pause();
+    
+    // Clear references
+    app.videoPlayer.currentVideo = null;
+    app.videoPlayer.currentVideoId = null;
+    app.videoPlayer.currentVideoData = null;
+    
+    // Clean up the old video after a brief delay
+    setTimeout(() => {
+      cleanupVideo(oldVideo);
+    }, 100);
+  }
+  
+  // Set new video
   app.videoPlayer.currentVideo = videoElement;
   app.videoPlayer.currentVideoId = videoId;
   app.videoPlayer.currentVideoData = videoData;
@@ -246,39 +279,67 @@ function playVideo(videoElement, videoId, videoData) {
 }
 
 function setupVideoEventListeners(videoElement) {
-  // Remove existing listeners to avoid duplicates
-  const newVideoElement = videoElement.cloneNode(true);
-  videoElement.parentNode.replaceChild(newVideoElement, videoElement);
+  // Check if listeners are already set up
+  if (videoElement.dataset.listenersAttached === 'true') {
+    console.log("Listeners already attached to this video element");
+    return;
+  }
   
-  // Update reference
-  app.videoPlayer.currentVideo = newVideoElement;
+  // Mark that we've attached listeners
+  videoElement.dataset.listenersAttached = 'true';
   
-  // Track when video actually starts playing
-  newVideoElement.addEventListener('play', () => {
-    app.videoPlayer.isPlaying = true;
-    console.log("Video started playing");
-  });
+  // Create handlers that we can reference for removal
+  const handlers = {
+    play: () => {
+      app.videoPlayer.isPlaying = true;
+      console.log("Video started playing");
+    },
+    pause: () => {
+      app.videoPlayer.isPlaying = false;
+      console.log("Video paused");
+    },
+    ended: () => {
+      app.videoPlayer.isPlaying = false;
+      console.log("Video ended");
+      playNextInPlaylist();
+    },
+    timeupdate: () => {
+      app.videoPlayer.currentTime = videoElement.currentTime;
+    },
+    error: (e) => {
+      console.error('Video error:', e);
+      stopVideoPlayback();
+    }
+  };
   
-  newVideoElement.addEventListener('pause', () => {
-    app.videoPlayer.isPlaying = false;
-    console.log("Video paused");
-  });
+  // Store handlers on the element for later cleanup
+  videoElement._eventHandlers = handlers;
   
-  newVideoElement.addEventListener('ended', () => {
-    app.videoPlayer.isPlaying = false;
-    console.log("Video ended");
-    playNextInPlaylist();
-  });
+  // Add event listeners
+  videoElement.addEventListener('play', handlers.play);
+  videoElement.addEventListener('pause', handlers.pause);
+  videoElement.addEventListener('ended', handlers.ended);
+  videoElement.addEventListener('timeupdate', handlers.timeupdate);
+  videoElement.addEventListener('error', handlers.error);
+}
+
+function removeVideoEventListeners(videoElement) {
+  if (!videoElement._eventHandlers) {
+    return;
+  }
   
-  newVideoElement.addEventListener('timeupdate', () => {
-    // Track progress for our miniplayer decision
-    app.videoPlayer.currentTime = newVideoElement.currentTime;
-  });
+  const handlers = videoElement._eventHandlers;
   
-  newVideoElement.addEventListener('error', (e) => {
-    console.error('Video error:', e);
-    stopVideoPlayback();
-  });
+  videoElement.removeEventListener('play', handlers.play);
+  videoElement.removeEventListener('pause', handlers.pause);
+  videoElement.removeEventListener('ended', handlers.ended);
+  videoElement.removeEventListener('timeupdate', handlers.timeupdate);
+  videoElement.removeEventListener('error', handlers.error);
+  
+  delete videoElement._eventHandlers;
+  delete videoElement.dataset.listenersAttached;
+  
+  console.log("Removed video event listeners");
 }
 
 function showMiniplayer() {
@@ -341,6 +402,14 @@ function playNextInPlaylist() {
     return;
   }
   
+  console.log("Playing next video in playlist - cleaning up current video");
+  
+  // Clean up current video before navigating
+  if (app.videoPlayer.currentVideo) {
+    removeVideoEventListeners(app.videoPlayer.currentVideo);
+    // Don't pause - let the navigation handle it
+  }
+  
   app.currentPlaylistIndex++;
   const nextVideoTag = videoTags[app.currentPlaylistIndex];
   const [kind, videoId] = nextVideoTag[1].split(':');
@@ -359,6 +428,14 @@ function playPreviousInPlaylist() {
     return;
   }
   
+  console.log("Playing previous video in playlist - cleaning up current video");
+  
+  // Clean up current video before navigating
+  if (app.videoPlayer.currentVideo) {
+    removeVideoEventListeners(app.videoPlayer.currentVideo);
+    // Don't pause - let the navigation handle it
+  }
+  
   app.currentPlaylistIndex--;
   const videoTags = app.currentPlaylist.tags.filter(tag => tag[0] === "a");
   const prevVideoTag = videoTags[app.currentPlaylistIndex];
@@ -369,7 +446,6 @@ function playPreviousInPlaylist() {
   
   window.location.hash = `#watch/params?v=${videoId}&listp=${pubkey}&listd=${dTag}`;
 }
-
 function hideMiniplayer() {
   const miniplayer = document.getElementById('miniplayer');
   if (miniplayer) {
@@ -394,20 +470,41 @@ function moveVideoToMainPlayer(container) {
   container.innerHTML = '';
   container.appendChild(app.videoPlayer.currentVideo);
   
+  // Make sure it has the right classes for main player
+  app.videoPlayer.currentVideo.className = 'custom-video-element';
+  app.videoPlayer.currentVideo.controls = true;
+  
   // Ensure app state is updated
   app.videoPlayer.isMiniplayerVisible = false;
   
-  console.log("Video moved to main player, miniplayer should be hidden");
+  console.log("Video moved to main player, miniplayer hidden");
 }
 
 function stopVideoPlayback() {
   if (app.videoPlayer.currentVideo) {
-    app.videoPlayer.currentVideo.pause();
+    console.log("Stopping video playback and cleaning up");
+    
+    // Remove event listeners
+    removeVideoEventListeners(app.videoPlayer.currentVideo);
+    
+    // Get reference to the video before clearing
+    const videoToClean = app.videoPlayer.currentVideo;
+    
+    // Pause the video
+    videoToClean.pause();
+    
+    // Clear app references first
     app.videoPlayer.currentVideo = null;
+    app.videoPlayer.currentVideoId = null;
+    app.videoPlayer.currentVideoData = null;
+    app.videoPlayer.currentVideoURL = null; // ADD THIS LINE
+    app.videoPlayer.isPlaying = false;
+    
+    // Now it's safe to clean up the video
+    setTimeout(() => {
+      cleanupVideo(videoToClean);
+    }, 100);
   }
-  app.videoPlayer.currentVideoId = null;
-  app.videoPlayer.currentVideoData = null;
-  app.videoPlayer.isPlaying = false;
   
   // Move current playlist to history when stopping
   if (app.currentPlaylist) {
@@ -425,27 +522,25 @@ function handleVideoRouteChange(newHash) {
   }
   
   const isVideoPage = newHash.startsWith('#watch/');
-  const currentVideoId = newHash.split('/')[1];
+  const currentVideoId = newHash.split('/')[1]?.split('?')[0]; // Handle query params
   
   console.log(`Route change: ${newHash}, isVideoPage: ${isVideoPage}, currentVideoId: ${currentVideoId}, appVideoId: ${app.videoPlayer.currentVideoId}`);
   
   if (isVideoPage && currentVideoId === app.videoPlayer.currentVideoId) {
-    console.log("Same video page - moving to main player and hiding miniplayer");
-    // Same video page - move to main player and HIDE miniplayer
+    console.log("Same video page - ensuring video is in main player and miniplayer is hidden");
+    // Same video page - ensure it's in main player
     const videoContainer = document.querySelector('.video-container');
-    if (videoContainer) {
+    if (videoContainer && !videoContainer.contains(app.videoPlayer.currentVideo)) {
       moveVideoToMainPlayer(videoContainer);
-      hideMiniplayer(); // Ensure miniplayer is hidden
-    } else {
-      console.warn("Video container not found!");
     }
+    hideMiniplayer(); // Make sure miniplayer is hidden
   } else if (isVideoPage && currentVideoId !== app.videoPlayer.currentVideoId) {
     console.log("Different video page - stopping current playback");
     // Different video - stop current
     stopVideoPlayback();
   } else {
     console.log("Non-video page - checking if miniplayer should show");
-    // Non-video page - only show miniplayer if video is actually playing
+    // Non-video page - show miniplayer if video is playing
     if (shouldShowMiniplayer()) {
       showMiniplayer();
     } else {
@@ -454,30 +549,71 @@ function handleVideoRouteChange(newHash) {
     }
   }
 }
-// Updated cleanup function that respects miniplayer
 function cleanupVideoResources() {
+  console.log("Cleaning up video resources");
+  
   // Only clean up videos that are NOT the current playing video
   let videos = document.querySelectorAll("video");
+  
+  console.log(`Found ${videos.length} video elements, current video exists: ${!!app.videoPlayer.currentVideo}`);
+  
   videos.forEach(video => {
     if (video !== app.videoPlayer.currentVideo) {
+      console.log("Cleaning up non-current video element");
       cleanupVideo(video);
     }
   });
+  
+  // Also clean up any orphaned video elements that might be in the miniplayer
+  const miniplayerContainer = document.querySelector('.miniplayer-video-container');
+  if (miniplayerContainer && !app.videoPlayer.isMiniplayerVisible) {
+    const miniplayerVideos = miniplayerContainer.querySelectorAll('video');
+    miniplayerVideos.forEach(video => {
+      if (video !== app.videoPlayer.currentVideo) {
+        console.log("Cleaning up orphaned miniplayer video");
+        cleanupVideo(video);
+      }
+    });
+  }
 }
 
 function cleanupVideo(video) {
   try {
-    // Don't cleanup if this is our current playing video
     if (video === app.videoPlayer.currentVideo) {
+      console.log("Skipping cleanup of current video");
       return;
     }
     
+    // Remove event listeners first
+    removeVideoEventListeners(video);
+    
     video.pause();
-    let sources = Array.from(video.querySelectorAll("source"));
-    sources.forEach((source) => source.remove());
-    video.src = null;
-    video.removeAttribute("src");
+    video.currentTime = 0;
+    
+    // Clear source before removing src
+    const sources = Array.from(video.querySelectorAll("source"));
+    sources.forEach(source => {
+      source.removeAttribute('src');
+      source.remove();
+    });
+    
+    // Handle blob URLs
+    if (video.src && video.src.startsWith('blob:')) {
+      URL.revokeObjectURL(video.src);
+    }
+    
+    video.removeAttribute('src');
+    video.src = '';
     video.load();
+    
+    // Remove from DOM
+    if (video.parentNode) {
+      video.parentNode.removeChild(video);
+    }
+    
+    // CRITICAL: Clear the object reference
+    video = null;
+    
   } catch (e) {
     console.warn("Error cleaning up video:", e);
   }

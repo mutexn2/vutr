@@ -146,7 +146,7 @@ async function homePageHandler() {
         }
 
         const periodName = ['1 day', '1 week', '1 month', '3 months', '6 months', '1 year'][scrollState.periodIndex];
-        console.log(`Loading events with ${periodName} period, filter:`, filter);
+      //  console.log(`Loading events with ${periodName} period, filter:`, filter);
 
         const sub = app.homePool.subscribe(
           app.relays,
@@ -171,7 +171,7 @@ async function homePageHandler() {
               if (!isComplete) {
                 isComplete = true;
                 sub.close();
-                console.log(`Loaded ${events.length} events for period ${since} to ${until}`);
+          //      console.log(`Loaded ${events.length} events for period ${since} to ${until}`);
                 resolve(events);
               }
             },
@@ -212,7 +212,7 @@ async function homePageHandler() {
       let currentUntil = scrollState.oldestTimestamp || scrollState.currentTimestamp;
       let currentSince = currentUntil - scrollState.currentPeriodSize;
 
-      console.log(`Loading more events, starting from timestamp: ${currentUntil}`);
+   //   console.log(`Loading more events, starting from timestamp: ${currentUntil}`);
 
       // Keep loading until we get enough events
       while ((scrollState.loadedEventsCount - startLoadedCount) < scrollState.eventsPerPage && scrollState.hasMoreContent) {

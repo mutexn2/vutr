@@ -41,6 +41,7 @@ let app = {
     currentVideo: null,
     currentVideoId: null,
     currentVideoData: null,
+    currentVideoURL: null,
     isMiniplayerVisible: false,
     isPlaying: false,
     temporarilyAllowedVideos: new Set() // Track videos allowed "once"
@@ -144,6 +145,9 @@ chatRelays: ["wss://nos.lol", "wss://nostr.mom"],
   // ========== CLEANUP MANAGEMENT ==========
   cleanupHandlers: [], // Array of cleanup functions to call on route change
 
+  //
+  eventListenerRegistry: new Map(),
+  currentPageCleanupKey: null,
 };
 
 

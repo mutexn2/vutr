@@ -812,6 +812,55 @@ function runCleanup() {
   app.cleanupHandlers = [];
 }
 
+
+
+// Helper to track event listeners
+function addTrackedEventListener(element, event, handler, key) {
+  if (!key) {
+    key = `${Date.now()}_${Math.random()}`;
+  }
+  
+  element.addEventListener(event, handler);
+  
+  if (!app.eventListenerRegistry.has(key)) {
+    app.eventListenerRegistry.set(key, []);
+  }
+  
+  app.eventListenerRegistry.get(key).push({
+    element,
+    event,
+    handler
+  });
+  
+  return key;
+}
+
+// Cleanup function for tracked listeners
+function removeTrackedEventListeners(key) {
+  if (!app.eventListenerRegistry.has(key)) {
+    return;
+  }
+  
+  const listeners = app.eventListenerRegistry.get(key);
+  listeners.forEach(({ element, event, handler }) => {
+    try {
+      element.removeEventListener(event, handler);
+    } catch (e) {
+      console.warn("Error removing event listener:", e);
+    }
+  });
+  
+  app.eventListenerRegistry.delete(key);
+  console.log(`Removed ${listeners.length} tracked event listeners for key: ${key}`);
+}
+
+// Cleanup all tracked listeners
+function cleanupAllTrackedEventListeners() {
+  console.log(`Cleaning up ${app.eventListenerRegistry.size} listener groups`);
+  app.eventListenerRegistry.forEach((listeners, key) => {
+    removeTrackedEventListeners(key);
+  });
+}
 /* function cleanupVideoResources() {
   let videos = document.querySelectorAll("video");
   videos.forEach(cleanupVideo);
@@ -909,4 +958,85 @@ function getBaseHash(hash) {
 // Helper function to check if a set is the global set
 function isGlobalSet(setName) {
   return setName === GLOBAL_SET_NAME;
+}
+
+
+///////////////////////////////////
+// to help browser with cleanup
+function forceGarbageCollection() {
+  console.log("Running garbage collection helpers");
+  
+  // Clear temporarily allowed videos more aggressively
+  if (app.videoPlayer.temporarilyAllowedVideos?.size > 10) {
+    console.log("Clearing temporarily allowed videos cache");
+    app.videoPlayer.temporarilyAllowedVideos.clear();
+  }
+  
+  // Clean up event listeners more aggressively
+  if (app.eventListenerRegistry?.size > 5) {
+    const keysToRemove = [];
+    const currentKey = app.currentPageCleanupKey;
+    
+    app.eventListenerRegistry.forEach((listeners, key) => {
+      if (key !== currentKey && !key.includes('permanent')) {
+        keysToRemove.push(key);
+      }
+    });
+    
+    keysToRemove.forEach(key => {
+      removeTrackedEventListeners(key);
+    });
+    
+    console.log(`Cleaned up ${keysToRemove.length} old listener groups`);
+  }
+  
+  // Force cleanup of any disconnected videos
+  const allVideos = document.querySelectorAll('video');
+  allVideos.forEach(video => {
+    if (!document.body.contains(video)) {
+      console.log("Cleaning up disconnected video");
+      cleanupVideo(video);
+    }
+  });
+  
+  // Clear old videoData references
+  if (app.videoPlayer.currentVideoData && !app.videoPlayer.currentVideo) {
+    app.videoPlayer.currentVideoData = null;
+  }
+}
+
+// Call this periodically or when memory pressure is detected
+setInterval(forceGarbageCollection, 30000); // Every 30 seconds
+
+// to help detect memory issues
+let videoLoadCounter = 0;
+
+function logMemoryUsage() {
+  videoLoadCounter++;
+  
+  if (videoLoadCounter % 5 === 0 && performance.memory) {
+    const usedMemoryMB = (performance.memory.usedJSHeapSize / 1048576).toFixed(2);
+    const totalMemoryMB = (performance.memory.totalJSHeapSize / 1048576).toFixed(2);
+    const limitMemoryMB = (performance.memory.jsHeapSizeLimit / 1048576).toFixed(2);
+    
+    console.log(`Memory usage after ${videoLoadCounter} videos:`);
+    console.log(`  Used: ${usedMemoryMB} MB`);
+    console.log(`  Total: ${totalMemoryMB} MB`);
+    console.log(`  Limit: ${limitMemoryMB} MB`);
+    
+    // If memory is getting high, force more aggressive cleanup
+    if (performance.memory.usedJSHeapSize > performance.memory.jsHeapSizeLimit * 0.9) {
+      console.warn("High memory usage detected! Forcing aggressive cleanup...");
+      cleanupVideoResources();
+      forceGarbageCollection();
+      
+      // Remove all tracked listeners except current page
+      const currentKey = app.currentPageCleanupKey;
+      app.eventListenerRegistry.forEach((listeners, key) => {
+        if (key !== currentKey) {
+          removeTrackedEventListeners(key);
+        }
+      });
+    }
+  }
 }

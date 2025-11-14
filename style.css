@@ -4542,19 +4542,27 @@ main {
 }
 
 .profile-links-row .profile-btn.nip05-btn.verified {
-  border-color: var(--success, #28a745);
+  border-color: #28a745;
+}
+
+.profile-links-row .profile-btn.nip05-btn.verified svg {
+/*   width: 48px;
+  height: 48px; */
+  fill: green;
+  stroke: var(--background);
+  background-color: transparent;
 }
 
 .profile-links-row .profile-btn.nip05-btn.verified .profile-btn-text {
-  color: var(--success, #28a745);
+  color: var(--text);
 }
 
 .profile-links-row .profile-btn.nip05-btn.failed {
-  border-color: var(--danger, #dc3545);
+  border-color: #dc3545;
 }
 
 .profile-links-row .profile-btn.nip05-btn.failed .profile-btn-text {
-  color: var(--danger, #dc3545);
+  color: var(--text);
 }
 
 /* CORS notice */
@@ -5593,38 +5601,7 @@ main {
   height: 36px;
 }
 
-@keyframes zap {
-  0% {
-    fill: #ffd800;
-    filter: drop-shadow(0px 0px 0px rgba(255, 255, 0, 0));
-  }
-  20% {
-    fill: #ffffff;
-    filter: drop-shadow(0px 0px 10px rgba(255, 255, 0, 0.8));
-    stroke-width: 4;
-  }
-  40% {
-    fill: #ffff00;
-    filter: drop-shadow(0px 0px 15px rgba(255, 216, 0, 0.9));
-  }
-  60% {
-    fill: #ffffff;
-    filter: drop-shadow(0px 0px 12px rgba(255, 216, 0, 0.7));
-    stroke-width: 3.5;
-  }
-  80% {
-    fill: #ffee00;
-    filter: drop-shadow(0px 0px 8px rgba(255, 216, 0, 0.5));
-  }
-  100% {
-    fill: #ffd800;
-    filter: drop-shadow(0px 0px 0px rgba(255, 255, 0, 0));
-  }
-}
 
-.zap-animation {
-  animation: zap 1.2s ease-out;
-}
 
 /************************************/
 /******************************************************/
@@ -11984,4 +11961,316 @@ noscript {
 
 .menu-item.saved:hover {
   background-color: transparent;
+}
+
+/*****************ZAP********************/
+.zap-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: linear-gradient(135deg, var(--surface) 0%, var(--background) 100%);
+  border: none;
+  border-radius: 8px;
+  color: var(--text);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 14px;
+}
+
+.zap-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+}
+
+.zap-btn:active {
+  transform: translateY(0);
+}
+
+.zap-btn.zap-btn-loading {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.zap-btn-small {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.zap-btn-large {
+  padding: 12px 24px;
+  font-size: 16px;
+}
+
+.zap-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.zap-btn-small .zap-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.zap-btn-large .zap-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.zap-modal-container {
+  padding: 20px;
+}
+
+.zap-recipient-info {
+  margin-bottom: 20px;
+  padding: 12px;
+  background: var(--background);
+  border-radius: 8px;
+}
+
+.zap-amount-input {
+  margin-bottom: 20px;
+}
+
+.zap-amount-input label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.zap-amount-input input {
+  width: 100%;
+  padding: 12px;
+  color: var(--text);
+  background-color: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  font-size: 16px;
+}
+
+input[type=number] {
+    -webkit-appearance: textfield;
+    -moz-appearance: textfield;
+    appearance: textfield;
+    margin: 0;
+}
+
+.zap-quick-amounts {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.quick-amount-btn {
+  flex: 1;
+  padding: 8px;
+  color: var(--text);
+  background: var(--background);
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.quick-amount-btn:hover {
+  background: var(--surface);
+  border-color: #f59e0b;
+}
+
+.zap-comment-input {
+  margin-bottom: 20px;
+}
+
+.zap-comment-input label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.zap-comment-input textarea {
+  width: 100%;
+  padding: 12px;
+  color: var(--text);
+  background-color: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.zap-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.zap-actions button {
+  flex: 1;
+  padding: 12px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.zap-status {
+  margin-top: 16px;
+  padding: 12px;
+  border-radius: 6px;
+  text-align: center;
+}
+
+.zap-status-error {
+  background: var(--surface);
+  color: #dc2626;
+}
+
+.zap-status-loading {
+  background: var(--surface);
+  color: var(--primary);
+}
+
+.zap-invoice-container {
+  text-align: center;
+}
+
+.zap-qr-display {
+  margin: 20px 0;
+  background-color: rgb(245, 240, 240);
+}
+
+.zap-qr-display img {
+  max-width: 300px;
+  margin: 0 auto;
+}
+
+.zap-invoice-text {
+  display: flex;
+  gap: 8px;
+  margin: 20px 0;
+}
+
+.zap-invoice-text input {
+  flex: 1;
+  padding: 12px;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  font-family: monospace;
+  font-size: 12px;
+}
+
+.zap-payment-status {
+  margin: 20px 0;
+}
+
+.zap-spinner {
+  margin: 16px auto;
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f4f6;
+  border-top-color: #f59e0b;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.zap-success {
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.zap-success-icon {
+  font-size: 64px;
+  margin-bottom: 20px;
+  animation: zapPulse 0.6s ease-out;
+}
+
+@keyframes zapPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+}
+
+.zap-success h3 {
+  margin: 16px 0 8px;
+  color: var(--primary);
+}
+
+
+/***video zap***/
+/* Channel info zap container */
+.channel-zap-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
+.video-zap-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--surface);
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.zap-total {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.zap-amount {
+  color: #f59e0b;
+  font-weight: 700;
+}
+
+/* Adjust channel-info to accommodate zap button */
+.channel-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  flex-wrap: wrap;
+}
+
+.channel-info > div:first-child {
+  flex-shrink: 0;
+}
+
+.channel-info > div:nth-child(2) {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+/* Make zap button smaller in video page context */
+.channel-zap-container .zap-btn-small {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+.channel-zap-container .zap-icon {
+  width: 14px;
+  height: 14px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .channel-zap-container {
+    width: 100%;
+    justify-content: space-between;
+    margin-left: 0;
+    margin-top: 8px;
+  }
+  
+  .video-zap-info {
+    flex: 1;
+    justify-content: center;
+  }
 }

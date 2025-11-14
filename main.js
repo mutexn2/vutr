@@ -596,6 +596,7 @@ async function publishGuestProfile(secretKey, publicKey) {
     const profileData = {
       name: `guest-${randomNum}`,
       about: "A guest user exploring Nostr",
+      lud16: "weakcode604@minibits.cash",
       picture: "https://robohash.org/" + publicKey.substring(0, 10) + ".png",
     };
 

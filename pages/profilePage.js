@@ -423,16 +423,15 @@ async function createProfileLinks(kindZeroContent, pubkey, profile) {
     return `${text.substring(0, charsToShow)}...${text.substring(text.length - charsToShow)}`;
   }
 
-  if (kindZeroContent.lud16) {
-    const lightningBtn = createProfileButton({
-      icon: LIGHTNING_ICON,
-      text: truncateText(kindZeroContent.lud16, 40),
-      className: "profile-btn lightning-btn",
-      onClick: () => handleLightningClick(kindZeroContent.lud16)
-    });
-    links.push(lightningBtn);
-  }
-  
+if (kindZeroContent.lud16) {
+  const lightningBtn = createProfileButton({
+    icon: LIGHTNING_ICON,
+    text: truncateText(kindZeroContent.lud16, 40),
+    className: "profile-btn lightning-btn",
+    onClick: () => handleLightningClick(kindZeroContent.lud16, pubkey)
+  });
+  links.push(lightningBtn);
+}
   const shareBtn = createProfileButton({
     icon: SHARE_ICON,
     text: "Copy Link",
@@ -597,14 +596,15 @@ function updateNip05Button(button, result, nip05Text) {
 }
 
 
-function handleLightningClick(lud16) {
-  openQrModal({
-    title: "Lightning Address QR Code",
-    contentType: "direct-text",
-    initialText: lud16,
-    generateImmediately: true,
-    size: "medium",
-  });
+function handleLightningClick(lud16, pubkey) {
+  // Create zap params
+  const zapParams = {
+    pubkey: pubkey,
+    lud16: lud16,
+    relays: app.relays.slice(0, 5) // Use first 5 relays
+  };
+  
+  handleZapClick(zapParams);
 }
 
 function handleShareClick() {

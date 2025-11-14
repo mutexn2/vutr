@@ -432,18 +432,25 @@ function renderVideoPage(video, videoId, useExistingVideo = false, shouldAutopla
     renderVideoPlayer(videoContainer, video, shouldAutoplay);
   }
 
-  // Channel info with custom elements
-  let channelImage = document.createElement("nostr-picture");
-  channelImage.className = "channel-image";
-  channelImage.setAttribute("pubkey", pubkey);
+// Channel info with custom elements
+let channelImage = document.createElement("nostr-picture");
+channelImage.className = "channel-image";
+channelImage.setAttribute("pubkey", pubkey);
 
-  let channelName = document.createElement("nostr-name");
-  channelName.className = "channel-name";
-  channelName.setAttribute("pubkey", pubkey);
+let channelName = document.createElement("nostr-name");
+channelName.className = "channel-name";
+channelName.setAttribute("pubkey", pubkey);
 
-  channelInfo.children[0].appendChild(channelImage);
-  channelInfo.children[1].appendChild(channelName);
+channelInfo.children[0].appendChild(channelImage);
+channelInfo.children[1].appendChild(channelName);
 
+// Add zap button and zap count
+const zapContainer = document.createElement('div');
+zapContainer.className = 'channel-zap-container';
+channelInfo.appendChild(zapContainer);
+
+// Add zap button and load zap data
+setupVideoZapButton(zapContainer, video, videoId, pubkey);
   // Channel info click handlers - tracked
   const channelImageHandler = () => {
     window.location.hash = `#profile/${pubkey}`;

@@ -300,8 +300,8 @@ function renderVideoPage(video, videoId, useExistingVideo = false, shouldAutopla
   <div class="scrollable-content">
     <div class="video-info-bar">
       <div class="channel-info">
-        <div></div>
-        <div></div>
+        <div class="creator-image"></div>
+        <div class="creator-name"></div>
       </div>
       <div class="video-action-tabs">
         <div class="tab-scroll-container">

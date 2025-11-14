@@ -502,8 +502,7 @@ h1 {
 .settings-section svg,
 .relay-hints-list svg,
 .relay-set-discovery-btn svg,
-.relay-set-card svg,
-.video-action-tabs svg {
+.relay-set-card svg {
   width: 24px;
   height: 24px;
   fill: var(--surface);
@@ -522,6 +521,19 @@ h1 {
   height: 24px;
   fill: var(--text);
   stroke: var(--text-secondary);
+}
+
+.video-action-tabs svg {
+  width: 24px;
+  height: 24px;
+  fill: var(--text);
+  stroke: var(--text-secondary);
+}
+.light-theme .video-action-tabs svg {
+  width: 24px;
+  height: 24px;
+  fill: var(--background);
+  stroke: var(--text);
 }
 
 .markdown-note svg,
@@ -1378,7 +1390,7 @@ main {
 
 .shorts-button {
   /* display: none; */
-   display: flex;
+  display: flex;
   align-items: center;
   gap: 8px;
   padding: 8px;
@@ -2318,7 +2330,11 @@ main {
 /* Drag handle at the top */
 .miniplayer-drag-handle {
   height: 24px;
-  background: linear-gradient(180deg, rgba(40, 40, 40, 0.95) 0%, rgba(20, 20, 20, 0.95) 100%);
+  background: linear-gradient(
+    180deg,
+    rgba(40, 40, 40, 0.95) 0%,
+    rgba(20, 20, 20, 0.95) 100%
+  );
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2359,7 +2375,7 @@ main {
 }
 
 .miniplayer-video-container:hover::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
   background: rgba(255, 255, 255, 0.03);
@@ -2458,17 +2474,17 @@ main {
   .miniplayer {
     width: 280px;
   }
-  
+
   .miniplayer:not([style*="left"]):not([style*="top"]) {
     right: 10px;
     bottom: 80px;
   }
-  
+
   .miniplayer-footer {
     padding: 6px 10px;
     min-height: 40px;
   }
-  
+
   .miniplayer-btn {
     width: 28px;
     height: 28px;
@@ -2600,13 +2616,13 @@ main {
 
 .video-action-tab-button {
   background: var(--background);
-  border: none;
+  border: 1px solid var(--background);
+  border-radius: 4px;
   padding: 12px 20px;
   cursor: pointer;
   color: var(--text);
   font-size: 14px;
   font-weight: 500;
-  border-bottom: 2px solid transparent;
   transition: all 0.3s ease;
   white-space: nowrap;
   flex-shrink: 0;
@@ -2614,7 +2630,7 @@ main {
 }
 
 .video-action-tab-button:hover {
-  background: var(--surface);
+  border: 1px solid var(--primary);
 }
 
 .video-action-tab-button.active {
@@ -2672,12 +2688,12 @@ main {
   gap: 8px;
 }
 
-.video-info-bar svg {
+/* .video-info-bar svg {
   width: 24px;
   height: 24px;
   fill: var(--text);
   stroke: var(--primary);
-}
+} */
 
 .channel-info {
   display: flex;
@@ -2688,16 +2704,18 @@ main {
   height: 6vh;
   gap: 8px;
   color: var(--text);
-  margin-top: 8px;
-  padding: 8px;
+  margin-top: 0;
+  padding: 0;
 }
 
-.channel-info div {
+.channel-info .creator-image,
+.channel-info .creator-name {
   cursor: pointer;
   border-bottom: 1px solid var(--background);
 }
 
-.channel-info div:hover {
+.channel-info .creator-image:hover,
+.channel-info .creator-name:hover {
   border-bottom: 1px solid var(--primary);
 }
 
@@ -3030,7 +3048,6 @@ details[open] .arrow {
 }
 
 .video-page-layout .chat-input-container.collapsed {
- 
   height: auto;
 }
 
@@ -3190,15 +3207,15 @@ details[open] .arrow {
   .video-page-layout .playlist-content {
     padding: 6px 12px;
   }
-  
+
   .video-page-layout .playlist-title {
     font-size: 12px;
   }
-  
+
   .video-page-layout .playlist-position {
     font-size: 11px;
   }
-  
+
   .playlist-prev-btn,
   .playlist-next-btn {
     width: 28px;
@@ -3256,10 +3273,9 @@ main {
     padding: 0.7rem;
   }
 
-.video-page-layout .comments-content {
-  gap: 0;
-}
-
+  .video-page-layout .comments-content {
+    gap: 0;
+  }
 }
 
 @media (min-width: 769px) {
@@ -3629,7 +3645,6 @@ main {
   align-items: center;
   padding: 1rem;
   background: var(--background);
-  
 }
 
 .posting-container .section-header h3 {
@@ -4546,7 +4561,7 @@ main {
 }
 
 .profile-links-row .profile-btn.nip05-btn.verified svg {
-/*   width: 48px;
+  /*   width: 48px;
   height: 48px; */
   fill: green;
   stroke: var(--background);
@@ -5600,8 +5615,6 @@ main {
   width: 36px;
   height: 36px;
 }
-
-
 
 /************************************/
 /******************************************************/
@@ -10802,11 +10815,10 @@ noscript {
 }
 
 @media (max-width: 770px) {
-.relays-discovery-page .ranking-item {
-  flex-direction: column;
-  align-items: start;
-}
-
+  .relays-discovery-page .ranking-item {
+    flex-direction: column;
+    align-items: start;
+  }
 }
 /************************/
 /******kind-1 follows*****/
@@ -11866,7 +11878,6 @@ noscript {
   cursor: pointer;
 }
 
-
 /********************/
 
 .playlist-badge {
@@ -11969,8 +11980,12 @@ noscript {
   align-items: center;
   gap: 6px;
   padding: 8px 16px;
-  background: linear-gradient(135deg, var(--surface) 0%, var(--background) 100%);
-  border: none;
+  background: linear-gradient(
+    135deg,
+    var(--surface) 0%,
+    var(--background) 100%
+  );
+  border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text);
   font-weight: 600;
@@ -11980,12 +11995,11 @@ noscript {
 }
 
 .zap-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+  border: 1px solid var(--primary);
 }
 
 .zap-btn:active {
-  transform: translateY(0);
+  border: 1px solid var(--primary);
 }
 
 .zap-btn.zap-btn-loading {
@@ -12049,11 +12063,11 @@ noscript {
   font-size: 16px;
 }
 
-input[type=number] {
-    -webkit-appearance: textfield;
-    -moz-appearance: textfield;
-    appearance: textfield;
-    margin: 0;
+input[type="number"] {
+  -webkit-appearance: textfield;
+  -moz-appearance: textfield;
+  appearance: textfield;
+  margin: 0;
 }
 
 .zap-quick-amounts {
@@ -12174,7 +12188,9 @@ input[type=number] {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .zap-success {
@@ -12189,15 +12205,19 @@ input[type=number] {
 }
 
 @keyframes zapPulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.2); }
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+  }
 }
 
 .zap-success h3 {
   margin: 16px 0 8px;
   color: var(--primary);
 }
-
 
 /***video zap***/
 /* Channel info zap container */
@@ -12206,6 +12226,7 @@ input[type=number] {
   align-items: center;
   gap: 12px;
   margin-left: auto;
+  cursor: unset;
 }
 
 .video-zap-info {
@@ -12213,7 +12234,8 @@ input[type=number] {
   align-items: center;
   gap: 8px;
   padding: 6px 12px;
-  background: var(--surface);
+  background: var(--background);
+  border: 1px solid var(--border);
   border-radius: 8px;
   font-size: 14px;
   font-weight: 600;
@@ -12227,7 +12249,7 @@ input[type=number] {
 }
 
 .zap-amount {
-  color: #f59e0b;
+  color: var(--text);
   font-weight: 700;
 }
 
@@ -12236,7 +12258,7 @@ input[type=number] {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 16px;
+  padding: 0;
   flex-wrap: wrap;
 }
 
@@ -12260,17 +12282,167 @@ input[type=number] {
   height: 14px;
 }
 
+/* Zap details modal */
+.zap-details-modal {
+  padding: 0;
+}
+
+.zap-details-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 16px;
+  padding: 16px;
+  background: var(--background);
+  border-radius: 12px;
+  margin-bottom: 24px;
+}
+
+.zap-summary-item {
+  text-align: center;
+}
+
+.zap-summary-label {
+  display: block;
+  font-size: 12px;
+  color: var(--text);
+  font-weight: 600;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+
+.zap-summary-value {
+  display: block;
+  font-size: 18px;
+  color: var(--text);
+  font-weight: 700;
+}
+
+.zap-details-list {
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.zap-detail-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 12px;
+  transition: all 0.2s ease;
+  background: var(--background);
+  pointer-events: none;
+  gap: 4px;
+}
+
+.zap-detail-item[data-pubkey]:hover {
+  border-color: var(--primary);
+  background: var(--surface);
+}
+
+.zap-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex: 1;
+}
+
+.zap-detail-zapper {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex: 1;
+  min-width: 0;
+}
+
+.zap-detail-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.zap-detail-zapper nostr-picture::part(img) {
+  width: 35px;
+  height: 35px;
+}
+.zap-detail-name {
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.zap-detail-amount {
+  font-weight: 700;
+  color: var(--text);
+  font-size: 16px;
+  white-space: nowrap;
+  margin-left: 12px;
+}
+
+.zap-detail-comment {
+  padding: 8px 12px;
+  background: var(--surface);
+  border-radius: 8px;
+  font-style: italic;
+  color: var(--text);
+  margin-bottom: 8px;
+  word-wrap: break-word;
+}
+
+.zap-detail-time {
+  font-size: 12px;
+  color: var(--text);
+  margin: 4px;
+  padding: 4px;
+}
+
+/* Scrollbar styling for zap list */
+.zap-details-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.zap-details-list::-webkit-scrollbar-track {
+  background: #f3f4f6;
+  border-radius: 4px;
+}
+
+.zap-details-list::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 4px;
+}
+
+.zap-details-list::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* Make video-zap-info hover effect */
+.video-zap-info:hover {
+  background: var(--surface);
+  border: 1px solid var(--primary);
+}
+
+/* Add transition */
+.video-zap-info {
+  transition: all 0.2s ease;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
-  .channel-zap-container {
-    width: 100%;
-    justify-content: space-between;
-    margin-left: 0;
-    margin-top: 8px;
+  .zap-details-summary {
+    grid-template-columns: 1fr;
   }
-  
-  .video-zap-info {
-    flex: 1;
-    justify-content: center;
+
+  .zap-detail-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .zap-detail-amount {
+    margin-left: 0;
   }
 }

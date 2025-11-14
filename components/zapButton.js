@@ -572,9 +572,15 @@ async function setupVideoZapButton(container, video, videoId, pubkey) {
 
   const zapInfo = document.createElement('div');
   zapInfo.className = 'video-zap-info';
+  zapInfo.style.cursor = 'pointer'; // Make it clear it's clickable
   zapInfo.innerHTML = `
     <span class="zap-total">⚡ <span class="zap-amount">0</span> sats</span>
   `;
+
+  // Add click handler to show zap details
+  zapInfo.addEventListener('click', () => {
+    showVideoZapDetails(videoId);
+  });
 
   container.appendChild(zapButton);
   container.appendChild(zapInfo);
@@ -599,6 +605,7 @@ async function loadVideoZapCount(videoId) {
 
     let totalSats = 0;
     let validZapCount = 0;
+    const zapDetails = []; // Store individual zap details
 
     // Process each zap receipt
     for (const receipt of zapReceipts) {
@@ -615,11 +622,38 @@ async function loadVideoZapCount(videoId) {
         if (amountSats > 0) {
           totalSats += amountSats;
           validZapCount++;
+
+          // Get zapper pubkey from the description tag (zap request)
+          const descriptionTag = receipt.tags.find(tag => tag[0] === 'description');
+          let zapperPubkey = null;
+          let zapComment = '';
+
+          if (descriptionTag && descriptionTag[1]) {
+            try {
+              const zapRequest = JSON.parse(descriptionTag[1]);
+              zapperPubkey = zapRequest.pubkey;
+              zapComment = zapRequest.content || '';
+            } catch (e) {
+              console.warn('Failed to parse zap request:', e);
+            }
+          }
+
+          // Store zap details
+          zapDetails.push({
+            amount: amountSats,
+            zapperPubkey: zapperPubkey,
+            comment: zapComment,
+            timestamp: receipt.created_at,
+            receiptId: receipt.id
+          });
         }
       } catch (error) {
         console.warn('Error processing zap receipt:', error);
       }
     }
+
+    // Sort by amount (highest first)
+    zapDetails.sort((a, b) => b.amount - a.amount);
 
     console.log(`Found ${validZapCount} valid zaps totaling ${totalSats} sats for video ${videoId}`);
 
@@ -636,6 +670,7 @@ async function loadVideoZapCount(videoId) {
     app.videoZapData[videoId] = {
       totalSats,
       zapCount: validZapCount,
+      zapDetails: zapDetails, // Store the details
       lastUpdated: Date.now()
     };
 
@@ -643,7 +678,6 @@ async function loadVideoZapCount(videoId) {
     console.error('Error loading video zap count:', error);
   }
 }
-
 /**
  * Format sats amount for display
  */
@@ -656,3 +690,134 @@ function formatSatsAmount(sats) {
     return sats.toString();
   }
 }
+
+
+/**
+ * Show modal with detailed zap information
+ */
+function showVideoZapDetails(videoId) {
+  const zapData = app.videoZapData?.[videoId];
+
+  if (!zapData || !zapData.zapDetails || zapData.zapDetails.length === 0) {
+    alertModal('No zaps found for this video yet.', 'Zap Details');
+    return;
+  }
+
+  const { totalSats, zapCount, zapDetails } = zapData;
+
+  // Build the zap list HTML
+  const zapListHTML = zapDetails.map((zap, index) => {
+    const zapperDisplay = zap.zapperPubkey 
+      ? `<nostr-name pubkey="${zap.zapperPubkey}"></nostr-name>`
+      : 'Anonymous';
+    
+    const timeAgo = getRelativeTime(zap.timestamp);
+    
+    return `
+      <div class="zap-detail-item" data-pubkey="${zap.zapperPubkey || ''}">
+        <div class="zap-detail-header">
+          <div class="zap-detail-zapper">
+            ${zap.zapperPubkey ? `<nostr-picture pubkey="${zap.zapperPubkey}" class="zap-detail-avatar"></nostr-picture>` : ''}
+            <span class="zap-detail-name">${zapperDisplay}</span>
+          </div>
+          <div class="zap-detail-amount">⚡ ${zap.amount.toLocaleString()} sats</div>
+        </div>
+        ${zap.comment ? `<div class="zap-detail-comment">"${escapeHtml(zap.comment)}"</div>` : ''}
+        <div class="zap-detail-time">${timeAgo}</div>
+      </div>
+    `;
+  }).join('');
+
+  const content = `
+    <div class="zap-details-modal">
+      <div class="zap-details-summary">
+        <div class="zap-summary-item">
+          <span class="zap-summary-label">Total Zaps:</span>
+          <span class="zap-summary-value">${zapCount}</span>
+        </div>
+        <div class="zap-summary-item">
+          <span class="zap-summary-label">Total Amount:</span>
+          <span class="zap-summary-value">⚡ ${totalSats.toLocaleString()} sats</span>
+        </div>
+        <div class="zap-summary-item">
+          <span class="zap-summary-label">Average:</span>
+          <span class="zap-summary-value">⚡ ${Math.round(totalSats / zapCount).toLocaleString()} sats</span>
+        </div>
+      </div>
+      
+      <div class="zap-details-list">
+        ${zapListHTML}
+      </div>
+    </div>
+  `;
+
+  const modal = openModal({
+    title: `⚡ Zap Details (${zapCount})`,
+    content: content,
+    size: 'medium',
+    customClass: 'zap-details-modal-container'
+  });
+
+  // Add click handlers to navigate to profiles
+  const zapItems = modal.querySelectorAll('.zap-detail-item[data-pubkey]');
+  zapItems.forEach(item => {
+    const pubkey = item.dataset.pubkey;
+    if (pubkey) {
+      item.style.cursor = 'pointer';
+      item.addEventListener('click', () => {
+        closeModal();
+        window.location.hash = `#profile/${pubkey}`;
+      });
+    }
+  });
+}
+
+
+
+
+////////
+// not applied
+/**
+ * Subscribe to new zaps for the current video
+ */
+
+
+
+/* function subscribeToVideoZaps(videoId) {
+  if (app.zapSubscription) {
+    app.zapSubscription.unsub();
+  }
+
+  const pool = new window.NostrTools.SimplePool();
+  
+  app.zapSubscription = pool.sub(app.relays || [], [{
+    kinds: [9735],
+    '#e': [videoId],
+    since: Math.floor(Date.now() / 1000)
+  }]);
+
+  app.zapSubscription.on('event', (event) => {
+    console.log('New zap received!', event);
+    
+    // Reload zap count
+    loadVideoZapCount(videoId);
+    
+    // Optional: Show notification
+    const bolt11Tag = event.tags.find(tag => tag[0] === 'bolt11');
+    if (bolt11Tag && bolt11Tag[1]) {
+      const sats = window.NostrTools.nip57.getSatoshisAmountFromBolt11(bolt11Tag[1]);
+      showTemporaryNotification(`⚡ New zap: ${sats} sats!`);
+    }
+  });
+}
+
+// Call this in renderVideoPage after setting up the zap button
+// subscribeToVideoZaps(videoId);
+
+// Don't forget to unsubscribe when leaving the page
+// Add to your cleanup:
+if (app.zapSubscription) {
+  app.zapSubscription.unsub();
+  app.zapSubscription = null;
+}
+ */

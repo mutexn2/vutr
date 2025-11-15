@@ -14,111 +14,49 @@ async function playlistPageHandler() {
   
   try {
     // Parse and validate specific parameters
-    const { id, discovery, author, dtag, error } = parsePlaylistParams(queryString);
+    const { discovery, author, dtag, error } = parsePlaylistParams(queryString);
     
     if (error) {
       throw new Error(error);
     }
     
-    console.log("Playlist params:", { id, discovery, author, dtag });
+    console.log("Playlist params:", { author, dtag, discovery });
     
-    // Query for the playlist event
-    let playlistResult;
+    // Query for the playlist event - only using author and dtag
+    let playlistResult = null;
     
-    // For replaceable events, we need author and dtag, not just id
-    if (author && dtag) {
-      console.log("Getting playlist by author and dtag:", author, dtag);
+    // Step 1: Try app.relays + discovery relays (if provided)
+    const primaryRelays = getPrimaryRelays(discovery);
+    console.log("Searching primary relays:", primaryRelays);
+    
+    playlistResult = await NostrClient.getEventsFromRelays(primaryRelays, {
+      kinds: [30005],
+      authors: [author],
+      tags: { d: [dtag] },
+      limit: 1,
+    });
+    
+    // Step 2: If not found, try extended search with user's relays + global relays
+    if (!playlistResult || (Array.isArray(playlistResult) && playlistResult.length === 0)) {
+      console.log("Playlist not found in primary relays, trying extended search...");
       
-      if (discovery && discovery.length > 0) {
-        const formattedDiscoveryRelays = discovery.map((relay) => {
-          let cleanRelay = relay.trim();
-          cleanRelay = cleanRelay.replace(/^wss?::\/\//, "wss://");
-          if (cleanRelay.startsWith("wss://")) {
-            cleanRelay = cleanRelay.slice(6);
-          } else if (cleanRelay.startsWith("ws://")) {
-            cleanRelay = cleanRelay.slice(5);
-          }
-          return `wss://${cleanRelay}`;
-        });
-        
-        const appRelays = (app.relays || []).map((relay) => {
-          let cleanRelay = relay.trim();
-          cleanRelay = cleanRelay.replace(/^wss?::\/\//, "wss://");
-          if (!cleanRelay.startsWith("ws://") && !cleanRelay.startsWith("wss://")) {
-            cleanRelay = `wss://${cleanRelay}`;
-          }
-          return cleanRelay;
-        });
-        
-        const allRelays = [...new Set([...formattedDiscoveryRelays, ...appRelays])];
-        console.log("Combined relay list:", allRelays);
-        
-        playlistResult = await NostrClient.getEventsFromRelays(allRelays, {
-          kinds: [30005],
-          authors: [author],
-          tags: { d: [dtag] },
-          limit: 1,
-        });
-      } else {
-        const extendedRelays = await getExtendedRelaysForProfile(author);
-        playlistResult = await NostrClient.getEventsFromRelays(extendedRelays, {
-          kinds: [30005],
-          authors: [author],
-          tags: { d: [dtag] },
-          limit: 1,
-        });
-      }
-    } else if (id) {
-      console.log("Trying to get playlist by ID (fallback):", id);
+      const extendedRelays = await getExtendedRelaysForProfile(author);
+      const allExtendedRelays = [...new Set([...extendedRelays, ...app.globalRelays])];
       
-      if (discovery && discovery.length > 0) {
-        const formattedDiscoveryRelays = discovery.map((relay) => {
-          let cleanRelay = relay.trim();
-          cleanRelay = cleanRelay.replace(/^wss?::\/\//, "wss://");
-          if (cleanRelay.startsWith("wss://")) {
-            cleanRelay = cleanRelay.slice(6);
-          } else if (cleanRelay.startsWith("ws://")) {
-            cleanRelay = cleanRelay.slice(5);
-          }
-          return `wss://${cleanRelay}`;
-        });
-        
-        const appRelays = (app.relays || []).map((relay) => {
-          let cleanRelay = relay.trim();
-          cleanRelay = cleanRelay.replace(/^wss?::\/\//, "wss://");
-          if (!cleanRelay.startsWith("ws://") && !cleanRelay.startsWith("wss://")) {
-            cleanRelay = `wss://${cleanRelay}`;
-          }
-          return cleanRelay;
-        });
-        
-        const allRelays = [...new Set([...formattedDiscoveryRelays, ...appRelays])];
-        
-        playlistResult = await NostrClient.getEventsFromRelays(allRelays, {
-          kinds: [30005],
-          ids: [id],
-          limit: 1,
-        });
-      } else {
-        playlistResult = await NostrClient.getEvents({
-          kinds: [30005],
-          ids: [id],
-          limit: 1,
-        });
-      }
-    } else {
-      throw new Error("Either (author + dtag) or id is required for playlist lookup");
+      console.log("Searching extended relays:", allExtendedRelays);
+      
+      playlistResult = await NostrClient.getEventsFromRelays(allExtendedRelays, {
+        kinds: [30005],
+        authors: [author],
+        tags: { d: [dtag] },
+        limit: 1,
+      });
     }
     
-    if (playlistResult) {
-      console.log("Playlist result:", JSON.stringify(playlistResult, null, 2));
+    if (playlistResult && (Array.isArray(playlistResult) ? playlistResult.length > 0 : true)) {
+      console.log("Playlist found:", JSON.stringify(playlistResult, null, 2));
       
       const playlist = Array.isArray(playlistResult) ? playlistResult[0] : playlistResult;
-      
-      if (!playlist) {
-        showPlaylistNotFound();
-        return;
-      }
       
       const sanitizedPlaylist = sanitizeNostrEvent(playlist);
       const videoTags = filterValidVideoTags(sanitizedPlaylist.tags);
@@ -126,18 +64,19 @@ async function playlistPageHandler() {
       // Fetch video events
       const videoEvents = await fetchVideoEvents(videoTags);
       
-      // **CACHE THE VIDEO EVENTS HERE**
-      const playlistId = id || `${author}:${dtag}`;
+      // Cache the video events
+      const playlistId = `${author}:${dtag}`;
       app.playlistVideoCache = {
         videos: videoEvents,
         playlistId: playlistId
       };
       
       renderNetworkPlaylist(sanitizedPlaylist, videoEvents, playlistId);
-      setupNetworkPlaylistEventListeners(sanitizedPlaylist, videoEvents); // Pass videoEvents
+      setupNetworkPlaylistEventListeners(sanitizedPlaylist, videoEvents);
       
     } else {
-      showPlaylistNotFoundWithSearch(author, dtag, id);
+      console.log("Playlist not found after extended search");
+      showPlaylistNotFound();
     }
     
   } catch (error) {
@@ -146,17 +85,23 @@ async function playlistPageHandler() {
   }
 }
 
+// Helper function to get primary relays (app.relays + discovery)
+function getPrimaryRelays(discoveryRelays) {
+  const appRelays = (app.relays || []).map(cleanRelayUrl);
+  
+  if (discoveryRelays && discoveryRelays.length > 0) {
+    const formattedDiscoveryRelays = discoveryRelays.map(cleanRelayUrl);
+    return [...new Set([...appRelays, ...formattedDiscoveryRelays])];
+  }
+  
+  return appRelays;
+}
+
+
 function filterValidVideoTags(tags) {
   if (!tags) return [];
   
-  // OLD: return tags.filter(tag => {
-  //   if (tag[0] !== "a") return false;
-  //   const videoRef = tag[1];
-  //   if (!videoRef) return false;
-  //   return videoRef.startsWith("21:") || videoRef.startsWith("22:");
-  // });
-  
-  // NEW: Simple e tag filtering
+  // Filter e tags for video IDs
   return tags.filter(tag => {
     if (tag[0] !== "e") return false;
     const videoId = tag[1];
@@ -178,75 +123,39 @@ function parsePlaylistParams(queryString) {
     });
   }
   
-  // For replaceable events, we prefer author + dtag combination
-  if (params.author && params.dtag) {
-    // Validate author (pubkey) format
-    const pubkeyPattern = /^[a-f0-9]{64}$/i;
-    if (!pubkeyPattern.test(params.author)) {
-      return { error: "Invalid author pubkey format" };
-    }
-    
-    // Parse discovery relays if present
-    let discoveryRelays = null;
-    if (params.discovery) {
-      discoveryRelays = params.discovery.split(",").map((relay) => relay.trim());
-    }
-    
-    return {
-      author: params.author,
-      dtag: params.dtag,
-      discovery: discoveryRelays,
-      error: null,
-    };
+  // For replaceable events, we require author + dtag
+  if (!params.author || !params.dtag) {
+    return { error: "Both author and dtag are required for playlist lookup" };
   }
   
-  // Fallback to ID-based lookup
-  if (params.id) {
-    // Validate ID format
-    const idPattern = /^[a-f0-9]{64}$/i;
-    if (!idPattern.test(params.id)) {
-      return { error: "Invalid playlist ID format" };
-    }
-    
-    // Parse discovery relays if present
-    let discoveryRelays = null;
-    if (params.discovery) {
-      discoveryRelays = params.discovery.split(",").map((relay) => relay.trim());
-    }
-    
-    return {
-      id: params.id,
-      discovery: discoveryRelays,
-      author: params.author || null,
-      error: null,
-    };
+  // Validate author (pubkey) format
+  const pubkeyPattern = /^[a-f0-9]{64}$/i;
+  if (!pubkeyPattern.test(params.author)) {
+    return { error: "Invalid author pubkey format" };
   }
   
-  return { error: "Either (author + dtag) or id is required" };
+  // Parse discovery relays if present
+  let discoveryRelays = null;
+  if (params.discovery) {
+    discoveryRelays = params.discovery.split(",").map((relay) => relay.trim());
+  }
+  
+  return {
+    author: params.author,
+    dtag: params.dtag,
+    discovery: discoveryRelays,
+    error: null,
+  };
 }
 
-function showPlaylistNotFoundWithSearch(author, dtag, id) {
+function showPlaylistNotFound() {
   mainContent.innerHTML = `
     <div class="empty-state">
       <h1>Playlist Not Found</h1>
-      <p>The playlist was not found on the relays.</p>
-      <div class="playlist-actions">
-        <button class="btn-primary extensive-search-btn">Try Extensive Search</button>
-      </div>
+      <p>The playlist could not be found on any available relays.</p>
     </div>
   `;
-  
-  const extensiveSearchBtn = mainContent.querySelector(".extensive-search-btn");
-  extensiveSearchBtn?.addEventListener("click", async () => {
-    let staticRelays = ["relay.nostr.band", "nos.lol", "nostr.mom"];
-    const playlistUrl = `#playlist/params?${
-      author && dtag ? `author=${author}&dtag=${dtag}` : `id=${id}`
-    }&discovery=${staticRelays.join(",")}`;
-    console.log("Navigating to playlist URL:", playlistUrl);
-    window.location.hash = playlistUrl;
-  });
 }
-
 function isPlaylistSaved(playlist) {
   const existingPlaylists = app.playlists || [];
   const dTag = getValueFromTags(playlist, "d", "");

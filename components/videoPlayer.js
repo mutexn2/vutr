@@ -374,7 +374,9 @@ function updateMiniplayerPlaylistInfo() {
   }
   
   const title = getValueFromTags(app.currentPlaylist, "title", "Playlist");
-  const videoTags = app.currentPlaylist.tags.filter(tag => tag[0] === "a");
+  // OLD: const videoTags = app.currentPlaylist.tags.filter(tag => tag[0] === "a");
+  // NEW:
+  const videoTags = app.currentPlaylist.tags.filter(tag => tag[0] === "e");
   const totalVideos = videoTags.length;
   const currentPosition = app.currentPlaylistIndex + 1;
   
@@ -422,7 +424,10 @@ function truncateText(text, maxLength) {
 function playNextInPlaylist() {
   if (!app.currentPlaylist) return;
   
-  const videoTags = app.currentPlaylist.tags.filter(tag => tag[0] === "a");
+  // OLD: const videoTags = app.currentPlaylist.tags.filter(tag => tag[0] === "a");
+  // NEW:
+  const videoTags = app.currentPlaylist.tags.filter(tag => tag[0] === "e");
+  
   if (app.currentPlaylistIndex >= videoTags.length - 1) {
     console.log("Already at last video in playlist");
     return;
@@ -438,7 +443,10 @@ function playNextInPlaylist() {
   
   app.currentPlaylistIndex++;
   const nextVideoTag = videoTags[app.currentPlaylistIndex];
-  const [kind, videoId] = nextVideoTag[1].split(':');
+  
+  // OLD: const [kind, videoId] = nextVideoTag[1].split(':');
+  // NEW: Just get the video ID directly
+  const videoId = nextVideoTag[1];
   
   const dTag = getValueFromTags(app.currentPlaylist, "d", "");
   const pubkey = app.currentPlaylist.pubkey;
@@ -463,9 +471,16 @@ function playPreviousInPlaylist() {
   }
   
   app.currentPlaylistIndex--;
-  const videoTags = app.currentPlaylist.tags.filter(tag => tag[0] === "a");
+  
+  // OLD: const videoTags = app.currentPlaylist.tags.filter(tag => tag[0] === "a");
+  // NEW:
+  const videoTags = app.currentPlaylist.tags.filter(tag => tag[0] === "e");
+  
   const prevVideoTag = videoTags[app.currentPlaylistIndex];
-  const [kind, videoId] = prevVideoTag[1].split(':');
+  
+  // OLD: const [kind, videoId] = prevVideoTag[1].split(':');
+  // NEW: Just get the video ID directly
+  const videoId = prevVideoTag[1];
   
   const dTag = getValueFromTags(app.currentPlaylist, "d", "");
   const pubkey = app.currentPlaylist.pubkey;

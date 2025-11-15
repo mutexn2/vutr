@@ -18,28 +18,6 @@ function createPlaylistCard(playlist, options = {}) {
     return text.length > maxLength ? `${text.substring(0, maxLength)}...` : text;
   };
 
-function countVideoReferences(playlist) {
-  if (!playlist.tags || !Array.isArray(playlist.tags)) {
-    return 0;
-  }
-  
-  // OLD: return playlist.tags.filter(tag => {
-  //   if (!Array.isArray(tag) || tag.length < 2 || tag[0] !== "a") return false;
-  //   const aTagValue = tag[1];
-  //   if (!aTagValue || typeof aTagValue !== "string" || 
-  //       (!aTagValue.startsWith("21:") && !aTagValue.startsWith("22:"))) return false;
-  //   const idPart = aTagValue.substring(3);
-  //   return idPart.length === 64 && /^[a-fA-F0-9]{64}$/.test(idPart);
-  // }).length;
-  
-  // NEW: Count e tags with valid video IDs
-  return playlist.tags.filter(tag => {
-    if (!Array.isArray(tag) || tag.length < 2 || tag[0] !== "e") return false;
-    const videoId = tag[1];
-    if (!videoId || typeof videoId !== "string") return false;
-    return videoId.length === 64 && /^[a-fA-F0-9]{64}$/.test(videoId);
-  }).length;
-}
 
   // Check if playlist is already saved locally (only for network playlists)
   const isSavedLocally = showAuthor ? isPlaylistInLocalLibrary(playlist) : false;
@@ -644,4 +622,27 @@ function unbookmarkPlaylist(playlist) {
     console.error("Error unbookmarking playlist:", error);
     throw error;
   }
+}
+
+function countVideoReferences(playlist) {
+  if (!playlist.tags || !Array.isArray(playlist.tags)) {
+    return 0;
+  }
+  
+  // OLD: return playlist.tags.filter(tag => {
+  //   if (!Array.isArray(tag) || tag.length < 2 || tag[0] !== "a") return false;
+  //   const aTagValue = tag[1];
+  //   if (!aTagValue || typeof aTagValue !== "string" || 
+  //       (!aTagValue.startsWith("21:") && !aTagValue.startsWith("22:"))) return false;
+  //   const idPart = aTagValue.substring(3);
+  //   return idPart.length === 64 && /^[a-fA-F0-9]{64}$/.test(idPart);
+  // }).length;
+  
+  // NEW: Count e tags with valid video IDs
+  return playlist.tags.filter(tag => {
+    if (!Array.isArray(tag) || tag.length < 2 || tag[0] !== "e") return false;
+    const videoId = tag[1];
+    if (!videoId || typeof videoId !== "string") return false;
+    return videoId.length === 64 && /^[a-fA-F0-9]{64}$/.test(videoId);
+  }).length;
 }

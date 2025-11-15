@@ -2615,6 +2615,49 @@ main {
   }
 }
 
+.video-not-found-placeholder {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  position: relative;
+}
+
+.not-found-content {
+  text-align: center;
+  padding: 2rem;
+  max-width: 500px;
+}
+
+.not-found-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+.not-found-content h3 {
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
+  color: #fff;
+}
+
+.not-found-content p {
+  color: #999;
+  margin-bottom: 0.5rem;
+}
+
+.video-id-display {
+  font-family: monospace;
+  font-size: 0.85rem;
+  word-break: break-all;
+  padding: 0.5rem;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  margin-top: 1rem;
+}
 /****************************************/
 /***video actions***/
 

@@ -173,8 +173,11 @@ async function videoPageHandler() {
 `;
   let videoPageContainer = document.getElementById("videoPage-container");
 
-  try {
+try {
     let video;
+    let triedExtensiveSearch = false;
+    
+    // First attempt: try with provided discovery/author relays or default relays
     if (authorPubkey) {
       const extendedRelays = await getExtendedRelaysForProfile(authorPubkey);
       video = await NostrClient.getEventsFromRelays(extendedRelays, {
@@ -224,52 +227,51 @@ async function videoPageHandler() {
       });
     }
 
-    if (video) {
-      video = sanitizeNostrEvent(video);
-      console.log(JSON.stringify(video, null, 2));
-    }
-
-    if (!video) {
+    // Second attempt: auto-try extensive search if not found
+    if (!video && !discoveryRelays.length) {
+      console.log("Video not found, trying extensive search automatically...");
       videoPageContainer.innerHTML = `
-        <div class="video-not-found">
-          <h1>Video Not Found</h1>
-          <p>The video with ID "${escapeHtml(videoId)}" was not found on the ${
-        discoveryRelays.length > 0
-          ? "discovery"
-          : authorPubkey
-          ? "author-based"
-          : "connected"
-      } relays.</p>
-          <div class="not-found-actions">
-            <button class="btn-primary extensive-search-btn">Try Extensive Search</button>
+        <div id="videoPage-container">
+          <h1>Discovering Videos</h1>
+          <div class="loading-indicator">
+            <p>Trying extensive search...</p>
           </div>
         </div>
       `;
-
-      const extensiveSearchBtn = videoPageContainer.querySelector(
-        ".extensive-search-btn"
+      
+      triedExtensiveSearch = true;
+      let staticRelays = ["relay.nostr.band", "nos.lol", "nostr.mom"];
+      
+      video = await NostrClient.getEventsFromRelays(
+        staticRelays.map(r => `wss://${r}`),
+        {
+          kinds: [21, 22],
+          limit: 1,
+          id: videoId,
+        }
       );
-      extensiveSearchBtn?.addEventListener("click", async () => {
-        console.log("Extensive search clicked for video ID:", videoId);
-        let staticRelays = ["relay.nostr.band", "nos.lol", "nostr.mom"];
-        const watchUrl = `#watch/params?v=${videoId}&discovery=${staticRelays}`;
-        console.log("Navigating to watch URL:", watchUrl);
-        window.location.hash = watchUrl;
-      });
-
-      return;
     }
 
-    // Determine if this should autoplay (part of playlist or temporarily allowed)
+    // Sanitize if found
+    if (video) {
+      video = sanitizeNostrEvent(video);
+      console.log(JSON.stringify(video, null, 2));
+    } else {
+      // Create placeholder for not found video
+      console.log("Video not found even after extensive search, using placeholder");
+      video = createNotFoundVideoPlaceholder(videoId);
+    }
+
+    // Determine if this should autoplay
     const shouldAutoplay = !!(app.currentPlaylist || isVideoTemporarilyAllowed(videoId));
     
     renderVideoPage(video, videoId, false, shouldAutoplay);
+    
   } catch (error) {
     console.error("Error rendering vid page:", error);
     showError(`Error rendering vid page: ${formatErrorForDisplay(error)}`);
   }
 }
-
 function showError(message) {
   videoPageContainer.innerHTML = `
     <div class="error">
@@ -1595,6 +1597,21 @@ function renderVideoPlayer(container, video, shouldAutoplay = false) {
   let url = getValueFromTags(video, "url", "");
 
   setTimeout(() => {
+    // Handle "not found" placeholder
+    if (url === "not-found") {
+      container.innerHTML = `
+        <div class="video-not-found-placeholder">
+          <div class="not-found-content">
+            <div class="not-found-icon">📹</div>
+            <h3>Video Not Found</h3>
+            <p>This video could not be located on any connected relays.</p>
+            <p class="video-id-display">ID: ${escapeHtml(video.id)}</p>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
     if (!url) {
       container.innerHTML = '<div class="video-error">No video URL provided</div>';
       return;
@@ -1610,7 +1627,7 @@ function renderVideoPlayer(container, video, shouldAutoplay = false) {
     container.innerHTML = createVideoPlayer(video, shouldAutoplay);
     const videoElement = container.querySelector('video');
     
-    // Register with video manager - get videoId from current hash
+    // Register with video manager
     const videoId = window.location.hash.split('/')[1]?.split('?')[0];
     playVideo(videoElement, videoId, video);
 
@@ -2035,4 +2052,21 @@ function updateChatInputPosition(playlistHeight) {
     chatInputContainer.style.setProperty('--playlist-height', `${playlistHeight}px`);
     chatInputContainer.style.top = `${playlistHeight}px`;
   }
+}
+
+function createNotFoundVideoPlaceholder(videoId) {
+  return {
+    id: videoId,
+    pubkey: "0000000000000000000000000000000000000000000000000000000000000000",
+    created_at: Math.floor(Date.now() / 1000),
+    kind: 21,
+    content: "This video could not be found on the connected relays.",
+    tags: [
+      ["title", "Video Not Found"],
+      ["url", "not-found"], // Special marker
+      ["m", "video/mp4"],
+      ["t", "not-found"]
+    ],
+    sig: "placeholder"
+  };
 }

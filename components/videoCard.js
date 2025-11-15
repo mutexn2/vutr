@@ -41,7 +41,7 @@ function createVideoCard(video) {
   let thumbnailSrc = sanitizeUrl(
     extractFromImeta(imetaTags, "image")[0] ||
     extractFromImeta(imetaTags, "thumb")[0] ||
-    "https://i.postimg.cc/wB2qSW-MM/tn.jpg"
+    "https://nostpic.com/media/df17934d47fbf9b26c360708f6413204e2a68bd9cc4057fc8c12eccfc59d7313/a82cbba16d74b6b64ff24c675abebed834b912e5e2b102ff2bf585c239482a78.webp"
    
   );
 

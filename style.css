@@ -2693,6 +2693,11 @@ main {
   }
 }
 
+@media (max-width: 480px) {
+  .channel-info {
+    height: 50px;
+  }
+}
 
 
 .video-action-tab-button.saved svg {
@@ -12330,6 +12335,9 @@ input[type="number"] {
 }
 
 .zap-summary-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   text-align: center;
 }
 
@@ -12357,9 +12365,10 @@ input[type="number"] {
 
 .zap-detail-item {
   display: flex;
+  flex-direction: column;
   justify-content: space-between;
   align-items: center;
-  padding: 16px;
+  padding: 8px;
   border: 2px solid var(--border);
   border-radius: 12px;
   margin-bottom: 12px;
@@ -12372,6 +12381,13 @@ input[type="number"] {
 .zap-detail-item[data-pubkey]:hover {
   border-color: var(--primary);
   background: var(--surface);
+}
+
+.zap-detail-item>div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
 }
 
 .zap-detail-header {
@@ -12464,9 +12480,7 @@ input[type="number"] {
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
-  .zap-details-summary {
-    grid-template-columns: 1fr;
-  }
+
 
   .zap-detail-header {
     flex-direction: column;

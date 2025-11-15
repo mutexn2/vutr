@@ -715,6 +715,7 @@ function showVideoZapDetails(videoId) {
     
     return `
       <div class="zap-detail-item" data-pubkey="${zap.zapperPubkey || ''}">
+      <div>
         <div class="zap-detail-header">
           <div class="zap-detail-zapper">
             ${zap.zapperPubkey ? `<nostr-picture pubkey="${zap.zapperPubkey}" class="zap-detail-avatar"></nostr-picture>` : ''}
@@ -722,8 +723,9 @@ function showVideoZapDetails(videoId) {
           </div>
           <div class="zap-detail-amount">⚡ ${zap.amount.toLocaleString()} sats</div>
         </div>
-        ${zap.comment ? `<div class="zap-detail-comment">"${escapeHtml(zap.comment)}"</div>` : ''}
         <div class="zap-detail-time">${timeAgo}</div>
+        </div>
+        ${zap.comment ? `<div class="zap-detail-comment">"${escapeHtml(zap.comment)}"</div>` : ''}
       </div>
     `;
   }).join('');

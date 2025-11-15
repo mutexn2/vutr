@@ -26,7 +26,9 @@ async function bookmarksPageHandler() {
     }
 
     // Get video references from the playlist
-    const videoTags = bookmarkedVideos.tags.filter(tag => tag[0] === "a");
+    // OLD: const videoTags = bookmarkedVideos.tags.filter(tag => tag[0] === "a");
+    // NEW:
+    const videoTags = bookmarkedVideos.tags.filter(tag => tag[0] === "e");
     
     if (videoTags.length === 0) {
        pageContainer.innerHTML = `
@@ -364,8 +366,12 @@ function reorderBookmarkVideo(fromIndex, toIndex) {
   
   if (!bookmarkedVideos) return false;
   
-  const videoTags = bookmarkedVideos.tags.filter(tag => tag[0] === "a");
-  const otherTags = bookmarkedVideos.tags.filter(tag => tag[0] !== "a");
+  // OLD: const videoTags = bookmarkedVideos.tags.filter(tag => tag[0] === "a");
+  // OLD: const otherTags = bookmarkedVideos.tags.filter(tag => tag[0] !== "a");
+  
+  // NEW:
+  const videoTags = bookmarkedVideos.tags.filter(tag => tag[0] === "e");
+  const otherTags = bookmarkedVideos.tags.filter(tag => tag[0] !== "e");
   
   // Reorder the video tags
   const movedVideo = videoTags.splice(fromIndex, 1)[0];
@@ -450,4 +456,3 @@ function saveBookmarksToStorage() {
     console.error('Error saving bookmarks to storage:', error);
   }
 }
-

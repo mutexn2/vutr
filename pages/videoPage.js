@@ -306,26 +306,26 @@ function renderVideoPage(video, videoId, useExistingVideo = false, shouldAutopla
       <div class="video-action-tabs">
         <div class="tab-scroll-container">
           <button id="action-like-btn" class="video-action-tab-button">
-            <span class="like-icon"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor" class="size-6">
+            <span class="like-icon"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
   <path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
 </svg>
 </span>
             <span class="like-text">Like</span>
             <span class="like-count">0</span>
           </button>
-          <button id="action-share-btn" class="video-action-tab-button"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor" class="size-6">
+          <button id="action-share-btn" class="video-action-tab-button"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
   <path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
 </svg>
  Share</button>
-          <button id="action-bookmark-btn" class="video-action-tab-button"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor" class="size-6">
+          <button id="action-bookmark-btn" class="video-action-tab-button"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
   <path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" />
 </svg>
  Bookmark</button>
-          <button id="action-playlist-btn" class="video-action-tab-button"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor" class="size-6">
+          <button id="action-playlist-btn" class="video-action-tab-button"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
   <path stroke-linecap="round" stroke-linejoin="round" d="M6 6.878V6a2.25 2.25 0 0 1 2.25-2.25h7.5A2.25 2.25 0 0 1 18 6v.878m-12 0c.235-.083.487-.128.75-.128h10.5c.263 0 .515.045.75.128m-12 0A2.25 2.25 0 0 0 4.5 9v.878m13.5-3A2.25 2.25 0 0 1 19.5 9v.878m0 0a2.246 2.246 0 0 0-.75-.128H5.25c-.263 0-.515.045-.75.128m15 0A2.25 2.25 0 0 1 21 12v6a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 18v-6c0-.98.626-1.813 1.5-2.122" />
 </svg>
  Add to Playlist</button>
-          <button id="action-more-btn" class="video-action-tab-button"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor" class="size-6">
+          <button id="action-more-btn" class="video-action-tab-button"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
   <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM12.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM18.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
 </svg>
  More</button>
@@ -835,7 +835,7 @@ setupVideoZapButton(zapContainer, video, videoId, pubkey);
       const success = removeVideoFromBookmarks(videoId);
       if (success) {
         bookmarkBtn.innerHTML = `
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor" class="size-6">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
             <path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" />
           </svg>
           Bookmark
@@ -847,7 +847,7 @@ setupVideoZapButton(zapContainer, video, videoId, pubkey);
       const success = addVideoToBookmarks(video, videoId);
       if (success) {
         bookmarkBtn.innerHTML = `
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor" class="size-6">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
             <path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" />
           </svg>
           Bookmarked
@@ -876,7 +876,7 @@ setupVideoZapButton(zapContainer, video, videoId, pubkey);
   // Set initial bookmark button state
   if (isVideoBookmarked(videoId)) {
     bookmarkBtn.innerHTML = `
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor" class="size-6">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
             <path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" />
           </svg>
       Bookmarked
@@ -884,7 +884,7 @@ setupVideoZapButton(zapContainer, video, videoId, pubkey);
     bookmarkBtn.classList.add("saved");
   } else {
     bookmarkBtn.innerHTML = `
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor" class="size-6">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
             <path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" />
           </svg>
       Bookmark
@@ -1230,25 +1230,30 @@ function setupMoreMenuEvents(menuElement, video, videoId) {
 function addVideoToBookmarks(video, videoId) {
   try {
     if (!app.bookmarkedVideos) {
-      // Initialize bookmark playlist if it doesn't exist
       app.bookmarkedVideos = {
         ...config.defaultBookmarkedVideos,
         created_at: Math.floor(Date.now() / 1000),
       };
     }
 
-    const aTag = ["a", `${video.kind}:${videoId}`];
+    // OLD: const aTag = ["a", `${video.kind}:${videoId}`];
+    // NEW:
+    const eTag = ["e", videoId];
 
-    // Check if video is already bookmarked
+    // OLD: const existingIndex = app.bookmarkedVideos.tags.findIndex(
+    //   (tag) => tag[0] === "a" && tag[1] === aTag[1]
+    // );
+    
+    // NEW:
     const existingIndex = app.bookmarkedVideos.tags.findIndex(
-      (tag) => tag[0] === "a" && tag[1] === aTag[1]
+      (tag) => tag[0] === "e" && tag[1] === videoId
     );
 
     if (existingIndex === -1) {
-      // Add the video reference
-      app.bookmarkedVideos.tags.push(aTag);
+      // OLD: app.bookmarkedVideos.tags.push(aTag);
+      // NEW:
+      app.bookmarkedVideos.tags.push(eTag);
 
-      // Save to localStorage
       localStorage.setItem(
         "bookmarkedVideos",
         JSON.stringify(app.bookmarkedVideos)
@@ -1258,7 +1263,7 @@ function addVideoToBookmarks(video, videoId) {
       return true;
     }
 
-    return false; // Already bookmarked
+    return false;
   } catch (error) {
     console.error("Error adding video to bookmarks:", error);
     return false;
@@ -1271,9 +1276,13 @@ function removeVideoFromBookmarks(videoId) {
 
     const initialLength = app.bookmarkedVideos.tags.length;
 
-    // Remove the "a" tag for this video
+    // OLD: app.bookmarkedVideos.tags = app.bookmarkedVideos.tags.filter(
+    //   (tag) => !(tag[0] === "a" && tag[1].includes(videoId))
+    // );
+    
+    // NEW:
     app.bookmarkedVideos.tags = app.bookmarkedVideos.tags.filter(
-      (tag) => !(tag[0] === "a" && tag[1].includes(videoId))
+      (tag) => !(tag[0] === "e" && tag[1] === videoId)
     );
 
     if (app.bookmarkedVideos.tags.length < initialLength) {
@@ -1294,8 +1303,13 @@ function removeVideoFromBookmarks(videoId) {
 function isVideoBookmarked(videoId) {
   if (!app.bookmarkedVideos) return false;
 
+  // OLD: return app.bookmarkedVideos.tags.some(
+  //   (tag) => tag[0] === "a" && tag[1].includes(videoId)
+  // );
+  
+  // NEW:
   return app.bookmarkedVideos.tags.some(
-    (tag) => tag[0] === "a" && tag[1].includes(videoId)
+    (tag) => tag[0] === "e" && tag[1] === videoId
   );
 }
 
@@ -1318,13 +1332,17 @@ function showPlaylistSelector(video, videoId, additionalData) {
                   "title",
                   "Untitled Playlist"
                 );
-                const videoCount = playlist.tags.filter(
-                  (tag) => tag[0] === "a"
-                ).length;
+                // OLD: const videoCount = playlist.tags.filter((tag) => tag[0] === "a").length;
+                // NEW:
+                const videoCount = playlist.tags.filter((tag) => tag[0] === "e").length;
 
-                // Check if video is already in this playlist
+                // OLD: const hasVideo = playlist.tags.some(
+                //   (tag) => tag[0] === "a" && tag[1] === `21:${videoId}`
+                // );
+                
+                // NEW:
                 const hasVideo = playlist.tags.some(
-                  (tag) => tag[0] === "a" && tag[1] === `21:${videoId}`
+                  (tag) => tag[0] === "e" && tag[1] === videoId
                 );
 
                 return `
@@ -1899,13 +1917,18 @@ async function setupPlaylistIfNeeded(playlistPubkey, playlistDTag, currentVideoI
     return;
   }
 
-  // Find current video index in playlist
-  const videoTags = playlist.tags.filter(tag => tag[0] === "a");
-  const videoIndex = videoTags.findIndex(tag => {
-    const videoRef = tag[1];
-    const [kind, id] = videoRef.split(':');
-    return id === currentVideoId;
-  });
+  // OLD: const videoTags = playlist.tags.filter(tag => tag[0] === "a");
+  // NEW:
+  const videoTags = playlist.tags.filter(tag => tag[0] === "e");
+  
+  // OLD: const videoIndex = videoTags.findIndex(tag => {
+  //   const videoRef = tag[1];
+  //   const [kind, id] = videoRef.split(':');
+  //   return id === currentVideoId;
+  // });
+  
+  // NEW:
+  const videoIndex = videoTags.findIndex(tag => tag[1] === currentVideoId);
 
   if (videoIndex === -1) {
     console.warn("Current video not found in playlist");
@@ -1970,7 +1993,7 @@ function updateVideoPagePlaylistInfo() {
   }
   
   const title = getValueFromTags(app.currentPlaylist, "title", "Playlist");
-  const videoTags = app.currentPlaylist.tags.filter(tag => tag[0] === "a");
+  const videoTags = app.currentPlaylist.tags.filter(tag => tag[0] === "e");
   const totalVideos = videoTags.length;
   const currentPosition = app.currentPlaylistIndex + 1;
   

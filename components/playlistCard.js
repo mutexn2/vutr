@@ -18,26 +18,28 @@ function createPlaylistCard(playlist, options = {}) {
     return text.length > maxLength ? `${text.substring(0, maxLength)}...` : text;
   };
 
-  function countVideoReferences(playlist) {
-    if (!playlist.tags || !Array.isArray(playlist.tags)) {
-      return 0;
-    }
-    
-    return playlist.tags.filter(tag => {
-      if (!Array.isArray(tag) || tag.length < 2 || tag[0] !== "a") {
-        return false;
-      }
-      
-      const aTagValue = tag[1];
-      if (!aTagValue || typeof aTagValue !== "string" || 
-          (!aTagValue.startsWith("21:") && !aTagValue.startsWith("22:"))) {
-        return false;
-      }
-      
-      const idPart = aTagValue.substring(3);
-      return idPart.length === 64 && /^[a-fA-F0-9]{64}$/.test(idPart);
-    }).length;
+function countVideoReferences(playlist) {
+  if (!playlist.tags || !Array.isArray(playlist.tags)) {
+    return 0;
   }
+  
+  // OLD: return playlist.tags.filter(tag => {
+  //   if (!Array.isArray(tag) || tag.length < 2 || tag[0] !== "a") return false;
+  //   const aTagValue = tag[1];
+  //   if (!aTagValue || typeof aTagValue !== "string" || 
+  //       (!aTagValue.startsWith("21:") && !aTagValue.startsWith("22:"))) return false;
+  //   const idPart = aTagValue.substring(3);
+  //   return idPart.length === 64 && /^[a-fA-F0-9]{64}$/.test(idPart);
+  // }).length;
+  
+  // NEW: Count e tags with valid video IDs
+  return playlist.tags.filter(tag => {
+    if (!Array.isArray(tag) || tag.length < 2 || tag[0] !== "e") return false;
+    const videoId = tag[1];
+    if (!videoId || typeof videoId !== "string") return false;
+    return videoId.length === 64 && /^[a-fA-F0-9]{64}$/.test(videoId);
+  }).length;
+}
 
   // Check if playlist is already saved locally (only for network playlists)
   const isSavedLocally = showAuthor ? isPlaylistInLocalLibrary(playlist) : false;
@@ -504,5 +506,142 @@ function showPlaylistJsonModal(playlistData) {
   const closeBtn = modal.querySelector('.close-modal');
   if (closeBtn) {
     closeBtn.addEventListener('click', closeModal);
+  }
+}
+
+
+/**
+ * Check if a playlist is a local playlist (created by current user)
+ */
+function isLocalPlaylist(playlist) {
+  return playlist.pubkey === "local" || playlist.sig === "local";
+}
+
+/**
+ * Check if a playlist is bookmarked
+ */
+function isPlaylistBookmarked(playlist) {
+  const bookmarkedPlaylists = app.bookmarkedPlaylists || [];
+  const dTag = getValueFromTags(playlist, "d", "");
+  
+  return bookmarkedPlaylists.some(
+    (p) => p.pubkey === playlist.pubkey && 
+           getValueFromTags(p, "d", "") === dTag
+  );
+}
+
+function isPlaylistInLocalLibrary(playlist) {
+  // Check if it's a local playlist
+  if (isLocalPlaylist(playlist)) {
+    const dTag = getValueFromTags(playlist, "d", "");
+    return (app.playlists || []).some(
+      (p) => isLocalPlaylist(p) && getValueFromTags(p, "d", "") === dTag
+    );
+  }
+  
+  // Check if it's bookmarked
+  return isPlaylistBookmarked(playlist);
+}
+/**
+ * Get unique playlist identifier
+ */
+function getPlaylistIdentifier(playlist) {
+  const dTag = getValueFromTags(playlist, "d", "");
+  return isLocalPlaylist(playlist) ? `local:${dTag}` : `${playlist.pubkey}:${dTag}`;
+}
+
+
+function savePlaylistsToStorage() {
+  // Only save LOCAL playlists (pubkey === "local")
+  const localPlaylists = (app.playlists || []).filter(isLocalPlaylist);
+  localStorage.setItem('playlists', JSON.stringify(localPlaylists));
+}
+
+function saveBookmarkedPlaylistsToStorage() {
+  // Only save NETWORK playlists (pubkey !== "local")
+  const networkPlaylists = (app.bookmarkedPlaylists || []).filter(p => !isLocalPlaylist(p));
+  localStorage.setItem('bookmarkedPlaylists', JSON.stringify(networkPlaylists));
+}
+
+function savePlaylistHistoryToStorage() {
+  // History can contain both types
+  localStorage.setItem('playlistHistory', JSON.stringify(app.playlistHistory || []));
+}
+
+function loadPlaylistsFromStorage() {
+  try {
+    const stored = localStorage.getItem('playlists');
+    app.playlists = stored ? JSON.parse(stored).filter(isLocalPlaylist) : [];
+  } catch (error) {
+    console.error('Error loading playlists:', error);
+  //  app.playlists = [];
+  }
+}
+
+function loadBookmarkedPlaylistsFromStorage() {
+  try {
+    const stored = localStorage.getItem('bookmarkedPlaylists');
+    app.bookmarkedPlaylists = stored ? JSON.parse(stored).filter(p => !isLocalPlaylist(p)) : [];
+  } catch (error) {
+    console.error('Error loading bookmarked playlists:', error);
+  //  app.bookmarkedPlaylists = [];
+  }
+}
+
+function loadPlaylistHistoryFromStorage() {
+  try {
+    const stored = localStorage.getItem('playlistHistory');
+    app.playlistHistory = stored ? JSON.parse(stored) : [];
+  } catch (error) {
+    console.error('Error loading playlist history:', error);
+  //  app.playlistHistory = [];
+  }
+}
+
+function bookmarkPlaylist(networkPlaylist) {
+  // Validate: Cannot bookmark local playlists
+  if (isLocalPlaylist(networkPlaylist)) {
+    throw new Error("Cannot bookmark local playlists");
+  }
+  
+  try {
+    app.bookmarkedPlaylists = app.bookmarkedPlaylists || [];
+    const dTag = getValueFromTags(networkPlaylist, "d", "");
+    
+    // Check if already bookmarked
+    const existingIndex = app.bookmarkedPlaylists.findIndex(
+      (p) => p.pubkey === networkPlaylist.pubkey && 
+             getValueFromTags(p, "d", "") === dTag
+    );
+    
+    if (existingIndex !== -1) {
+      throw new Error("Already bookmarked");
+    }
+    
+    // Add to bookmarked playlists ONLY
+    app.bookmarkedPlaylists.push({ ...networkPlaylist });
+    saveBookmarkedPlaylistsToStorage();
+    
+  } catch (error) {
+    console.error("Error bookmarking playlist:", error);
+    throw error;
+  }
+}
+
+function unbookmarkPlaylist(playlist) {
+  try {
+    app.bookmarkedPlaylists = app.bookmarkedPlaylists || [];
+    const dTag = getValueFromTags(playlist, "d", "");
+    
+    // Remove from bookmarked playlists ONLY
+    app.bookmarkedPlaylists = app.bookmarkedPlaylists.filter(p => 
+      !(p.pubkey === playlist.pubkey && getValueFromTags(p, "d", "") === dTag)
+    );
+    
+    saveBookmarkedPlaylistsToStorage();
+    
+  } catch (error) {
+    console.error("Error unbookmarking playlist:", error);
+    throw error;
   }
 }

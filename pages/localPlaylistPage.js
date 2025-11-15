@@ -20,7 +20,7 @@ async function localPlaylistPageHandler() {
 
     await new Promise((resolve) => setTimeout(resolve, 300));
     
-    const videoTags = playlist.tags.filter(tag => tag[0] === "a");
+    const videoTags = playlist.tags.filter(tag => tag[0] === "e");
     const videoEvents = await fetchVideoEvents(videoTags);
     
     // **CACHE THE VIDEO EVENTS HERE**
@@ -45,23 +45,26 @@ async function fetchVideoEvents(videoTags) {
   
   console.log("Fetching video events for playlist...");
   
-  // Extract video IDs and kinds from tags
-  const videoRefs = videoTags.map(tag => {
-    const videoRef = tag[1]; // Format: "kind:eventId"
-    const [kind, id] = videoRef.split(':');
-    return { kind: parseInt(kind), id };
-  });
+  // OLD: Extract video IDs and kinds from tags
+  // const videoRefs = videoTags.map(tag => {
+  //   const videoRef = tag[1]; // Format: "kind:eventId"
+  //   const [kind, id] = videoRef.split(':');
+  //   return { kind: parseInt(kind), id };
+  // });
+  
+  // NEW: Simple extraction - just the IDs
+  const videoIds = videoTags.map(tag => tag[1]); // Just get the event IDs
   
   try {
     const events = await NostrClient.getEventsFromRelays(app.globalRelays, {
-      ids: videoRefs.map(ref => ref.id),
-      kinds: [21, 22], // Include both kinds
-      limit: videoRefs.length,
+      ids: videoIds,
+      kinds: [21, 22], // Still search both kinds
+      limit: videoIds.length,
       maxWait: 3000,
       timeout: 5000
     });    
 
-    console.log(`Found ${events?.length || 0} video events out of ${videoRefs.length} requested`);
+    console.log(`Found ${events?.length || 0} video events out of ${videoIds.length} requested`);
     
     // Create a map for quick lookup
     const eventMap = new Map();
@@ -69,25 +72,25 @@ async function fetchVideoEvents(videoTags) {
       events.forEach(event => eventMap.set(event.id, event));
     }
     
-    // Create result array with events or placeholders, preserving original kind
-    return videoRefs.map(ref => {
-      const event = eventMap.get(ref.id);
+    // Create result array with events or placeholders, preserving order
+    return videoIds.map(id => {
+      const event = eventMap.get(id);
       if (event) {
         return event;
       } else {
-        // Create placeholder event with original kind
-        return createPlaceholderEvent(ref.id, ref.kind);
+        // Create placeholder event - kind will be determined when found
+        return createPlaceholderEvent(id);
       }
     });
     
   } catch (error) {
     console.error("Error fetching video events:", error);
-    // Return placeholders for all videos if fetch fails
-    return videoRefs.map(ref => createPlaceholderEvent(ref.id, ref.kind));
+    return videoIds.map(id => createPlaceholderEvent(id));
   }
 }
 
-function createPlaceholderEvent(videoId, kind = 21) {
+
+function createPlaceholderEvent(videoId, kind = 21) { // kind parameter kept for backward compatibility
   return {
     id: videoId,
     kind: kind,
@@ -383,7 +386,7 @@ function setupSinglePlaylistEventListeners(dTag, cachedVideoEvents = null) {
         }
         
         if (!videoEvents) {
-          const videoTags = playlist.tags.filter(tag => tag[0] === "a");
+          const videoTags = playlist.tags.filter(tag => tag[0] === "e");
           videoEvents = await fetchVideoEvents(videoTags);
         }
         
@@ -417,7 +420,7 @@ function setupSinglePlaylistEventListeners(dTag, cachedVideoEvents = null) {
         }
         
         if (!videoEvents) {
-          const videoTags = playlist.tags.filter(tag => tag[0] === "a");
+          const videoTags = playlist.tags.filter(tag => tag[0] === "e");
           videoEvents = await fetchVideoEvents(videoTags);
         }
         
@@ -725,8 +728,8 @@ function reorderPlaylistVideo(dTag, fromIndex, toIndex) {
   
   if (!playlist) return false;
   
-  const videoTags = playlist.tags.filter(tag => tag[0] === "a");
-  const otherTags = playlist.tags.filter(tag => tag[0] !== "a");
+  const videoTags = playlist.tags.filter(tag => tag[0] === "e");
+  const otherTags = playlist.tags.filter(tag => tag[0] !== "e");
   
   // Reorder the video tags
   const movedVideo = videoTags.splice(fromIndex, 1)[0];

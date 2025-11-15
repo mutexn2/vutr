@@ -212,6 +212,7 @@
       "pages/singleRelayPage.js",
       "pages/relaySetsDiscoveryPage.js",
       "pages/playlistPage.js",
+      "pages/playlistHistoryPage.js",
       "pages/playlistsPage.js",
       //  "pages/queueHistoryPage.js",
       "pages/localPlaylistsPage.js",

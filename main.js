@@ -28,9 +28,10 @@ let app = {
   },  
   // ========== VIDEO & PLAYBACK ==========
   bookmarkedVideos: JSON.parse(localStorage.getItem("bookmarkedVideos") || "[]"),
-  playlists: JSON.parse(localStorage.getItem("playlists") || "[]"),
-  bookmarkedPlaylists: JSON.parse(localStorage.getItem("playlists") || "[]"),
-
+  playlists: JSON.parse(localStorage.getItem("playlists") || "[]"), // own local
+  bookmarkedPlaylists: JSON.parse(localStorage.getItem("bookmarkedPlaylists") || "[]"),
+  playlistHistory: JSON.parse(localStorage.getItem("playlistHistory") || "[]"),
+  
   mediaServerWhitelist: JSON.parse(
     localStorage.getItem("mediaServerWhitelist") || "[]"
   ),
@@ -53,7 +54,6 @@ let app = {
   // ======== Play all ==========
   currentPlaylist: null, // The full playlist event object
   currentPlaylistIndex: 0, // Current video index in playlist
-  playlistHistory: JSON.parse(localStorage.getItem("playlistHistory") || "[]"),
 
   // ========== FOLLOWED PROFILES ==========
   followSet: JSON.parse(
@@ -162,6 +162,7 @@ let routes = {
   "#liked": likedPageHandler,
   "#saved": bookmarksPageHandler,
   "#bookmarkedplaylists": bookmarkedListsPageHandler,
+  "#historyplaylists": historyListsPageHandler,
   "#localfollows": localFollowsPageHandler,
   "#kind1follows": kind1FollowsPageHandler,
   "#followsfeed": followsFeedPageHandler,

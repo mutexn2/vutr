@@ -149,14 +149,20 @@ async function playlistPageHandler() {
 function filterValidVideoTags(tags) {
   if (!tags) return [];
   
+  // OLD: return tags.filter(tag => {
+  //   if (tag[0] !== "a") return false;
+  //   const videoRef = tag[1];
+  //   if (!videoRef) return false;
+  //   return videoRef.startsWith("21:") || videoRef.startsWith("22:");
+  // });
+  
+  // NEW: Simple e tag filtering
   return tags.filter(tag => {
-    if (tag[0] !== "a") return false;
-    
-    const videoRef = tag[1];
-    if (!videoRef) return false;
-    
-    // Check if it starts with "21:" or "22:"
-    return videoRef.startsWith("21:") || videoRef.startsWith("22:");
+    if (tag[0] !== "e") return false;
+    const videoId = tag[1];
+    if (!videoId) return false;
+    // Validate it's a 64-character hex string
+    return videoId.length === 64 && /^[a-fA-F0-9]{64}$/.test(videoId);
   });
 }
 
@@ -480,56 +486,7 @@ if (bookmarkBtn) {
   }
 }
 
-function bookmarkPlaylist(networkPlaylist) {
-  try {
-    const bookmarkedPlaylists = app.bookmarkedPlaylists || [];
-    const dTag = getValueFromTags(networkPlaylist, "d", "");
-    
-    // Check if already bookmarked
-    const existingIndex = bookmarkedPlaylists.findIndex(
-      (p) => p.pubkey === networkPlaylist.pubkey && 
-             getValueFromTags(p, "d", "") === dTag
-    );
-    
-    if (existingIndex !== -1) {
-      // Already bookmarked - could update or throw error
-      throw new Error("Already bookmarked");
-    } else {
-      // Bookmark the playlist
-      app.bookmarkedPlaylists.push({ ...networkPlaylist });
-    }
-    
-    saveBookmarkedPlaylistsToStorage();
-    
-  } catch (error) {
-    console.error("Error bookmarking playlist:", error);
-    throw error;
-  }
-}
 
-function unbookmarkPlaylist(playlist) {
-  try {
-    const bookmarkedPlaylists = app.bookmarkedPlaylists || [];
-    const dTag = getValueFromTags(playlist, "d", "");
-    
-    // Find and remove the bookmark
-    const existingIndex = bookmarkedPlaylists.findIndex(
-      (p) => p.pubkey === playlist.pubkey && 
-             getValueFromTags(p, "d", "") === dTag
-    );
-    
-    if (existingIndex !== -1) {
-      app.bookmarkedPlaylists.splice(existingIndex, 1);
-      saveBookmarkedPlaylistsToStorage();
-    } else {
-      throw new Error("Bookmark not found");
-    }
-    
-  } catch (error) {
-    console.error("Error unbookmarking playlist:", error);
-    throw error;
-  }
-}
 function saveNetworkPlaylistToLocal(networkPlaylist) {
   try {
     const existingPlaylists = app.playlists || [];
@@ -578,16 +535,17 @@ function saveNetworkPlaylistToLocal(networkPlaylist) {
     throw error;
   }
 }
+
 function copyNetworkPlaylistToLocal(networkPlaylist) {
   const originalTitle = getValueFromTags(networkPlaylist, "title", "Untitled Playlist");
   const description = getValueFromTags(networkPlaylist, "description", "");
   const image = getValueFromTags(networkPlaylist, "image", "");
   
-  // Create a completely new local playlist
   const dTag = `vutr-${generateId()}`;
   
-  // Copy only the content tags (a tags for videos)
-  const videoTags = networkPlaylist.tags.filter(tag => tag[0] === "a");
+  // OLD: const videoTags = networkPlaylist.tags.filter(tag => tag[0] === "a");
+  // NEW:
+  const videoTags = networkPlaylist.tags.filter(tag => tag[0] === "e");
   
   const localPlaylist = {
     id: generateId(),
@@ -612,9 +570,6 @@ function copyNetworkPlaylistToLocal(networkPlaylist) {
   showTemporaryNotification(`Created local copy: "${originalTitle} (copy)"`);
   return localPlaylist;
 }
-
-
-
 
 // Helper function to check if playlist is local
 function isLocalPlaylist(playlist) {
@@ -674,7 +629,7 @@ async function promptWhitelistDomains(domains) {
   if (domains.length === 0) return true;
   
   const domainList = domains.map(d => `  • ${d}`).join('\n');
-  const message = `This playlist contains videos from the following servers that are not in your whitelist:\n\n${domainList}\n\nWould you like to add these servers to your whitelist for seamless playback?\n\n(If you cancel, you can still manually allow servers as needed)`;
+  const message = `Would you like to add these servers to your whitelist for seamless playback?\n\n${domainList}\n\n(If you cancel, this still works but you will have to manually allow servers as needed)`;
   
   const userConfirmed = confirm(message);
   

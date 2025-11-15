@@ -20,83 +20,61 @@ async function followsFeedPageHandler() {
       return;
     }
 
-    const currentHash = window.location.hash;
-    const urlParams = new URLSearchParams(currentHash.split('?')[1] || '');
-    const sortBy = urlParams.get('sort') || 'newest';
-    const relaySource = urlParams.get('relays') || 'active';
-    const includeShorts = urlParams.get('shorts') || 'no';
+const currentHash = window.location.hash;
+const urlParams = new URLSearchParams(currentHash.split('?')[1] || '');
+const relaySource = urlParams.get('relays') || 'active';
+// Active set has no shorts, Extended has shorts
+const includeShorts = relaySource === 'extended' ? 'yes' : 'no';
 
-    console.log(`🎯 Starting subscription feed for ${followedPubkeys.length} followed channels`);
 
-    // Initialize UI immediately
-    mainContent.innerHTML = `
-      <div class="follows-feed-header">
-        <div class="follows-feed-header-header">
-          <h2 class="loading-indicator">Loading</h2>
-        </div>
+console.log(`🎯 Starting subscription feed for ${followedPubkeys.length} followed channels`);
 
-<div class="sort-controls">
+// Initialize UI immediately
+mainContent.innerHTML = `
+  <div class="follows-feed-header">
+    <div class="follows-feed-header-header">
+      <h2 class="loading-indicator">Loading</h2>
+    </div>
 
-<div class="form-group" style="display: none;">
-  <label for="follows-sort">Sort by:</label>
-  <select id="follows-sort">
-    <option value="newest" ${sortBy === 'newest' ? 'selected' : ''}>Newest First</option>
-    <option value="oldest" ${sortBy === 'oldest' ? 'selected' : ''}>Oldest First</option>
-  </select>
-</div>  
-<div class="form-group">  
-  <label for="relay-source">Relay source:</label>
-  <select id="relay-source">
-    <option value="active" ${relaySource === 'active' ? 'selected' : ''}>Active Relay Set</option>
-    <option value="extended" ${relaySource === 'extended' ? 'selected' : ''}>Extended Relays (outbox)</option>
-  </select>
-</div>
-<div class="form-group" style="display: none;">  
-  <label for="shorts-option">shorts:</label>
-  <select id="shorts-option">
-    <option value="no" ${includeShorts === 'no' ? 'selected' : ''}>no shorts</option>
-    <option value="yes" ${includeShorts === 'yes' ? 'selected' : ''}>with shorts</option>
-  </select>
-</div>
+    <div class="relay-tabs">
+      <button class="tab-button ${relaySource === 'active' ? 'active' : ''}" data-relay="active">
+        Active Set
+      </button>
+      <button class="tab-button ${relaySource === 'extended' ? 'active' : ''}" data-relay="extended">
+        Extended (Outbox)
+      </button>
+    </div>
+  </div>
+  <div class="videos-grid"></div>
+  <div class="load-more-container" style="text-align: center; margin-top: 20px;"></div>
+`;
 
-</div>
-<div class="form-group">  
-  <button id="apply-options-btn">Apply</button>
-</div>  
-      </div>
-      <div class="videos-grid"></div>
-      <div class="load-more-container" style="text-align: center; margin-top: 20px;"></div>
-    `;
-
-    // Setup event handlers
-    const sortSelect = document.getElementById('follows-sort');
-    const relaySourceSelect = document.getElementById('relay-source');
-    const shortsSelect = document.getElementById('shorts-option');
-    const grid = document.querySelector(".videos-grid");
-    const loadMoreContainer = document.querySelector(".load-more-container");
-    const headerElement = document.querySelector(".follows-feed-header-header");
+// Setup tab event handlers
+const tabButtons = document.querySelectorAll('.tab-button');
+tabButtons.forEach(button => {
+  button.addEventListener('click', () => {
+    const newRelaySource = button.dataset.relay;
+    const baseHash = '#followsfeed';
     
-const handleApplyOptions = () => {
-  const newSort = sortSelect.value;
-  const newRelaySource = relaySourceSelect.value;
-  const newShorts = shortsSelect.value;
-  const baseHash = '#followsfeed';
-  
-  const params = new URLSearchParams();
-  if (newSort !== 'newest') params.set('sort', newSort);
-  if (newRelaySource !== 'active') params.set('relays', newRelaySource);
-  if (newShorts !== 'no') params.set('shorts', newShorts);
-  
-  const paramString = params.toString();
-  const newUrl = paramString ? `${baseHash}/params?${paramString}` : baseHash;
-  window.location.hash = newUrl;
-};
+    const params = new URLSearchParams();
+    // Active set: no shorts, Extended: with shorts
+    const newShorts = newRelaySource === 'extended' ? 'yes' : 'no';
+    
+    if (newRelaySource !== 'active') params.set('relays', newRelaySource);
+    if (newShorts !== 'no') params.set('shorts', newShorts);
+    
+    const paramString = params.toString();
+    const newUrl = paramString ? `${baseHash}/params?${paramString}` : baseHash;
+    window.location.hash = newUrl;
+  });
+});
 
-// Add event listener for the apply button
-document.getElementById('apply-options-btn').addEventListener('click', handleApplyOptions);
+const grid = document.querySelector(".videos-grid");
+const loadMoreContainer = document.querySelector(".load-more-container");
+const headerElement = document.querySelector(".follows-feed-header-header");
 
-    // Start progressive feed loading
-    await loadProgressiveFeed(followedPubkeys, relaySource, sortBy, includeShorts, grid, headerElement);
+// Start progressive feed loading
+await loadProgressiveFeed(followedPubkeys, relaySource, includeShorts, grid, headerElement);
 
 
 
@@ -113,7 +91,7 @@ document.getElementById('apply-options-btn').addEventListener('click', handleApp
   }
 }
 
-async function loadProgressiveFeed(followedPubkeys, relaySource, sortBy, includeShorts, grid, headerElement) {
+async function loadProgressiveFeed(followedPubkeys, relaySource, includeShorts, grid, headerElement) {
   const MAX_EVENTS = 100;
   const EVENTS_PER_PAGE = 20;
   const MAX_PUBKEYS_FOR_EXTENDED_RELAYS = 50;
@@ -196,7 +174,9 @@ const updateHeader = (eventCount, relayCount, isExtended, isCompleted = false) =
     if (queryController.cancelled) return;
     
     const sortedEvents = Array.from(allEvents.values());
-    const finalSorted = applySorting(sortedEvents, sortBy);
+    // Always sort by newest
+    const finalSorted = applySorting(sortedEvents, 'newest');
+
     
     const startIndex = 0;
     const endIndex = (currentPage + 1) * EVENTS_PER_PAGE;
@@ -252,7 +232,7 @@ const updateHeader = (eventCount, relayCount, isExtended, isCompleted = false) =
     if (!loadMoreContainer) return;
 
     const sortedEvents = Array.from(allEvents.values());
-    const finalSorted = applySorting(sortedEvents, sortBy);
+    const finalSorted = applySorting(sortedEvents, 'newest');
     const totalEvents = finalSorted.length;
     const eventsShown = (currentPage + 1) * EVENTS_PER_PAGE;
     

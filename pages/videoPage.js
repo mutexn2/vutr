@@ -1603,8 +1603,8 @@ function renderVideoPlayer(container, video, shouldAutoplay = false) {
         <div class="video-not-found-placeholder">
           <div class="not-found-content">
             <div class="not-found-icon">📹</div>
-            <h3>Video Not Found</h3>
-            <p>This video could not be located on any connected relays.</p>
+            <h3>Event Not Found</h3>
+            <p>could not be located on any connected relays.</p>
             <p class="video-id-display">ID: ${escapeHtml(video.id)}</p>
           </div>
         </div>

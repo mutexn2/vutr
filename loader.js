@@ -191,7 +191,6 @@
       "components/videoCard.js",
       "components/playlistCard.js",
       "components/videoPlayer.js",
-      "components/defaultPlayer.js",
       "components/videoComments.js",
       "components/zapButton.js",
       "config.js",

@@ -40,7 +40,7 @@ async function playlistsPageHandler() {
     playlists = playlists.map(sanitizeNostrEvent).filter((v) => v !== null);
 
     // Filter to only include playlists with valid kind-21 references
-  //  playlists = filterValidPlaylists(playlists);
+    playlists = filterValidPlaylists(playlists);
 
     if (playlists.length === 0) {
       let listContainer = document.getElementById("playlistPage-container");
@@ -119,26 +119,22 @@ function filterValidPlaylists(playlists) {
       return false;
     }
 
-    // Look for at least one valid kind-21 or kind-22 reference
+    // Look for at least one valid "e" tag reference
     return playlist.tags.some(tag => {
-      // Check if it's an "a" tag with at least 2 elements
-      if (!Array.isArray(tag) || tag.length < 2 || tag[0] !== "a") {
+      // Check if it's an "e" tag with at least 2 elements
+      if (!Array.isArray(tag) || tag.length < 2 || tag[0] !== "e") {
         return false;
       }
 
-      const aTagValue = tag[1];
+      const eventId = tag[1];
       
-      // Check if it starts with "21:" or "22:"
-      if (!aTagValue || typeof aTagValue !== "string" || 
-          (!aTagValue.startsWith("21:") && !aTagValue.startsWith("22:"))) {
+      // Check if the ID is a string
+      if (!eventId || typeof eventId !== "string") {
         return false;
       }
 
-      // Extract the ID part after the kind prefix
-      const idPart = aTagValue.substring(3);
-      
       // Check if the ID is exactly 64 characters (valid hex length)
-      return idPart.length === 64 && /^[a-fA-F0-9]{64}$/.test(idPart);
+      return eventId.length === 64 && /^[a-fA-F0-9]{64}$/.test(eventId);
     });
   });
 }

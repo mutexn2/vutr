@@ -1,8 +1,8 @@
 async function postingPageHandler() {
   mainContent.innerHTML = `
     <div class="posting-container">
-      <h1 class="posting-title">Create Event</h1>
-      <p class="subtitle">publish a kind:21 event</p>
+      <h1 class="posting-title">Create Video Event</h1>
+      <p class="subtitle">publish a kind-21 video event</p>
       <div class="loading-indicator">
         <p>Loading...</p>
       </div>
@@ -10,7 +10,7 @@ async function postingPageHandler() {
   `;
 
   try {
-    renderMainForm();
+    renderWizardForm();
     initializePostingPage();
   } catch (error) {
     console.error("Error rendering posting page:", error);
@@ -23,158 +23,259 @@ async function postingPageHandler() {
   }
 }
 
-function renderMainForm() {
+function renderWizardForm() {
   mainContent.innerHTML = `
     <div class="posting-container">
-       <h1 class="posting-title">Create Event</h1>
+      <h1 class="posting-title">Create Video Event</h1>
       <p class="subtitle">publish a kind-21 video event</p>
       
-      <div class="posting-form">
+      <!-- Progress Indicator -->
+      <div class="wizard-progress">
+        <div class="progress-step active" data-step="1">
+          <div class="step-number">1</div>
+          <div class="step-label">Video</div>
+        </div>
+        <div class="progress-line"></div>
+        <div class="progress-step" data-step="2">
+          <div class="step-number">2</div>
+          <div class="step-label">Details</div>
+        </div>
+        <div class="progress-line"></div>
+        <div class="progress-step" data-step="3">
+          <div class="step-number">3</div>
+          <div class="step-label">Metadata</div>
+        </div>
+        <div class="progress-line"></div>
+        <div class="progress-step" data-step="4">
+          <div class="step-number">4</div>
+          <div class="step-label">Custom</div>
+        </div>
+        <div class="progress-line"></div>
+        <div class="progress-step" data-step="5">
+          <div class="step-number">5</div>
+          <div class="step-label">Relays</div>
+        </div>
+        <div class="progress-line"></div>
+        <div class="progress-step" data-step="6">
+          <div class="step-number">6</div>
+          <div class="step-label">Review</div>
+        </div>
+      </div>
+
+      <div class="wizard-form">
         <form id="post-form">
+          
+          <!-- Step 1: Video Sources -->
+          <div class="wizard-step active" data-step="1">
+            <h2 class="step-title">Add Video Sources</h2>
+            <p class="step-description">Add one or more video URLs.</p>
+            
+            <div class="video-tabs">
+              <button type="button" class="tab-button active" data-tab="url">Add by URL</button>
+              <button type="button" class="tab-button" data-tab="upload" style="display: none;">Upload File</button>
+            </div>
+            
+            <div class="tab-content active" id="url-tab">
+              <div class="input-group">
+                <input type="text" id="video-url" placeholder="Enter video URL (mp4, webm, etc.)">
+                <button type="button" id="add-video">Add Video</button>
+              </div>
+              <div class="validation-options">
+                <label>
+                  <input type="checkbox" id="lightweight-mode">
+                  Skip blossom validation (faster, less accurate)
+                </label>
+              </div>
+              <div id="video-progress" class="progress-container" style="display: none;"></div>
+            </div>
 
-        <!-- Video Sources Section -->
-<div class="form-section collapsible" data-section="video-sources">
-  <div class="section-header">
-    <h3>Video Sources</h3>
-    <div class="section-status">
-      <span class="status-indicator" data-status="empty">○</span>
-      <button type="button" class="collapse-toggle">►</button>
-    </div>
-  </div>
-  <div class="section-content">
-  <div class="video-tabs">
-    <button type="button" class="tab-button active" data-tab="url">Add by URL</button>
-    <button type="button" class="tab-button" data-tab="upload" style="display: none;">Upload File</button>
-  </div>
-  
-<div class="tab-content active" id="url-tab">
-  <div class="input-group">
-    <input type="text" id="video-url" placeholder="Enter video URL (mp4, webm, etc.)">
-    <button type="button" id="add-video">Add Video</button>
-  </div>
-  <div class="validation-options" style="display: none;">
-    <label>
-      <input type="checkbox" id="lightweight-mode">
-      skip blossom validation and accurate metadata
-    </label>
-  </div>
-  <div id="video-progress" class="progress-container" style="display: none;"></div>
-</div>
-
-<div class="tab-content" id="upload-tab">
-  <div class="upload-area">
-     <input type="file" id="video-upload" accept="video/*" style="display: none;">
-     <button type="button" id="upload-video" class="upload-button">Choose Video File</button>
-     <p class="help-text">the event just needs a direct media url from any media server, you may self host or use your preferred free/paid hosting service.</p><p class="help-text"> also check these</p>
-    
-    <div class="external-upload-services">
-      <a href="https://blossomservers.com/" class="upload-service-link">Blossom Servers</a>
-      <a href="https://npub19sstws4x9t7nua2sh6cxkeez25y6lvvnq6fqpmyzwnthsjap5tqqkdsghg.nsite.lol/" class="upload-service-link">Cherry Tree</a>
-      <a href="https://bouquet.slidestr.net/" class="upload-service-link">Bouquet</a>
-    </div>
-  </div>
-</div>
-
-  <div class="video-counter">
-    <span id="total-items-counter">imeta: 0</span>
-  </div>
-  <div id="video-metadata-list"></div>
-  </div>
-</div>
-
-          <!-- Basic Info Section -->
-          <div class="form-section collapsible" data-section="basic-info">
-            <div class="section-header">
-              <h3>Basic Information</h3>
-              <div class="section-status">
-                <span class="status-indicator" data-status="empty">○</span>
-                <button type="button" class="collapse-toggle">►</button>
+            <div class="tab-content" id="upload-tab">
+              <div class="upload-area">
+                <input type="file" id="video-upload" accept="video/*" style="display: none;">
+                <button type="button" id="upload-video" class="upload-button">Choose Video File</button>
+                <p class="help-text">Upload to your preferred hosting service first:</p>
+                <div class="external-upload-services">
+                  <a href="https://blossomservers.com/" target="_blank" class="upload-service-link">Blossom Servers</a>
+                  <a href="https://npub19sstws4x9t7nua2sh6cxkeez25y6lvvnq6fqpmyzwnthsjap5tqqkdsghg.nsite.lol/" target="_blank" class="upload-service-link">Cherry Tree</a>
+                  <a href="https://bouquet.slidestr.net/" target="_blank" class="upload-service-link">Bouquet</a>
+                </div>
               </div>
             </div>
-            <div class="section-content">
-            <div class="form-group">
-              <label for="title">Title*</label>
-              <input type="text" id="title" placeholder="Enter video title" required>
+
+            <div class="video-counter">
+              <span id="total-items-counter">Videos added: 0</span>
             </div>
+            <div id="video-metadata-list"></div>
+          </div>
+
+          <!-- Step 2: Basic Information -->
+          <div class="wizard-step" data-step="2">
+            <h2 class="step-title">Basic Information</h2>
+            <p class="step-description">Provide essential details about your video</p>
+            
             <div class="form-group">
-              <label for="content">Description*</label>
-              <textarea id="content" placeholder="Describe your video content" required></textarea>
+              <label for="title">Title *</label>
+              <input type="text" id="title" placeholder="Enter a descriptive title" required>
             </div>
+            
             <div class="form-group">
-              <label for="summary">Summary*</label>
-              <textarea id="summary" placeholder="Brief summary for accessibility" required></textarea>
+              <label for="content">Description *</label>
+              <textarea id="content" placeholder="Describe your video content in detail" required rows="6"></textarea>
+              <span class="char-count" id="content-count">0 characters</span>
             </div>
+            
+            <div class="form-group">
+              <label for="summary">Summary *</label>
+              <textarea id="summary" placeholder="Brief summary (1-2 sentences for accessibility)" required rows="3"></textarea>
+              <span class="help-text">This helps with accessibility and previews</span>
             </div>
           </div>
 
-          <!-- Tags Section -->
-          <div class="form-section collapsible" data-section="tags">
-            <div class="section-header">
-              <h3>Tags & Categories</h3>
-              <div class="section-status">
-                <span class="status-indicator" data-status="empty">○</span>
-                <button type="button" class="collapse-toggle">►</button>
+          <!-- Step 3: Metadata -->
+          <div class="wizard-step" data-step="3">
+            <h2 class="step-title">Metadata & Categories</h2>
+            <p class="step-description">Add tags and metadata to help people discover your video</p>
+            
+            <div class="form-group">
+              <label>Tags *</label>
+              <div class="tags-input-group">
+                <select id="tags">
+                  <option value="">Select a category</option>
+                </select>
+                <button type="button" id="add-selected-tag">Add</button>
+              </div>
+              <div class="tags-input-group">
+                <input type="text" id="custom-category" placeholder="Or type a custom tag">
+                <button type="button" id="add-custom-tag">Add</button>
+              </div>
+              <div id="selected-tags-container">
+                <div id="selected-tags-list"></div>
               </div>
             </div>
-            <div class="section-content">
-            <div class="tags-input-group">
-              <select id="tags">
-                <option value="">Select a category</option>
+
+            <div class="form-group">
+              <label for="language">Language</label>
+              <select id="language">
+                <option value="">Select language</option>
+                <option value="en">English</option>
+                <option value="es">Spanish</option>
+                <option value="fr">French</option>
+                <option value="de">German</option>
+                <option value="it">Italian</option>
+                <option value="pt">Portuguese</option>
+                <option value="ja">Japanese</option>
+                <option value="ko">Korean</option>
+                <option value="zh">Chinese</option>
+                <option value="ar">Arabic</option>
+                <option value="ru">Russian</option>
+                <option value="other">Other</option>
               </select>
-              <button type="button" id="add-selected-tag">Add</button>
             </div>
-            <div class="tags-input-group">
-              <input type="text" id="custom-category" placeholder="Add custom tag">
-              <button type="button" id="add-custom-tag">Add</button>
+
+            <div class="form-group">
+              <label for="license">Content License</label>
+              <select id="license">
+                <option value="">Select a license</option>
+                <option value="CC0">CC0 (Public Domain)</option>
+                <option value="CC-BY">CC BY (Attribution)</option>
+                <option value="CC-BY-SA">CC BY-SA (Attribution-ShareAlike)</option>
+                <option value="CC-BY-NC">CC BY-NC (Attribution-NonCommercial)</option>
+                <option value="CC-BY-NC-SA">CC BY-NC-SA (Attribution-NonCommercial-ShareAlike)</option>
+                <option value="CC-BY-ND">CC BY-ND (Attribution-NoDerivatives)</option>
+                <option value="all-rights-reserved">All Rights Reserved</option>
+                <option value="custom">Custom License</option>
+              </select>
+              <input type="text" id="custom-license" placeholder="Enter custom license" style="display: none; margin-top: 0.5rem;">
             </div>
-            <div id="selected-tags-container">
-              <div id="selected-tags-list"></div>
-            </div>
+
+            <div class="form-group">
+              <label>Content Warnings</label>
+              <div class="content-warnings">
+                <label class="checkbox-label">
+                  <input type="checkbox" name="content-warning" value="nsfw">
+                  <span>NSFW (Not Safe For Work)</span>
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" name="content-warning" value="violence">
+                  <span>Violence</span>
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" name="content-warning" value="sensitive">
+                  <span>Sensitive Content</span>
+                </label>
+              </div>
             </div>
           </div>
 
-          <!-- Optional Fields -->
-          <div class="form-section collapsible" data-section="custom-fields">
-            <div class="section-header">
-              <h3>Additional Fields</h3>
-              <div class="section-status">
-                <span class="status-indicator" data-status="optional">○</span>
-                <button type="button" class="collapse-toggle">►</button>
-              </div>
-            </div>
-            <div class="section-content">
+          <!-- Step 4: Additional Fields -->
+          <div class="wizard-step" data-step="4">
+            <h2 class="step-title">Additional Fields</h2>
+            <p class="step-description">Add any custom fields (optional)</p>
+            
             <div id="field-container"></div>
-            <button type="button" id="add-field">Add Custom Field</button>
-            </div>
+            <button type="button" id="add-field" class="secondary-button">
+              <span>+ Add Custom Field</span>
+            </button>
+            
+            <p class="help-text">Custom fields can include things like: genre, series, episode number, credits, etc.</p>
           </div>
 
-          <!-- Relay Selection Section -->
-          <div class="form-section collapsible" data-section="relay-selection">
-            <div class="section-header">
-              <h3>Relay Selection</h3>
-              <div class="section-status">
-                <span class="status-indicator" data-status="empty">○</span>
-                <button type="button" class="collapse-toggle">►</button>
+          <!-- Step 5: Relay Selection -->
+          <div class="wizard-step" data-step="5">
+            <h2 class="step-title">Relay Selection</h2>
+            <p class="step-description">Choose where to publish your video event</p>
+            
+            <div class="form-group">
+              <label>Publishing Relay Sets *</label>
+              <p class="help-text">Select which relay sets to publish to (minimum 1 required)</p>
+              <div class="relay-sets-selection">
+                <div id="relay-sets-list"></div>
               </div>
             </div>
-            <div class="section-content">
-            <p class="help-text">Choose which relay sets to publish to (minimum 1 required)</p>
-            <div class="relay-sets-selection">
-              <div id="relay-sets-list"></div>
-            </div>
+
             <div class="selected-relays-info">
               <p><strong>Publishing to <span id="relay-count">0</span> relays</strong></p>
               <div id="relay-preview" class="relay-preview"></div>
             </div>
-            <div class="event-relays-info">
-              <p class="help-text">Select relays to include in the event (for discovery):</p>
+
+            <div class="form-group">
+              <label>Event Discovery Relays</label>
+              <p class="help-text">Select specific relays to include in the event for discovery:</p>
               <div id="event-relay-selection" class="event-relay-selection"></div>
-              <p class="relay-count-info"><span id="event-relay-count">0</span> relays selected for event</p>
-            </div>
+              <p class="relay-count-info"><span id="event-relay-count">0</span> relays selected</p>
             </div>
           </div>
 
-          <button type="submit" id="submit-button" class="submit-button">Create Event</button>
+          <!-- Step 6: Review & Publish -->
+          <div class="wizard-step" data-step="6">
+            <h2 class="step-title">Review & Publish</h2>
+            <p class="step-description">Review your event before publishing</p>
+            
+            <div class="event-preview">
+              <h3>Event Summary</h3>
+              <div id="event-summary"></div>
+              
+              <h3>Event JSON</h3>
+              <div class="json-preview">
+                <button type="button" id="copy-json" class="copy-button">Copy JSON</button>
+                <pre id="event-json"></pre>
+              </div>
+            </div>
+          </div>
+
+          <!-- Navigation Buttons -->
+          <div class="wizard-navigation">
+            <button type="button" id="prev-step" class="nav-button secondary-button" style="display: none;">
+              ← Previous
+            </button>
+            <div class="nav-spacer"></div>
+            <button type="button" id="next-step" class="nav-button primary-button">
+              Next →
+            </button>
+            <button type="submit" id="submit-button" class="nav-button submit-button" style="display: none;">
+              Publish Event
+            </button>
+          </div>
         </form>
       </div>
     </div>
@@ -182,184 +283,175 @@ function renderMainForm() {
 }
 
 function initializePostingPage() {
-  function saveFormDataToStorage() {
-    const formData = {
-      title: document.getElementById("title").value,
-      content: document.getElementById("content").value,
-      summary: document.getElementById("summary").value,
-      selectedTags: Array.from(selectedTags),
-      videoMetadataList: window.videoMetadataList,
-      customFields: Array.from(document.querySelectorAll(".custom-field")).map(
-        (field) => ({
-          name: field.querySelector(".field-name").value.trim(),
-          value: field.querySelector(".field-value").value.trim(),
-        })
-      ),
-      selectedRelaySets: Array.from(selectedRelaySets),
-      excludedRelays: Array.from(excludedRelays),
-      eventRelays: Array.from(eventRelays),
-      timestamp: Date.now(),
-    };
-
-    localStorage.setItem("draftVideoEvent", JSON.stringify(formData));
-  }
-
-  function loadFormDataFromStorage() {
-    try {
-      const saved = localStorage.getItem("draftVideoEvent");
-      if (!saved) return;
-
-      const formData = JSON.parse(saved);
-
-      document.getElementById("title").value = formData.title || "";
-      document.getElementById("content").value = formData.content || "";
-      document.getElementById("summary").value = formData.summary || "";
-
-      if (formData.selectedTags) {
-        selectedTags = new Set(formData.selectedTags);
-        updateSelectedTagsDisplay();
-      }
-
-      if (formData.videoMetadataList) {
-        window.videoMetadataList = formData.videoMetadataList;
-        formData.videoMetadataList.forEach((video) => addVideoToUI(video));
-        updateVideoCounter();
-      }
-
-      if (formData.customFields) {
-        formData.customFields.forEach((field) => {
-          if (field.name && field.value) {
-            addCustomField();
-            const lastField = document.querySelector(
-              "#field-container .custom-field:last-child"
-            );
-            lastField.querySelector(".field-name").value = field.name;
-            lastField.querySelector(".field-value").value = field.value;
-          }
-        });
-      }
-
-      if (formData.selectedRelaySets) {
-        selectedRelaySets = new Set(formData.selectedRelaySets);
-        document
-          .querySelectorAll('#relay-sets-list input[type="checkbox"]')
-          .forEach((checkbox) => {
-            checkbox.checked = selectedRelaySets.has(checkbox.value);
-          });
-      }
-
-      if (formData.excludedRelays) {
-        excludedRelays = new Set(formData.excludedRelays);
-      }
-
-      if (formData.eventRelays) {
-        eventRelays = new Set(formData.eventRelays);
-      }
-
-      updateRelayPreview();
-      updateSectionStatuses();
-    } catch (error) {
-      console.error("Error loading draft data:", error);
-    }
-  }
-
-  function clearFormDataFromStorage() {
-    localStorage.removeItem("draftVideoEvent");
-  }
-
-  // Initialize global state
+  // State management
   window.videoMetadataList = [];
   let metadataIndex = 0;
   let selectedTags = new Set();
   let selectedRelaySets = new Set([app.activeRelayList]);
   let excludedRelays = new Set();
-  let eventRelays = new Set(); // New: relays to include in event
+  let eventRelays = new Set();
   let activeTab = "url";
+  let currentStep = 1;
+  const totalSteps = 6;
 
-  // Initialize components
-  initializeCollapsibleSections();
+  // Initialize all components
   initializeTabs();
   initializeTags();
   initializeRelaySelection();
   initializeEventListeners();
-
+  initializeWizardNavigation();
   loadFormDataFromStorage();
   updateDisplay();
 
+  // Auto-save form data
   const formElement = document.getElementById("post-form");
   formElement.addEventListener("input", debounce(saveFormDataToStorage, 1000));
   formElement.addEventListener("change", saveFormDataToStorage);
 
-  function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-      const later = () => {
-        clearTimeout(timeout);
-        func(...args);
-      };
-      clearTimeout(timeout);
-      timeout = setTimeout(later, wait);
-    };
-  }
+  function initializeWizardNavigation() {
+    const prevButton = document.getElementById("prev-step");
+    const nextButton = document.getElementById("next-step");
+    const submitButton = document.getElementById("submit-button");
 
-  function initializeCollapsibleSections() {
-    // Start all sections collapsed
-    document.querySelectorAll('.form-section.collapsible').forEach(section => {
-      const content = section.querySelector('.section-content');
-      const toggle = section.querySelector('.collapse-toggle');
-      
-      content.style.display = 'none';
-      toggle.textContent = '►';
+    nextButton.addEventListener("click", () => {
+      if (validateCurrentStep()) {
+        goToStep(currentStep + 1);
+      }
     });
 
-    // Add click handlers for collapse toggles
-    document.querySelectorAll('.collapse-toggle').forEach(button => {
-      button.addEventListener('click', (e) => {
-        const section = e.target.closest('.form-section');
-        const content = section.querySelector('.section-content');
-        const isCollapsed = content.style.display === 'none';
-        
-        content.style.display = isCollapsed ? 'block' : 'none';
-        button.textContent = isCollapsed ? '▼' : '►';
+    prevButton.addEventListener("click", () => {
+      goToStep(currentStep - 1);
+    });
+
+    function goToStep(stepNumber) {
+      if (stepNumber < 1 || stepNumber > totalSteps) return;
+
+      // Hide all steps
+      document.querySelectorAll(".wizard-step").forEach(step => {
+        step.classList.remove("active");
       });
-    });
+
+      // Show target step
+      document.querySelector(`.wizard-step[data-step="${stepNumber}"]`).classList.add("active");
+
+      // Update progress indicator
+      document.querySelectorAll(".progress-step").forEach(step => {
+        const num = parseInt(step.dataset.step);
+        step.classList.toggle("active", num === stepNumber);
+        step.classList.toggle("completed", num < stepNumber);
+      });
+
+      // Update navigation buttons
+      prevButton.style.display = stepNumber === 1 ? "none" : "block";
+      
+      if (stepNumber === totalSteps) {
+        nextButton.style.display = "none";
+        submitButton.style.display = "block";
+        updateReviewStep();
+      } else {
+        nextButton.style.display = "block";
+        submitButton.style.display = "none";
+      }
+
+      currentStep = stepNumber;
+      
+      // Scroll to top
+      mainContent.scrollTop = 0;
+    }
+
+    function validateCurrentStep() {
+      switch(currentStep) {
+        case 1: // Video Sources
+          if (window.videoMetadataList.length === 0) {
+            alert("Please add at least one video URL");
+            return false;
+          }
+          return true;
+
+        case 2: // Basic Information
+          const title = document.getElementById("title").value.trim();
+          const content = document.getElementById("content").value.trim();
+          const summary = document.getElementById("summary").value.trim();
+          
+          if (!title) {
+            alert("Please enter a title");
+            document.getElementById("title").focus();
+            return false;
+          }
+          if (!content) {
+            alert("Please enter a description");
+            document.getElementById("content").focus();
+            return false;
+          }
+          if (!summary) {
+            alert("Please enter a summary");
+            document.getElementById("summary").focus();
+            return false;
+          }
+          return true;
+
+        case 3: // Metadata
+          if (selectedTags.size === 0) {
+            alert("Please add at least one tag");
+            return false;
+          }
+          return true;
+
+        case 4: // Custom fields (optional)
+          return true;
+
+        case 5: // Relay Selection
+          if (getSelectedRelays().length === 0) {
+            alert("Please select at least one relay set");
+            return false;
+          }
+          return true;
+
+        default:
+          return true;
+      }
+    }
   }
 
-  function updateSectionStatuses() {
-    // Video Sources
-    const videoStatus = document.querySelector('[data-section="video-sources"] .status-indicator');
-    videoStatus.dataset.status = window.videoMetadataList.length > 0 ? 'complete' : 'empty';
-    videoStatus.textContent = window.videoMetadataList.length > 0 ? '✓' : '○';
+  function updateReviewStep() {
+    const summary = document.getElementById("event-summary");
+    const jsonPreview = document.getElementById("event-json");
+    const eventData = buildK21EventData();
 
-    // Basic Info
-    const title = document.getElementById("title").value.trim();
-    const content = document.getElementById("content").value.trim();
-    const summary = document.getElementById("summary").value.trim();
-    const basicStatus = document.querySelector('[data-section="basic-info"] .status-indicator');
-    basicStatus.dataset.status = (title && content && summary) ? 'complete' : 'empty';
-    basicStatus.textContent = (title && content && summary) ? '✓' : '○';
+    // Create summary HTML
+    const title = document.getElementById("title").value;
+    const videoCount = window.videoMetadataList.length;
+    const tagCount = selectedTags.size;
+    const relayCount = getSelectedRelays().length;
 
-    // Tags
-    const tagsStatus = document.querySelector('[data-section="tags"] .status-indicator');
-    tagsStatus.dataset.status = selectedTags.size > 0 ? 'complete' : 'empty';
-    tagsStatus.textContent = selectedTags.size > 0 ? '✓' : '○';
+    summary.innerHTML = `
+      <div class="summary-item">
+        <strong>Title:</strong> ${title}
+      </div>
+      <div class="summary-item">
+        <strong>Videos:</strong> ${videoCount} source${videoCount !== 1 ? 's' : ''}
+      </div>
+      <div class="summary-item">
+        <strong>Tags:</strong> ${tagCount} tag${tagCount !== 1 ? 's' : ''} (${Array.from(selectedTags).join(", ")})
+      </div>
+      <div class="summary-item">
+        <strong>Publishing to:</strong> ${relayCount} relay${relayCount !== 1 ? 's' : ''}
+      </div>
+      ${eventRelays.size > 0 ? `
+      <div class="summary-item">
+        <strong>Discovery relays:</strong> ${eventRelays.size}
+      </div>
+      ` : ''}
+    `;
 
-    // Custom Fields (optional)
-    const customFields = document.querySelectorAll('.custom-field');
-    const filledFields = Array.from(customFields).filter(field => {
-      const name = field.querySelector('.field-name').value.trim();
-      const value = field.querySelector('.field-value').value.trim();
-      return name && value;
+    // Show JSON
+    jsonPreview.textContent = JSON.stringify(eventData, null, 2);
+
+    // Copy JSON button
+    document.getElementById("copy-json").addEventListener("click", () => {
+      navigator.clipboard.writeText(JSON.stringify(eventData, null, 2));
+      showTemporaryNotification("JSON copied to clipboard!");
     });
-    const fieldsStatus = document.querySelector('[data-section="custom-fields"] .status-indicator');
-    fieldsStatus.dataset.status = filledFields.length > 0 ? 'complete' : 'optional';
-    fieldsStatus.textContent = filledFields.length > 0 ? '✓' : '○';
-
-    // Relay Selection
-    const selectedRelays = getSelectedRelays();
-    const relayStatus = document.querySelector('[data-section="relay-selection"] .status-indicator');
-    relayStatus.dataset.status = selectedRelays.length > 0 ? 'complete' : 'empty';
-    relayStatus.textContent = selectedRelays.length > 0 ? '✓' : '○';
   }
 
   function initializeTabs() {
@@ -369,13 +461,10 @@ function initializePostingPage() {
     tabButtons.forEach((button) => {
       button.addEventListener("click", () => {
         const tabId = button.dataset.tab;
-
         tabButtons.forEach((btn) => btn.classList.remove("active"));
         tabContents.forEach((content) => content.classList.remove("active"));
-
         button.classList.add("active");
         document.getElementById(`${tabId}-tab`).classList.add("active");
-
         activeTab = tabId;
       });
     });
@@ -386,7 +475,6 @@ function initializePostingPage() {
     try {
       const allTags = localStorage.getItem("allTags");
       const tags = allTags ? JSON.parse(allTags) : [];
-
       tags.forEach((tag) => {
         const option = document.createElement("option");
         option.value = tag.value;
@@ -406,13 +494,9 @@ function initializePostingPage() {
       checkbox.className = "relay-set-checkbox";
       checkbox.innerHTML = `
         <label>
-          <input type="checkbox" value="${setName}" ${
-        selectedRelaySets.has(setName) ? "checked" : ""
-      }>
+          <input type="checkbox" value="${setName}" ${selectedRelaySets.has(setName) ? "checked" : ""}>
           <span class="relay-set-name">${setName}</span>
-          <span class="relay-set-count">(${getRelayCountForSet(
-            setName
-          )} relays)</span>
+          <span class="relay-set-count">(${getRelayCountForSet(setName)} relays)</span>
         </label>
       `;
       relaySetsList.appendChild(checkbox);
@@ -441,9 +525,7 @@ function initializePostingPage() {
 
       excludedRelays.clear();
       eventRelays.clear();
-
       updateRelayPreview();
-      updateSectionStatuses();
       saveFormDataToStorage();
     }
   }
@@ -456,7 +538,6 @@ function initializePostingPage() {
 
   function getSelectedRelays() {
     const allRelays = new Set();
-
     selectedRelaySets.forEach((setName) => {
       const relaySet = app.relayLists[setName];
       if (relaySet) {
@@ -465,27 +546,22 @@ function initializePostingPage() {
           .forEach((tag) => allRelays.add(tag[1]));
       }
     });
-
     excludedRelays.forEach((relay) => allRelays.delete(relay));
-
     return Array.from(allRelays);
   }
 
   function handleRelayRemoval(relayUrl) {
     excludedRelays.add(relayUrl);
-
     const remainingRelays = getSelectedRelays();
+    
     if (remainingRelays.length === 0) {
       excludedRelays.delete(relayUrl);
       alert("At least one relay must be selected for publishing");
       return;
     }
 
-    // Also remove from event relays if it was selected
     eventRelays.delete(relayUrl);
-
     updateRelayPreview();
-    updateSectionStatuses();
     saveFormDataToStorage();
   }
 
@@ -500,29 +576,23 @@ function initializePostingPage() {
 
     if (selectedRelays.length > 0) {
       relayPreview.innerHTML = selectedRelays
-        .map(
-          (relay) => `
-        <span class="relay-chip">
-          ${relay}
-          <button type="button" class="remove-relay" data-relay="${relay}" title="Remove this relay">×</button>
-        </span>
-      `
-        )
+        .map(relay => `
+          <span class="relay-chip">
+            ${relay}
+            <button type="button" class="remove-relay" data-relay="${relay}" title="Remove this relay">×</button>
+          </span>
+        `)
         .join("");
 
-      // Update event relay selection checkboxes
       eventRelaySelection.innerHTML = selectedRelays
-        .map(
-          (relay) => `
-        <label class="event-relay-checkbox">
-          <input type="checkbox" value="${relay}" ${eventRelays.has(relay) ? 'checked' : ''}>
-          <span>${relay}</span>
-        </label>
-      `
-        )
+        .map(relay => `
+          <label class="event-relay-checkbox">
+            <input type="checkbox" value="${relay}" ${eventRelays.has(relay) ? 'checked' : ''}>
+            <span>${relay}</span>
+          </label>
+        `)
         .join("");
 
-      // Add event listeners for event relay checkboxes
       eventRelaySelection.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
         checkbox.addEventListener('change', (e) => {
           if (e.target.checked) {
@@ -544,30 +614,23 @@ function initializePostingPage() {
   }
 
   function initializeEventListeners() {
-    document
-      .getElementById("add-video")
-      .addEventListener("click", handleAddVideo);
-    document
-      .getElementById("upload-video")
-      .addEventListener("click", () =>
-        document.getElementById("video-upload").click()
-      );
-    document
-      .getElementById("video-upload")
-      .addEventListener("change", handleFileUpload);
+    // Video handlers
+    document.getElementById("add-video").addEventListener("click", handleAddVideo);
+    document.getElementById("upload-video").addEventListener("click", () =>
+      document.getElementById("video-upload").click()
+    );
+    document.getElementById("video-upload").addEventListener("change", handleFileUpload);
 
-    document
-      .getElementById("add-selected-tag")
-      .addEventListener("click", () => {
-        const select = document.getElementById("tags");
-        const value = select.value;
-        if (value && !selectedTags.has(value)) {
-          selectedTags.add(value);
-          updateSelectedTagsDisplay();
-          updateSectionStatuses();
-          select.value = "";
-        }
-      });
+    // Tag handlers
+    document.getElementById("add-selected-tag").addEventListener("click", () => {
+      const select = document.getElementById("tags");
+      const value = select.value;
+      if (value && !selectedTags.has(value)) {
+        selectedTags.add(value);
+        updateSelectedTagsDisplay();
+        select.value = "";
+      }
+    });
 
     document.getElementById("add-custom-tag").addEventListener("click", () => {
       const input = document.getElementById("custom-category");
@@ -575,43 +638,95 @@ function initializePostingPage() {
       if (value && !selectedTags.has(value)) {
         selectedTags.add(value);
         updateSelectedTagsDisplay();
-        updateSectionStatuses();
         input.value = "";
       }
     });
 
-    document
-      .getElementById("custom-category")
-      .addEventListener("keypress", (e) => {
-        if (e.key === "Enter") {
-          e.preventDefault();
-          document.getElementById("add-custom-tag").click();
-        }
-      });
-
-    document
-      .getElementById("add-field")
-      .addEventListener("click", addCustomField);
-    document
-      .getElementById("post-form")
-      .addEventListener("submit", handleFormSubmit);
-
-    document
-      .querySelector(".posting-container")
-      .addEventListener("click", handleContainerClick);
-
-    // Add listeners for basic info fields
-    ['title', 'content', 'summary'].forEach(id => {
-      document.getElementById(id).addEventListener('input', () => {
-        updateSectionStatuses();
-      });
+    document.getElementById("custom-category").addEventListener("keypress", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        document.getElementById("add-custom-tag").click();
+      }
     });
+
+    // License handler
+    document.getElementById("license").addEventListener("change", (e) => {
+      const customInput = document.getElementById("custom-license");
+      customInput.style.display = e.target.value === "custom" ? "block" : "none";
+    });
+
+    // Character counter
+    document.getElementById("content").addEventListener("input", (e) => {
+      document.getElementById("content-count").textContent = `${e.target.value.length} characters`;
+    });
+
+    // Custom fields
+    document.getElementById("add-field").addEventListener("click", addCustomField);
+
+    // Form submission
+    document.getElementById("post-form").addEventListener("submit", handleFormSubmit);
+
+    // Container click delegation
+    document.querySelector(".posting-container").addEventListener("click", handleContainerClick);
   }
 
-  function updateDisplay() {
-    updateSelectedTagsDisplay();
-    updateVideoCounter();
-    updateSectionStatuses();
+  function handleContainerClick(event) {
+    const { target } = event;
+
+    if (target.classList.contains("remove-video")) {
+      const item = target.closest(".video-item");
+      const index = parseInt(item.dataset.index);
+      window.videoMetadataList = window.videoMetadataList.filter(
+        (video) => video.index !== index
+      );
+      item.remove();
+      updateVideoCounter();
+      saveFormDataToStorage();
+    }
+
+    if (target.classList.contains("update-thumbnail")) {
+      handleThumbnailUpdate(target);
+    }
+
+    if (target.classList.contains("remove-tag")) {
+      const tag = target.dataset.tag;
+      selectedTags.delete(tag);
+      updateSelectedTagsDisplay();
+      saveFormDataToStorage();
+    }
+
+    if (target.classList.contains("remove-field")) {
+      target.closest(".custom-field").remove();
+      saveFormDataToStorage();
+    }
+
+    if (target.classList.contains("remove-relay")) {
+      const relayUrl = target.dataset.relay;
+      handleRelayRemoval(relayUrl);
+    }
+  }
+
+  async function handleThumbnailUpdate(button) {
+    const item = button.closest(".video-item");
+    const input = item.querySelector(".thumbnail-input");
+    const img = item.querySelector(".video-thumbnail");
+    const url = input.value.trim();
+
+    if (!url) return;
+
+    try {
+      await validateImageUrl(url);
+      img.src = url;
+
+      const index = parseInt(item.dataset.index);
+      const video = window.videoMetadataList.find((v) => v.index === index);
+      if (video) video.thumbnail = url;
+
+      input.value = "";
+      saveFormDataToStorage();
+    } catch {
+      alert("Invalid image URL");
+    }
   }
 
   async function handleAddVideo() {
@@ -658,19 +773,14 @@ function initializePostingPage() {
       addVideoToUI(metadata);
       input.value = "";
       updateVideoCounter();
-      updateSectionStatuses();
-
       saveFormDataToStorage();
-
       hideVideoProgress();
     } catch (error) {
       console.error("Error fetching video metadata:", error);
       hideVideoProgress();
 
       if (error.message.includes("Expected video content")) {
-        alert(
-          `❌ ${error.message}\n\nPlease ensure the URL points to a video file.`
-        );
+        alert(`❌ ${error.message}\n\nPlease ensure the URL points to a video file.`);
       } else {
         alert("Failed to fetch video metadata. Please check the URL.");
       }
@@ -690,6 +800,7 @@ function initializePostingPage() {
       "video/quicktime",
       "video/x-msvideo",
     ];
+    
     if (!validTypes.includes(file.type)) {
       alert("Please select a valid video file");
       return;
@@ -707,73 +818,12 @@ function initializePostingPage() {
       addVideoToUI(metadata);
       event.target.value = "";
       updateVideoCounter();
-      updateSectionStatuses();
+      saveFormDataToStorage();
     } catch (error) {
       console.error("Error processing file:", error);
       alert("Failed to process video file");
     } finally {
       setButtonLoading(button, false, "Choose Video File");
-    }
-  }
-
-  function handleContainerClick(event) {
-    const { target } = event;
-
-    if (target.classList.contains("remove-video")) {
-      const item = target.closest(".video-item");
-      const index = parseInt(item.dataset.index);
-      window.videoMetadataList = window.videoMetadataList.filter(
-        (video) => video.index !== index
-      );
-      item.remove();
-      updateVideoCounter();
-      updateSectionStatuses();
-      saveFormDataToStorage();
-    }
-
-    if (target.classList.contains("update-thumbnail")) {
-      handleThumbnailUpdate(target);
-    }
-
-    if (target.classList.contains("remove-tag")) {
-      const tag = target.dataset.tag;
-      selectedTags.delete(tag);
-      updateSelectedTagsDisplay();
-      updateSectionStatuses();
-      saveFormDataToStorage();
-    }
-
-    if (target.classList.contains("remove-field")) {
-      target.closest(".custom-field").remove();
-      updateSectionStatuses();
-      saveFormDataToStorage();
-    }
-
-    if (target.classList.contains("remove-relay")) {
-      const relayUrl = target.dataset.relay;
-      handleRelayRemoval(relayUrl);
-    }
-  }
-
-  async function handleThumbnailUpdate(button) {
-    const item = button.closest(".video-item");
-    const input = item.querySelector(".thumbnail-input");
-    const img = item.querySelector(".video-thumbnail");
-    const url = input.value.trim();
-
-    if (!url) return;
-
-    try {
-      await validateImageUrl(url);
-      img.src = url;
-
-      const index = parseInt(item.dataset.index);
-      const video = window.videoMetadataList.find((v) => v.index === index);
-      if (video) video.thumbnail = url;
-
-      input.value = "";
-    } catch {
-      alert("Invalid image URL");
     }
   }
 
@@ -825,7 +875,6 @@ function initializePostingPage() {
           console.dir(signedVideoEvent, { depth: null });
           submitButton.textContent = "Published!";
           showTemporaryNotification("Event published successfully!");
-
           clearFormDataFromStorage();
 
           setTimeout(() => {
@@ -851,6 +900,7 @@ function initializePostingPage() {
     }
   }
 
+  // Helper functions for metadata fetching
   async function fetchVideoMetadata(url) {
     const response = await fetch(url, { method: "HEAD" });
     if (!response.ok) throw new Error("Invalid URL");
@@ -877,7 +927,8 @@ function initializePostingPage() {
         height: 1080,
         duration: Math.max(60, size / 1000000),
       };
-    } else {const fullResponse = await fetch(url);
+    } else {
+      const fullResponse = await fetch(url);
       const blob = await fullResponse.blob();
 
       blobHash = await generateSHA256Hash(blob);
@@ -1008,52 +1059,23 @@ function initializePostingPage() {
     item.dataset.index = video.index;
 
     item.innerHTML = `
-    <div class="video-preview">
-      <img class="video-thumbnail" alt="Video thumbnail">
-      <div class="video-info">
-        <p><strong>URL:</strong> <span class="video-url"></span></p>
-        <p><strong>Type:</strong> <span class="video-type"></span></p>
-        <p><strong>Size:</strong> <span class="video-size"></span></p>
-        <p><strong>Dimensions:</strong> <span class="video-dimensions"></span></p>
-        <p><strong>Duration:</strong> <span class="video-duration"></span></p>
-        <p><strong>Hash <span class="hash-status"></span>:</strong> <span class="video-hash"></span></p>
+      <div class="video-preview">
+        <img class="video-thumbnail" alt="Video thumbnail" src="${video.thumbnail}">
+        <div class="video-info">
+          <p><strong>URL:</strong> <span class="video-url">${video.url}</span></p>
+          <p><strong>Type:</strong> <span class="video-type">${video.type}</span></p>
+          <p><strong>Size:</strong> <span class="video-size">${video.size > 0 ? `${(video.size / 1024 / 1024).toFixed(2)} MB` : "Unknown"}</span></p>
+          <p><strong>Dimensions:</strong> <span class="video-dimensions">${video.dimensions}</span></p>
+          <p><strong>Duration:</strong> <span class="video-duration">${video.duration?.toFixed(2)}s</span></p>
+          <p><strong>Hash <span class="hash-status">${video.isLightweight ? "(random)" : (video.isHashValid ? "(blossom)" : "(not blossom)")}</span>:</strong> <span class="video-hash">${video.hash}</span></p>
+        </div>
       </div>
-    </div>
-    <div class="posting-video-controls">
-      <input type="text" class="thumbnail-input" placeholder="Custom thumbnail URL">
-      <button type="button" class="update-thumbnail">Update Thumbnail</button>
-      <button type="button" class="remove-video">Remove imeta</button>
-    </div>
-  `;
-
-    const thumbnail = item.querySelector(".video-thumbnail");
-    const urlSpan = item.querySelector(".video-url");
-    const typeSpan = item.querySelector(".video-type");
-    const sizeSpan = item.querySelector(".video-size");
-    const dimensionsSpan = item.querySelector(".video-dimensions");
-    const durationSpan = item.querySelector(".video-duration");
-    const hashStatusSpan = item.querySelector(".hash-status");
-    const hashSpan = item.querySelector(".video-hash");
-
-    thumbnail.src = video.thumbnail;
-    urlSpan.textContent = video.url;
-    typeSpan.textContent = video.type;
-
-    const sizeDisplay =
-      video.size > 0 ? `${(video.size / 1024 / 1024).toFixed(2)} MB` : "999";
-    sizeSpan.textContent = sizeDisplay;
-
-    dimensionsSpan.textContent = video.dimensions;
-    durationSpan.textContent = video.duration?.toFixed(2) + "s";
-
-    let statusText;
-    if (video.isLightweight) {
-      statusText = "(random)";
-    } else {
-      statusText = video.isHashValid ? "(blossom)" : "(not blossom)";
-    }
-    hashStatusSpan.textContent = statusText;
-    hashSpan.textContent = video.hash;
+      <div class="posting-video-controls">
+        <input type="text" class="thumbnail-input" placeholder="Custom thumbnail URL (optional)">
+        <button type="button" class="update-thumbnail">Update Thumbnail</button>
+        <button type="button" class="remove-video">Remove Video</button>
+      </div>
+    `;
 
     container.appendChild(item);
   }
@@ -1063,7 +1085,7 @@ function initializePostingPage() {
     container.innerHTML = "";
 
     if (selectedTags.size === 0) {
-      container.innerHTML = '<span class="no-tags">No tags selected</span>';
+      container.innerHTML = '<span class="no-tags">No tags selected yet</span>';
       return;
     }
 
@@ -1080,7 +1102,7 @@ function initializePostingPage() {
 
   function updateVideoCounter() {
     const counter = document.getElementById("total-items-counter");
-    counter.textContent = `imeta: ${window.videoMetadataList.length}`;
+    counter.textContent = `Videos added: ${window.videoMetadataList.length}`;
   }
 
   function addCustomField() {
@@ -1089,18 +1111,15 @@ function initializePostingPage() {
     const field = document.createElement("div");
     field.className = "custom-field";
     field.innerHTML = `
-      <input type="text" placeholder="Field name" class="field-name">
+      <input type="text" placeholder="Field name (e.g., genre, series)" class="field-name">
       <input type="text" placeholder="Field value" class="field-value">
-      <button type="button" class="remove-field">Remove</button>
+      <button type="button" class="remove-field">×</button>
     `;
 
     container.appendChild(field);
 
-    // Add change listener to update section status
     field.querySelectorAll('input').forEach(input => {
-      input.addEventListener('input', () => {
-        updateSectionStatuses();
-      });
+      input.addEventListener('input', saveFormDataToStorage);
     });
   }
 
@@ -1127,7 +1146,6 @@ function initializePostingPage() {
       })
       .filter(([name, value]) => name && value);
 
-    // Use selected event relays instead of random selection
     const relayTags = Array.from(eventRelays).map((relay) => ["relay", relay]);
 
     const tags = [
@@ -1139,6 +1157,33 @@ function initializePostingPage() {
       ...relayTags,
       ...customFields,
     ];
+
+    // Add language if selected
+    const language = document.getElementById("language").value;
+    if (language) {
+      tags.push(["language", language]);
+    }
+
+    // Add license
+    const license = document.getElementById("license").value;
+    if (license) {
+      if (license === "custom") {
+        const customLicense = document.getElementById("custom-license").value.trim();
+        if (customLicense) {
+          tags.push(["license", customLicense]);
+        }
+      } else {
+        tags.push(["license", license]);
+      }
+    }
+
+    // Add content warnings
+    const warnings = Array.from(document.querySelectorAll('input[name="content-warning"]:checked'))
+      .map(cb => cb.value);
+    
+    warnings.forEach(warning => {
+      tags.push(["content-warning", warning]);
+    });
 
     return {
       kind: 21,
@@ -1152,6 +1197,124 @@ function initializePostingPage() {
     button.disabled = isLoading;
     button.textContent = text;
     button.classList.toggle("loading", isLoading);
+  }
+
+  function updateDisplay() {
+    updateSelectedTagsDisplay();
+    updateVideoCounter();
+  }
+
+  function saveFormDataToStorage() {
+    const formData = {
+      title: document.getElementById("title").value,
+      content: document.getElementById("content").value,
+      summary: document.getElementById("summary").value,
+      language: document.getElementById("language").value,
+      license: document.getElementById("license").value,
+      customLicense: document.getElementById("custom-license").value,
+      contentWarnings: Array.from(document.querySelectorAll('input[name="content-warning"]:checked'))
+        .map(cb => cb.value),
+      selectedTags: Array.from(selectedTags),
+      videoMetadataList: window.videoMetadataList,
+      customFields: Array.from(document.querySelectorAll(".custom-field")).map(
+        (field) => ({
+          name: field.querySelector(".field-name").value.trim(),
+          value: field.querySelector(".field-value").value.trim(),
+        })
+      ),
+      selectedRelaySets: Array.from(selectedRelaySets),
+      excludedRelays: Array.from(excludedRelays),
+      eventRelays: Array.from(eventRelays),
+      currentStep: currentStep,
+      timestamp: Date.now(),
+    };
+
+    localStorage.setItem("draftVideoEvent", JSON.stringify(formData));
+  }
+
+  function loadFormDataFromStorage() {
+    try {
+      const saved = localStorage.getItem("draftVideoEvent");
+      if (!saved) return;
+
+      const formData = JSON.parse(saved);
+
+      document.getElementById("title").value = formData.title || "";
+      document.getElementById("content").value = formData.content || "";
+      document.getElementById("summary").value = formData.summary || "";
+      document.getElementById("language").value = formData.language || "";
+      document.getElementById("license").value = formData.license || "";
+      document.getElementById("custom-license").value = formData.customLicense || "";
+
+      // Restore content warnings
+      if (formData.contentWarnings) {
+        formData.contentWarnings.forEach(warning => {
+          const checkbox = document.querySelector(`input[name="content-warning"][value="${warning}"]`);
+          if (checkbox) checkbox.checked = true;
+        });
+      }
+
+      if (formData.selectedTags) {
+        selectedTags = new Set(formData.selectedTags);
+        updateSelectedTagsDisplay();
+      }
+
+      if (formData.videoMetadataList) {
+        window.videoMetadataList = formData.videoMetadataList;
+        formData.videoMetadataList.forEach((video) => addVideoToUI(video));
+        updateVideoCounter();
+      }
+
+      if (formData.customFields) {
+        formData.customFields.forEach((field) => {
+          if (field.name && field.value) {
+            addCustomField();
+            const lastField = document.querySelector(
+              "#field-container .custom-field:last-child"
+            );
+            lastField.querySelector(".field-name").value = field.name;
+            lastField.querySelector(".field-value").value = field.value;
+          }
+        });
+      }
+
+      if (formData.selectedRelaySets) {
+        selectedRelaySets = new Set(formData.selectedRelaySets);
+        document
+          .querySelectorAll('#relay-sets-list input[type="checkbox"]')
+          .forEach((checkbox) => {
+            checkbox.checked = selectedRelaySets.has(checkbox.value);
+          });
+      }
+
+      if (formData.excludedRelays) {
+        excludedRelays = new Set(formData.excludedRelays);
+      }
+
+      if (formData.eventRelays) {
+        eventRelays = new Set(formData.eventRelays);
+      }
+
+      updateRelayPreview();
+    } catch (error) {
+      console.error("Error loading draft data:", error);
+    }
+  }
+
+  function clearFormDataFromStorage() {
+    localStorage.removeItem("draftVideoEvent");
+  }
+
+  function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+      const later = () => {
+        clearTimeout(timeout);
+        func(...args);
+      };
+      clearTimeout(timeout);
+      timeout = setTimeout(later, wait);
+    };
   }
 }
 
@@ -1178,15 +1341,11 @@ function showVideoProgress(message, progressData = null) {
         <div class="progress-message">${message}</div>
         <div class="progress-info">
           <span class="progress-percentage">${progressData.percentage}%</span>
-          <span class="progress-size">${formatBytes(
-            progressData.loaded
-          )} / ${formatBytes(progressData.total)}</span>
+          <span class="progress-size">${formatBytes(progressData.loaded)} / ${formatBytes(progressData.total)}</span>
         </div>
         <div class="progress-bar-container">
           <div class="progress-bar">
-            <div class="progress-fill" style="width: ${
-              progressData.percentage
-            }%"></div>
+            <div class="progress-fill" style="width: ${progressData.percentage}%"></div>
           </div>
         </div>
       `;

@@ -3827,13 +3827,14 @@ main {
 }
 
 .primary-button {
-  background: var(--primary);
-  color: var(--background);
+  background: var(--background);
+  color: var(--text);
+  border: 1px solid var(--border);
 }
 
 .primary-button:hover {
-  background: var(--primary-hover);
-  transform: translateY(-2px);
+  background: var(--surface);
+  border: 1px solid var(--primary);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
@@ -4317,6 +4318,60 @@ main {
   background-color: #dc2626;
   color: black;
 }
+/**/
+.thumbnail-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.thumbnail-option {
+  cursor: pointer;
+  border: 3px solid transparent;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: all 0.2s;
+}
+
+.thumbnail-option:hover {
+  border-color: var(--border);
+}
+
+.thumbnail-option.selected {
+  border-color: var(--primary);
+  box-shadow: 0 0 10px var(--border);
+}
+
+.thumbnail-option img {
+  width: 100%;
+  height: 100px;
+  object-fit: cover;
+  display: block;
+}
+
+.thumbnail-label {
+  display: block;
+  padding: 0.5rem;
+  text-align: center;
+  background: var(--background);
+  font-size: 0.875rem;
+}
+
+.thumbnail-custom-input {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.thumbnail-custom-input input {
+  flex: 1;
+}
+
+.no-thumbnails {
+  color: var(--text);
+  font-style: italic;
+}
 
 /* Tags */
 .posting-container #selected-tags-list {
@@ -4329,9 +4384,10 @@ main {
 }
 
 .posting-container .tag-item {
-  background-color: var(--primary);
-  color: var(--background);
+  background-color: var(--background);
+  color: var(--text);
   padding: 0.5rem 1rem;
+  border: 1px solid var(--primary);
   border-radius: 20px;
   font-size: 0.95rem;
   display: inline-flex;
@@ -4342,8 +4398,7 @@ main {
 }
 
 .posting-container .tag-item:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 2px 8px rgba(var(--primary-rgb), 0.3);
+  border: 1px solid var(--border);
 }
 
 .posting-container .remove-tag {
@@ -11516,7 +11571,7 @@ noscript {
   border: 1px solid var(--border);
 }
 
-.primary-btn {
+/* .primary-btn {
   background: var(--background);
   color: var(--text);
   border: 1px solid var(--border);
@@ -11536,7 +11591,7 @@ noscript {
 .secondary-btn:hover {
   border: 1px solid var(--primary);
 }
-
+ */
 /***************************************************/
 /* WebSocket Page Styles */
 #websocketsPage-container {

@@ -40,7 +40,7 @@ async function playlistsPageHandler() {
     playlists = playlists.map(sanitizeNostrEvent).filter((v) => v !== null);
 
     // Filter to only include playlists with valid kind-21 references
-    playlists = filterValidPlaylists(playlists);
+  //  playlists = filterValidPlaylists(playlists);
 
     if (playlists.length === 0) {
       let listContainer = document.getElementById("playlistPage-container");

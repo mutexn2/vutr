@@ -26,8 +26,7 @@ async function postingPageHandler() {
 function renderWizardForm() {
   mainContent.innerHTML = `
     <div class="posting-container">
-      <h1 class="posting-title">Create Video Event</h1>
-      <p class="subtitle">publish a kind-21 video event</p>
+      <p class="subtitle">publish a kind:21 event</p>
       
       <!-- Progress Indicator -->
       <div class="wizard-progress">
@@ -67,7 +66,7 @@ function renderWizardForm() {
           
           <!-- Step 1: Video Sources -->
           <div class="wizard-step active" data-step="1">
-            <h2 class="step-title">Add Video Sources</h2>
+            <h2 class="step-title">Video Sources</h2>
             <p class="step-description">Add one or more video URLs.</p>
             
             <div class="video-tabs">
@@ -108,28 +107,38 @@ function renderWizardForm() {
             <div id="video-metadata-list"></div>
           </div>
 
-          <!-- Step 2: Basic Information -->
-          <div class="wizard-step" data-step="2">
-            <h2 class="step-title">Basic Information</h2>
-            <p class="step-description">Provide essential details about your video</p>
-            
-            <div class="form-group">
-              <label for="title">Title *</label>
-              <input type="text" id="title" placeholder="Enter a descriptive title" required>
-            </div>
-            
-            <div class="form-group">
-              <label for="content">Description *</label>
-              <textarea id="content" placeholder="Describe your video content in detail" required rows="6"></textarea>
-              <span class="char-count" id="content-count">0 characters</span>
-            </div>
-            
-            <div class="form-group">
-              <label for="summary">Summary *</label>
-              <textarea id="summary" placeholder="Brief summary (1-2 sentences for accessibility)" required rows="3"></textarea>
-              <span class="help-text">This helps with accessibility and previews</span>
-            </div>
-          </div>
+<!-- Step 2: Basic Information -->
+<div class="wizard-step" data-step="2">
+  <h2 class="step-title">Basic Information</h2>
+  <p class="step-description">Provide essential details about your video</p>
+  
+  <div class="form-group">
+    <label for="title">Title *</label>
+    <input type="text" id="title" placeholder="Enter a descriptive title" required>
+  </div>
+  
+  <div class="form-group">
+    <label for="content">Description *</label>
+    <textarea id="content" placeholder="Describe your video content in detail" required rows="6"></textarea>
+    <span class="char-count" id="content-count">0 characters</span>
+  </div>
+  
+  <div class="form-group">
+    <label for="summary">Summary *</label>
+    <textarea id="summary" placeholder="Brief summary (1-2 sentences for accessibility)" required rows="3"></textarea>
+    <span class="help-text">This helps with accessibility and previews</span>
+  </div>
+
+  <div class="form-group">
+    <label>Thumbnail *</label>
+    <p class="help-text">Select an image from your videos or add a custom URL</p>
+    <div id="thumbnail-picker" class="thumbnail-picker"></div>
+    <div class="thumbnail-custom-input">
+      <input type="text" id="custom-thumbnail-url" placeholder="Or enter custom thumbnail URL">
+      <button type="button" id="add-custom-thumbnail">Add Custom</button>
+    </div>
+  </div>
+</div>
 
           <!-- Step 3: Metadata -->
           <div class="wizard-step" data-step="3">
@@ -287,6 +296,7 @@ function initializePostingPage() {
   window.videoMetadataList = [];
   let metadataIndex = 0;
   let selectedTags = new Set();
+  let selectedThumbnail = null;
   let selectedRelaySets = new Set([app.activeRelayList]);
   let excludedRelays = new Set();
   let eventRelays = new Set();
@@ -323,16 +333,21 @@ function initializePostingPage() {
       goToStep(currentStep - 1);
     });
 
-    function goToStep(stepNumber) {
-      if (stepNumber < 1 || stepNumber > totalSteps) return;
+  function goToStep(stepNumber) {
+    if (stepNumber < 1 || stepNumber > totalSteps) return;
 
-      // Hide all steps
-      document.querySelectorAll(".wizard-step").forEach(step => {
-        step.classList.remove("active");
-      });
+    // Hide all steps
+    document.querySelectorAll(".wizard-step").forEach(step => {
+      step.classList.remove("active");
+    });
 
-      // Show target step
-      document.querySelector(`.wizard-step[data-step="${stepNumber}"]`).classList.add("active");
+    // Show target step
+    document.querySelector(`.wizard-step[data-step="${stepNumber}"]`).classList.add("active");
+
+    // Initialize thumbnail picker when entering step 2
+    if (stepNumber === 2) {
+      initializeThumbnailPicker();
+    }
 
       // Update progress indicator
       document.querySelectorAll(".progress-step").forEach(step => {
@@ -356,39 +371,43 @@ function initializePostingPage() {
       currentStep = stepNumber;
       
       // Scroll to top
-      mainContent.scrollTop = 0;
+      forceScrollToTop();
     }
 
-    function validateCurrentStep() {
-      switch(currentStep) {
-        case 1: // Video Sources
-          if (window.videoMetadataList.length === 0) {
-            alert("Please add at least one video URL");
-            return false;
-          }
-          return true;
+  function validateCurrentStep() {
+    switch(currentStep) {
+      case 1: // Video Sources
+        if (window.videoMetadataList.length === 0) {
+          alert("Please add at least one video URL");
+          return false;
+        }
+        return true;
 
-        case 2: // Basic Information
-          const title = document.getElementById("title").value.trim();
-          const content = document.getElementById("content").value.trim();
-          const summary = document.getElementById("summary").value.trim();
-          
-          if (!title) {
-            alert("Please enter a title");
-            document.getElementById("title").focus();
-            return false;
-          }
-          if (!content) {
-            alert("Please enter a description");
-            document.getElementById("content").focus();
-            return false;
-          }
-          if (!summary) {
-            alert("Please enter a summary");
-            document.getElementById("summary").focus();
-            return false;
-          }
-          return true;
+      case 2: // Basic Information
+        const title = document.getElementById("title").value.trim();
+        const content = document.getElementById("content").value.trim();
+        const summary = document.getElementById("summary").value.trim();
+        
+        if (!title) {
+          alert("Please enter a title");
+          document.getElementById("title").focus();
+          return false;
+        }
+        if (!content) {
+          alert("Please enter a description");
+          document.getElementById("content").focus();
+          return false;
+        }
+        if (!summary) {
+          alert("Please enter a summary");
+          document.getElementById("summary").focus();
+          return false;
+        }
+        if (!selectedThumbnail) {
+          alert("Please select a thumbnail");
+          return false;
+        }
+        return true;
 
         case 3: // Metadata
           if (selectedTags.size === 0) {
@@ -412,6 +431,47 @@ function initializePostingPage() {
       }
     }
   }
+
+  function initializeThumbnailPicker() {
+    const thumbnailPicker = document.getElementById("thumbnail-picker");
+    if (!thumbnailPicker) return;
+
+    thumbnailPicker.innerHTML = "";
+
+    if (window.videoMetadataList.length === 0) {
+      thumbnailPicker.innerHTML = '<p class="no-thumbnails">Add videos in Step 1 first</p>';
+      return;
+    }
+
+    window.videoMetadataList.forEach((video, index) => {
+      const thumbOption = document.createElement("div");
+      thumbOption.className = "thumbnail-option";
+      thumbOption.dataset.url = video.thumbnail;
+      
+      thumbOption.innerHTML = `
+        <img src="${video.thumbnail}" alt="Video ${index + 1} thumbnail">
+        <span class="thumbnail-label">Video ${index + 1}</span>
+      `;
+
+thumbOption.addEventListener("click", () => {
+  document.querySelectorAll(".thumbnail-option").forEach(opt => 
+    opt.classList.remove("selected")
+  );
+  thumbOption.classList.add("selected");
+  selectedThumbnail = video.thumbnail.trim();
+  saveFormDataToStorage();
+});
+
+      // Auto-select first thumbnail if none selected
+      if (index === 0 && !selectedThumbnail) {
+        thumbOption.classList.add("selected");
+        selectedThumbnail = video.thumbnail;
+      }
+
+      thumbnailPicker.appendChild(thumbOption);
+    });
+  }
+
 
   function updateReviewStep() {
     const summary = document.getElementById("event-summary");
@@ -632,6 +692,51 @@ function initializePostingPage() {
       }
     });
 
+  document.getElementById("add-custom-thumbnail")?.addEventListener("click", async () => {
+    const input = document.getElementById("custom-thumbnail-url");
+    const url = input.value.trim();
+    
+    if (!url) {
+      alert("Please enter a thumbnail URL");
+      return;
+    }
+
+    try {
+      await validateImageUrl(url);
+      
+      const thumbnailPicker = document.getElementById("thumbnail-picker");
+      const thumbOption = document.createElement("div");
+      thumbOption.className = "thumbnail-option selected";
+      thumbOption.dataset.url = url;
+      
+      thumbOption.innerHTML = `
+        <img src="${url}" alt="Custom thumbnail">
+        <span class="thumbnail-label">Custom</span>
+      `;
+
+      thumbOption.addEventListener("click", () => {
+        document.querySelectorAll(".thumbnail-option").forEach(opt => 
+          opt.classList.remove("selected")
+        );
+        thumbOption.classList.add("selected");
+        selectedThumbnail = url;
+        saveFormDataToStorage();
+      });
+
+      document.querySelectorAll(".thumbnail-option").forEach(opt => 
+        opt.classList.remove("selected")
+      );
+      
+      thumbnailPicker.appendChild(thumbOption);
+      selectedThumbnail = url;
+      input.value = "";
+      saveFormDataToStorage();
+    } catch {
+      alert("Invalid image URL");
+    }
+  });
+
+
     document.getElementById("add-custom-tag").addEventListener("click", () => {
       const input = document.getElementById("custom-category");
       const value = input.value.trim();
@@ -846,7 +951,7 @@ function initializePostingPage() {
     }
 
     const eventData = buildK21EventData();
-
+    console.log("Event tags:", JSON.stringify(eventData.tags, null, 2));
     try {
       console.log("Event data:", eventData);
       const signedVideoEvent = await handleEventSigning(eventData);
@@ -1052,33 +1157,33 @@ function initializePostingPage() {
     });
   }
 
-  function addVideoToUI(video) {
-    const container = document.getElementById("video-metadata-list");
-    const item = document.createElement("div");
-    item.className = "video-item";
-    item.dataset.index = video.index;
+function addVideoToUI(video) {
+  const container = document.getElementById("video-metadata-list");
+  const item = document.createElement("div");
+  item.className = "video-item";
+  item.dataset.index = video.index;
 
-    item.innerHTML = `
-      <div class="video-preview">
-        <img class="video-thumbnail" alt="Video thumbnail" src="${video.thumbnail}">
-        <div class="video-info">
-          <p><strong>URL:</strong> <span class="video-url">${video.url}</span></p>
-          <p><strong>Type:</strong> <span class="video-type">${video.type}</span></p>
-          <p><strong>Size:</strong> <span class="video-size">${video.size > 0 ? `${(video.size / 1024 / 1024).toFixed(2)} MB` : "Unknown"}</span></p>
-          <p><strong>Dimensions:</strong> <span class="video-dimensions">${video.dimensions}</span></p>
-          <p><strong>Duration:</strong> <span class="video-duration">${video.duration?.toFixed(2)}s</span></p>
-          <p><strong>Hash <span class="hash-status">${video.isLightweight ? "(random)" : (video.isHashValid ? "(blossom)" : "(not blossom)")}</span>:</strong> <span class="video-hash">${video.hash}</span></p>
-        </div>
+  item.innerHTML = `
+    <div class="video-preview">
+      <img class="video-thumbnail" alt="Video thumbnail" src="${video.thumbnail}">
+      <div class="video-info">
+        <p><strong>URL:</strong> <span class="video-url">${video.url}</span></p>
+        <p><strong>Type:</strong> <span class="video-type">${video.type}</span></p>
+        <p><strong>Size:</strong> <span class="video-size">${video.size > 0 ? `${(video.size / 1024 / 1024).toFixed(2)} MB` : "Unknown"}</span></p>
+        <p><strong>Dimensions:</strong> <span class="video-dimensions">${video.dimensions}</span></p>
+        <p><strong>Duration:</strong> <span class="video-duration">${video.duration?.toFixed(2)}s</span></p>
+        <p><strong>Hash <span class="hash-status">${video.isLightweight ? "(random)" : (video.isHashValid ? "(blossom)" : "(not blossom)")}</span>:</strong> <span class="video-hash">${video.hash}</span></p>
       </div>
-      <div class="posting-video-controls">
-        <input type="text" class="thumbnail-input" placeholder="Custom thumbnail URL (optional)">
-        <button type="button" class="update-thumbnail">Update Thumbnail</button>
-        <button type="button" class="remove-video">Remove Video</button>
-      </div>
-    `;
+    </div>
+    <div class="posting-video-controls">
+      <input type="text" class="thumbnail-input" placeholder="Custom image URL (optional)">
+      <button type="button" class="update-thumbnail">Update Image</button>
+      <button type="button" class="remove-video">Remove Video</button>
+    </div>
+  `;
 
-    container.appendChild(item);
-  }
+  container.appendChild(item);
+}
 
   function updateSelectedTagsDisplay() {
     const container = document.getElementById("selected-tags-list");
@@ -1149,9 +1254,10 @@ function initializePostingPage() {
     const relayTags = Array.from(eventRelays).map((relay) => ["relay", relay]);
 
     const tags = [
-      ["title", document.getElementById("title").value],
-      ["published_at", now.toString()],
-      ["alt", document.getElementById("summary").value],
+  ["title", document.getElementById("title").value.trim()],
+  ["thumb", selectedThumbnail?.trim() || ""],
+  ["published_at", now.toString()],
+  ["alt", document.getElementById("summary").value.trim()],
       ...imetaTags,
       ...Array.from(selectedTags).map((tag) => ["t", tag]),
       ...relayTags,
@@ -1188,7 +1294,7 @@ function initializePostingPage() {
     return {
       kind: 21,
       created_at: now,
-      content: document.getElementById("content").value,
+      content: document.getElementById("content").value.trim(),
       tags,
     };
   }
@@ -1215,6 +1321,7 @@ function initializePostingPage() {
       contentWarnings: Array.from(document.querySelectorAll('input[name="content-warning"]:checked'))
         .map(cb => cb.value),
       selectedTags: Array.from(selectedTags),
+      selectedThumbnail: selectedThumbnail,
       videoMetadataList: window.videoMetadataList,
       customFields: Array.from(document.querySelectorAll(".custom-field")).map(
         (field) => ({
@@ -1231,6 +1338,7 @@ function initializePostingPage() {
 
     localStorage.setItem("draftVideoEvent", JSON.stringify(formData));
   }
+
 
   function loadFormDataFromStorage() {
     try {
@@ -1253,6 +1361,10 @@ function initializePostingPage() {
           if (checkbox) checkbox.checked = true;
         });
       }
+
+      if (formData.selectedThumbnail) {
+        selectedThumbnail = formData.selectedThumbnail;
+      }      
 
       if (formData.selectedTags) {
         selectedTags = new Set(formData.selectedTags);

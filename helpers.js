@@ -966,12 +966,7 @@ function isGlobalSet(setName) {
 function forceGarbageCollection() {
   console.log("Running garbage collection helpers");
   
-  // Clear temporarily allowed videos more aggressively
-  if (app.videoPlayer.temporarilyAllowedVideos?.size > 10) {
-    console.log("Clearing temporarily allowed videos cache");
-    app.videoPlayer.temporarilyAllowedVideos.clear();
-  }
-  
+
   // Clean up event listeners more aggressively
   if (app.eventListenerRegistry?.size > 5) {
     const keysToRemove = [];
@@ -999,14 +994,11 @@ function forceGarbageCollection() {
     }
   });
   
-  // Clear old videoData references
-  if (app.videoPlayer.currentVideoData && !app.videoPlayer.currentVideo) {
-    app.videoPlayer.currentVideoData = null;
-  }
+
 }
 
 // Call this periodically or when memory pressure is detected
-setInterval(forceGarbageCollection, 60000); // Every 1 minute
+//setInterval(forceGarbageCollection, 60000); // Every 1 minute
 
 // to help detect memory issues
 let videoLoadCounter = 0;
@@ -1039,4 +1031,14 @@ function logMemoryUsage() {
       });
     }
   }
+}
+
+
+
+
+
+
+function truncateText(text, maxLength) {
+  if (text.length <= maxLength) return text;
+  return text.substring(0, maxLength - 3) + '...';
 }

@@ -40,16 +40,7 @@ let app = {
     videos: null,
     playlistId: null
   },
- // ========== VIDEO PLAYER STATE ==========
-  videoPlayer: {
-    currentVideo: null,
-    currentVideoId: null,
-    currentVideoData: null,
-    currentVideoURL: null,
-    isMiniplayerVisible: false,
-    isPlaying: false,
-    temporarilyAllowedVideos: new Set() // Track videos allowed "once"
-  },
+
 
   // ======== Play all ==========
   currentPlaylist: null, // The full playlist event object
@@ -215,9 +206,6 @@ function initializeApp() {
   `;
 
   ////////////////////////////////////////////////
-  // Initialize VideoManager
-  initVideoManager();
-  ////////////////////////////////////////////////
   if (!window.NostrTools) {
     console.log("Could not load NostrTools....");
     mainContent.innerHTML = `
@@ -260,6 +248,8 @@ function initializeApp() {
   }
 
   ////////////////////////////////////////////////
+  // Initialize VideoPlayer module
+  VideoPlayer.init();  
   ////////////////////////////////////////////////
   initializeSidebar();
   setupSidebarToggle();
@@ -280,21 +270,19 @@ function initializeApp() {
 }
 
 function handleRoute() {
+  const newHash = window.location.hash || "#";
+  
+  // FIRST: Handle video player route change (miniplayer logic)
+  VideoPlayer.handleRouteChange(newHash);
+  
+  // THEN: Run normal cleanup
   runCleanup();
-  cleanupVideoResources();
   cleanupChatResources();
   cancelActiveQueries();
-/*   if (window.location.hash !== '#relaysetsdiscover' && app.currentRelaySetSubscription) {
-  cleanupRelaySetDiscovery();
-} */
   stopAllSubscriptions();
-  let hash = window.location.hash || "#";
-  let baseHash = hash.split("/")[0];
-
+  
+  let baseHash = newHash.split("/")[0];
   console.log("Route:", baseHash);
-
-  // Handle video state BEFORE route change
-  handleVideoRouteChange(hash);
 
   let handler = routes[baseHash] || routes["*"];
 
@@ -303,10 +291,10 @@ function handleRoute() {
   mainContent.innerHTML = "";
 
   updateApp({ currentPage: baseHash.slice(1) });
-
   updateSidebar();
   updateDrawerContent();
   forceGarbageCollection();
+  
   handler();
 
   forceScrollToTop();
@@ -314,10 +302,10 @@ function handleRoute() {
   setTimeout(() => {
     mainContent.classList.remove("hiding");
     mainContent.classList.add("visible");
-
     forceScrollToTop();
   }, 300);
 }
+
 
 function updateApp(newState) {
   Object.assign(app, newState);

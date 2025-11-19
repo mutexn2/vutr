@@ -831,10 +831,6 @@ async function loadProfileVideos(profile) {
       renderProfileVideos(channelVideos);
     }, 1000);
 
-    // Add lightning button after a delay
-    setTimeout(() => {
-      addLightningButtonToProfile();
-    }, 1500);
   } catch (error) {
     console.error("Error loading profile videos:", error);
     handleVideoLoadError();
@@ -870,12 +866,6 @@ function renderNoVideosFound() {
   }
 }
 
-function addLightningButtonToProfile() {
-  const profileLinks = document.querySelector(".profile-links");
-  if (profileLinks) {
-    profileLinks.appendChild(createLightningButton("profile-links"));
-  }
-}
 
 function renderProfileVideos(channelVideos) {
   const videosContent = document.getElementById("channelVideos");

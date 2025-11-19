@@ -134,7 +134,7 @@ async function settingsPageHandler() {
         </div>
 
         <!-- Media Servers Section -->
-        <div class="settings-section">
+        <div class="settings-section" style="display: none;">
           <h2>Media Servers</h2>
           <div class="settings-group">
             <div class="media-whitelist-section">

@@ -1,41 +1,39 @@
 async function videoPageHandler() {
   logMemoryUsage();
-  
-  // === CRITICAL: Clean up previous page FIRST ===
+    // Show loading
+  mainContent.innerHTML = `
+    <div id="videoPage-container">
+      <h1>Discovering Videos</h1>
+      <div class="loading-indicator">
+        <p>Loading video...</p>
+      </div>
+    </div>
+  `;
+  // Clean up previous page listeners
   if (app.currentPageCleanupKey) {
-    console.log("Cleaning up previous page listeners");
     removeTrackedEventListeners(app.currentPageCleanupKey);
   }
-  
-  // Create new cleanup key
   app.currentPageCleanupKey = `videoPage_${Date.now()}`;
-  
-  // Close any open menus
-  if (shareMenuControls?.isOpen()) {
-    shareMenuControls.close();
-  }
-  if (moreMenuControls?.isOpen()) {
-    moreMenuControls.close();
-  }
 
-  // SAVE THE CURRENT URL EARLY - RIGHT AT THE START
+  // Close menus
+  if (shareMenuControls?.isOpen()) shareMenuControls.close();
+  if (moreMenuControls?.isOpen()) moreMenuControls.close();
+
+  // Parse URL
   const currentURL = window.location.hash;
-  
-  const urlParts = window.location.hash.split("/");
+  const urlParts = currentURL.split("/");
   let videoId = urlParts[1];
   let discoveryRelays = [];
   let authorPubkey = null;
   let playlistPubkey = null;
   let playlistDTag = null;
 
-  console.log("video ID:", videoId);
-
   if (!videoId) {
     window.location.hash = "#";
     return;
   }
 
-  // Parse URL parameters first
+  // Parse query parameters
   if (videoId && videoId.includes("?")) {
     const [baseId, queryString] = videoId.split("?");
     const params = new Map();
@@ -51,30 +49,25 @@ async function videoPageHandler() {
     }
 
     const vParam = params.get("v");
-    if (vParam) {
-      videoId = vParam;
-    }
+    if (vParam) videoId = vParam;
 
     const discoveryParam = params.get("discovery");
     if (discoveryParam) {
-      discoveryRelays = discoveryParam.split(",").map((relay) => relay.trim());
+      discoveryRelays = discoveryParam.split(",").map(r => r.trim());
     }
 
     const authorParam = params.get("author");
-    if (authorParam) {
-      authorPubkey = authorParam;
-    }
+    if (authorParam) authorPubkey = authorParam;
 
     const listpParam = params.get("listp");
     const listdParam = params.get("listd");
     if (listpParam && listdParam) {
       playlistPubkey = listpParam;
       playlistDTag = listdParam;
-      console.log("Playlist params found:", { playlistPubkey, playlistDTag });
     }
   }
 
-  // Handle nevent1 format early
+  // Handle nevent format
   if (videoId.startsWith("nevent1")) {
     try {
       let decoded = window.NostrTools.nip19.decode(videoId);
@@ -87,204 +80,90 @@ async function videoPageHandler() {
     }
   }
 
-  // Check if this is the same video/URL that's already playing
-  // Compare FULL URLs for exact match
-  const isSameVideo = app.videoPlayer.currentVideoURL === currentURL && app.videoPlayer.currentVideo;
-  
-  console.log("URL comparison:", {
-    current: currentURL,
-    saved: app.videoPlayer.currentVideoURL,
-    isSame: isSameVideo
-  });
-  
-  if (isSameVideo) {
-    console.log("Same video URL - reusing existing element");
-    handleVideoRouteChange(window.location.hash);
-    
-    mainContent.innerHTML = `<div id="videoPage-container">...</div>`;
-    let videoPageContainer = document.getElementById("videoPage-container");
-    
-    setTimeout(() => {
-      renderVideoPageWithExistingVideo(videoPageContainer, app.videoPlayer.currentVideoData, videoId);
-    }, 50);
-    
-    return;
-  }
-  
-  // DIFFERENT VIDEO - aggressive cleanup
-  if (app.videoPlayer.currentVideo && app.videoPlayer.currentVideoURL !== currentURL) {
-    console.log("Different video - full cleanup");
-    
-    const oldVideo = app.videoPlayer.currentVideo;
-    const oldVideoData = app.videoPlayer.currentVideoData;
-    
-    // Clear references FIRST
-    app.videoPlayer.currentVideo = null;
-    app.videoPlayer.currentVideoId = null;
-    app.videoPlayer.currentVideoData = null;
-    app.videoPlayer.currentVideoURL = null;
-    app.videoPlayer.isPlaying = false;
-    
-    // Remove listeners
-    removeVideoEventListeners(oldVideo);
-    
-    // Pause
-    oldVideo.pause();
-    
-    // Schedule cleanup
-    setTimeout(() => {
-      cleanupVideo(oldVideo);
-      // Help GC by nullifying the old data
-      oldVideoData = null;
-    }, 100);
-  }
-  
-  // Save the URL for this video NOW (after we know it's different)
-  app.videoPlayer.currentVideoURL = currentURL;
-
-  // Clean up previous page's event listeners
-  if (app.currentPageCleanupKey) {
-    removeTrackedEventListeners(app.currentPageCleanupKey);
-  }
-  
-  // Create new cleanup key for this page load
-  app.currentPageCleanupKey = `videoPage_${Date.now()}`;
-
-  // Handle playlist setup
+  // Setup playlist if needed
   await setupPlaylistIfNeeded(playlistPubkey, playlistDTag, videoId);
 
-  console.log("Final video ID:", videoId);
 
-  if (discoveryRelays.length > 0) {
-    console.log("Will use discovery relays:", discoveryRelays);
-  }
-  if (authorPubkey) {
-    console.log("Will use author-based relay discovery for:", authorPubkey);
-  }
-
-  // Show loading state
-  mainContent.innerHTML = `
-  <div id="videoPage-container">
-    <h1>Discovering Videos</h1>
-    <div class="loading-indicator">
-      <p>Loading video...</p>
-    </div>
-  </div>
-`;
-  let videoPageContainer = document.getElementById("videoPage-container");
-
-try {
-    let video;
-    let triedExtensiveSearch = false;
+  try {
+    // Fetch video data
+    let video = await fetchVideoData(videoId, authorPubkey, discoveryRelays);
     
-    // First attempt: try with provided discovery/author relays or default relays
-    if (authorPubkey) {
-      const extendedRelays = await getExtendedRelaysForProfile(authorPubkey);
-      video = await NostrClient.getEventsFromRelays(extendedRelays, {
-        kinds: [21, 22],
-        limit: 1,
-        id: videoId,
-      });
-    } else if (discoveryRelays.length > 0) {
-      const formattedDiscoveryRelays = discoveryRelays.map((relay) => {
-        let cleanRelay = relay.trim();
-        cleanRelay = cleanRelay.replace(/^wss?::\/\//, "wss://");
-        if (cleanRelay.startsWith("wss://")) {
-          cleanRelay = cleanRelay.slice(6);
-        } else if (cleanRelay.startsWith("ws://")) {
-          cleanRelay = cleanRelay.slice(5);
-        }
-        return `wss://${cleanRelay}`;
-      });
-
-      const appRelays = (app.relays || []).map((relay) => {
-        let cleanRelay = relay.trim();
-        cleanRelay = cleanRelay.replace(/^wss?::\/\//, "wss://");
-        if (
-          !cleanRelay.startsWith("ws://") &&
-          !cleanRelay.startsWith("wss://")
-        ) {
-          cleanRelay = `wss://${cleanRelay}`;
-        }
-        return cleanRelay;
-      });
-
-      const allRelays = [
-        ...new Set([...formattedDiscoveryRelays, ...appRelays]),
-      ];
-      console.log("Combined relay list:", allRelays);
-
-      video = await NostrClient.getEventsFromRelays(allRelays, {
-        kinds: [21, 22],
-        limit: 1,
-        id: videoId,
-      });
-    } else {
-      video = await NostrClient.getEvents({
-        kinds: [21, 22],
-        limit: 1,
-        id: videoId,
-      });
-    }
-
-    // Second attempt: auto-try extensive search if not found
-    if (!video && !discoveryRelays.length) {
-      console.log("Video not found, trying extensive search automatically...");
-      videoPageContainer.innerHTML = `
-        <div id="videoPage-container">
-          <h1>Discovering Videos</h1>
-          <div class="loading-indicator">
-            <p>Trying extensive search...</p>
-          </div>
-        </div>
-      `;
-      
-      triedExtensiveSearch = true;
-      let staticRelays = ["relay.nostr.band", "nos.lol", "nostr.mom"];
-      
-      video = await NostrClient.getEventsFromRelays(
-        staticRelays.map(r => `wss://${r}`),
-        {
-          kinds: [21, 22],
-          limit: 1,
-          id: videoId,
-        }
-      );
-    }
-
-    // Sanitize if found
-    if (video) {
-      video = sanitizeNostrEvent(video);
-      console.log(JSON.stringify(video, null, 2));
-    } else {
-      // Create placeholder for not found video
-      console.log("Video not found even after extensive search, using placeholder");
-      video = createNotFoundVideoPlaceholder(videoId);
-    }
-
-    // Determine if this should autoplay
-    const shouldAutoplay = !!(app.currentPlaylist || isVideoTemporarilyAllowed(videoId));
+    // Determine autoplay
+    const shouldAutoplay = !!app.currentPlaylist;
     
-    renderVideoPage(video, videoId, false, shouldAutoplay);
+    // Render video page
+    renderVideoPage(video, videoId, currentURL, shouldAutoplay);
     
   } catch (error) {
-    console.error("Error rendering vid page:", error);
-    showError(`Error rendering vid page: ${formatErrorForDisplay(error)}`);
+    console.error("Error rendering video page:", error);
+    showError(`Error rendering video page: ${formatErrorForDisplay(error)}`);
   }
 }
-function showError(message) {
-  videoPageContainer.innerHTML = `
-    <div class="error">
-      <h1>404</h1>
-      <div class="loading-indicator">
-        <p>${message}</p>
-      </div>
-    </div>
-  `;
+
+
+async function fetchVideoData(videoId, authorPubkey, discoveryRelays) {
+  let video;
+  
+  if (authorPubkey) {
+    const extendedRelays = await getExtendedRelaysForProfile(authorPubkey);
+    video = await NostrClient.getEventsFromRelays(extendedRelays, {
+      kinds: [21, 22],
+      limit: 1,
+      id: videoId,
+    });
+  } else if (discoveryRelays.length > 0) {
+    const formattedRelays = discoveryRelays.map(relay => {
+      let clean = relay.trim().replace(/^wss?::\/\//, "wss://");
+      if (!clean.startsWith("ws://") && !clean.startsWith("wss://")) {
+        clean = `wss://${clean}`;
+      }
+      return clean;
+    });
+    
+    const allRelays = [...new Set([...formattedRelays, ...app.relays])];
+    video = await NostrClient.getEventsFromRelays(allRelays, {
+      kinds: [21, 22],
+      limit: 1,
+      id: videoId,
+    });
+  } else {
+    video = await NostrClient.getEvents({
+      kinds: [21, 22],
+      limit: 1,
+      id: videoId,
+    });
+  }
+
+  // Auto-try extensive search if not found
+  if (!video) {
+    console.log("Video not found, trying extensive search...");
+    const staticRelays = ["relay.nostr.band", "nos.lol", "nostr.mom"];
+    video = await NostrClient.getEventsFromRelays(
+      staticRelays.map(r => `wss://${r}`),
+      {
+        kinds: [21, 22],
+        limit: 1,
+        id: videoId,
+      }
+    );
+  }
+
+  if (video) {
+    return sanitizeNostrEvent(video);
+  } else {
+    return createNotFoundVideoPlaceholder(videoId);
+  }
 }
 
-function renderVideoPage(video, videoId, useExistingVideo = false, shouldAutoplay = false) {
-  // Extract and sanitize data
+
+
+
+
+function showError(message) {
+showTemporaryNotification(message);
+}
+
+function renderVideoPage(video, videoId, pageHash, shouldAutoplay = false) {
   let url = getValueFromTags(video, "url", "No URL found");
   let mimeType = getValueFromTags(video, "m", "Unknown MIME type");
   let title = escapeHtml(getValueFromTags(video, "title", "Untitled"));
@@ -294,11 +173,8 @@ function renderVideoPage(video, videoId, useExistingVideo = false, shouldAutopla
 
   mainContent.innerHTML = `
 <div class="video-page-layout">
-
- <div id="video-page-playlist" class="video-page-playlist hidden"></div>
-
+  <div id="video-page-playlist" class="video-page-playlist hidden"></div>
   <div class="video-container"></div>
-
   <div class="scrollable-content">
     <div class="video-info-bar">
       <div class="channel-info">
@@ -308,29 +184,39 @@ function renderVideoPage(video, videoId, useExistingVideo = false, shouldAutopla
       <div class="video-action-tabs">
         <div class="tab-scroll-container">
           <button id="action-like-btn" class="video-action-tab-button">
-            <span class="like-icon"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-  <path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
-</svg>
-</span>
+            <span class="like-icon"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                stroke-width="1.5" stroke="currentColor" class="size-6">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
+              </svg>
+            </span>
             <span class="like-text">Like</span>
             <span class="like-count">0</span>
           </button>
-          <button id="action-share-btn" class="video-action-tab-button"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-  <path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
-</svg>
- Share</button>
-          <button id="action-bookmark-btn" class="video-action-tab-button"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-  <path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" />
-</svg>
- Bookmark</button>
-          <button id="action-playlist-btn" class="video-action-tab-button"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-  <path stroke-linecap="round" stroke-linejoin="round" d="M6 6.878V6a2.25 2.25 0 0 1 2.25-2.25h7.5A2.25 2.25 0 0 1 18 6v.878m-12 0c.235-.083.487-.128.75-.128h10.5c.263 0 .515.045.75.128m-12 0A2.25 2.25 0 0 0 4.5 9v.878m13.5-3A2.25 2.25 0 0 1 19.5 9v.878m0 0a2.246 2.246 0 0 0-.75-.128H5.25c-.263 0-.515.045-.75.128m15 0A2.25 2.25 0 0 1 21 12v6a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 18v-6c0-.98.626-1.813 1.5-2.122" />
-</svg>
- Add to Playlist</button>
-          <button id="action-more-btn" class="video-action-tab-button"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-  <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM12.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM18.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
-</svg>
- More</button>
+          <button id="action-share-btn" class="video-action-tab-button"><svg xmlns="http://www.w3.org/2000/svg"
+              fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
+            </svg>
+            Share</button>
+          <button id="action-bookmark-btn" class="video-action-tab-button"><svg xmlns="http://www.w3.org/2000/svg"
+              fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" />
+            </svg>
+            Bookmark</button>
+          <button id="action-playlist-btn" class="video-action-tab-button"><svg xmlns="http://www.w3.org/2000/svg"
+              fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                d="M6 6.878V6a2.25 2.25 0 0 1 2.25-2.25h7.5A2.25 2.25 0 0 1 18 6v.878m-12 0c.235-.083.487-.128.75-.128h10.5c.263 0 .515.045.75.128m-12 0A2.25 2.25 0 0 0 4.5 9v.878m13.5-3A2.25 2.25 0 0 1 19.5 9v.878m0 0a2.246 2.246 0 0 0-.75-.128H5.25c-.263 0-.515.045-.75.128m15 0A2.25 2.25 0 0 1 21 12v6a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 18v-6c0-.98.626-1.813 1.5-2.122" />
+            </svg>
+            Add to Playlist</button>
+          <button id="action-more-btn" class="video-action-tab-button"><svg xmlns="http://www.w3.org/2000/svg"
+              fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                d="M6.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM12.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM18.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+            </svg>
+            More</button>
         </div>
       </div>
     </div>
@@ -385,11 +271,11 @@ function renderVideoPage(video, videoId, useExistingVideo = false, shouldAutopla
                 <h4>Content Hash (x tag):</h4>
                 <p class="technical-hash"></p>
               </div>
-<div class="validation-section">
-  <button class="validate-blossom-btn">Validate Blossom</button>
-  <button class="full-check-btn" style="display: none;">Full Metadata Check</button>
-  <div id="validationResults" class="validation-results"></div>
-</div>
+              <div class="validation-section">
+                <button class="validate-blossom-btn">Validate Blossom</button>
+                <button class="full-check-btn" style="display: none;">Full Metadata Check</button>
+                <div id="validationResults" class="validation-results"></div>
+              </div>
             </div>
           </div>
         </details>
@@ -402,16 +288,88 @@ function renderVideoPage(video, videoId, useExistingVideo = false, shouldAutopla
   </div>
 </div>
 
+
   `;
 
   // Get references to containers
   let videoContainer = mainContent.querySelector(".video-container");
+
+  VideoPlayer.render(videoContainer, url, videoId, video, pageHash, shouldAutoplay);
+
+
+
+
+
+
+
+  setupVideoPageContent(video, videoId, title, content, relativeTime, pubkey, mimeType, url);
+  
+
+
+
+  // Load comments after delay
+  setTimeout(() => {
+    renderComments(videoId, video);
+  }, 1000);
+
+
+    // Update playlist info if playlist exists
+  updateVideoPagePlaylistInfo();
+}
+
+
+
+function setupVideoPageContent(video, videoId, title, content, relativeTime, pubkey, mimeType, url) {
+  const pageKey = app.currentPageCleanupKey || 'videoPage_default';
+  
+  // Channel info
   let channelInfo = mainContent.querySelector(".channel-info");
+  let channelImage = document.createElement("nostr-picture");
+  channelImage.className = "channel-image";
+  channelImage.setAttribute("pubkey", pubkey);
+  
+  let channelName = document.createElement("nostr-name");
+  channelName.className = "channel-name";
+  channelName.setAttribute("pubkey", pubkey);
+  
+  channelInfo.children[0].appendChild(channelImage);
+  channelInfo.children[1].appendChild(channelName);
+
+  // Add zap button
+  const zapContainer = document.createElement('div');
+  zapContainer.className = 'channel-zap-container';
+  channelInfo.appendChild(zapContainer);
+  setupVideoZapButton(zapContainer, video, videoId, pubkey);
+
+  // Click handlers
+  addTrackedEventListener(channelImage, 'click', () => {
+    window.location.hash = `#profile/${pubkey}`;
+  }, pageKey);
+
+  addTrackedEventListener(channelName, 'click', () => {
+    window.location.hash = `#profile/${pubkey}`;
+  }, pageKey);
+
+  // Social info
   let videoTitle = mainContent.querySelector(".video-title");
-  let videoDescription = mainContent.querySelector(".video-description");
+  let titleSpan = document.createElement("span");
+  titleSpan.textContent = title;
+  videoTitle.insertBefore(titleSpan, videoTitle.querySelector(".arrow"));
+
+  mainContent.querySelector(".video-description").textContent = content;
+  mainContent.querySelector(".video-time").textContent = relativeTime;
+
+/*   // Setup tags, technical info, action buttons
+  setupVideoTags(video, pageKey);
+  setupTechnicalInfo(video, url, pageKey);
+  setupActionButtons(video, videoId, title, url, mimeType, content, relativeTime, pubkey, pageKey);
+ */
+
+
+
   let videoTags = mainContent.querySelector(".video-tags");
   let videoRelays = mainContent.querySelector(".video-relays");
-  let videoTime = mainContent.querySelector(".video-time");
+
 
   // Technical info references
   let technicalSummary = mainContent.querySelector(".technical-summary");
@@ -419,58 +377,12 @@ function renderVideoPage(video, videoId, useExistingVideo = false, shouldAutopla
   let technicalFilename = mainContent.querySelector(".technical-filename");
   let technicalHash = mainContent.querySelector(".technical-hash");
 
-  // Get the cleanup key for this page
-  const pageKey = app.currentPageCleanupKey || 'videoPage_default';
 
-  // Special handling for existing video (from miniplayer)
-  if (useExistingVideo && app.videoPlayer.currentVideo) {
-    console.log("Using existing video element for seamless transition from miniplayer");
-    
-    // Move the video from miniplayer to main container
-    moveVideoToMainPlayer(videoContainer);
-    
-  } else {
-    // Normal rendering for new video
-    renderVideoPlayer(videoContainer, video, shouldAutoplay);
-  }
 
-// Channel info with custom elements
-let channelImage = document.createElement("nostr-picture");
-channelImage.className = "channel-image";
-channelImage.setAttribute("pubkey", pubkey);
 
-let channelName = document.createElement("nostr-name");
-channelName.className = "channel-name";
-channelName.setAttribute("pubkey", pubkey);
 
-channelInfo.children[0].appendChild(channelImage);
-channelInfo.children[1].appendChild(channelName);
 
-// Add zap button and zap count
-const zapContainer = document.createElement('div');
-zapContainer.className = 'channel-zap-container';
-channelInfo.appendChild(zapContainer);
 
-// Add zap button and load zap data
-setupVideoZapButton(zapContainer, video, videoId, pubkey);
-  // Channel info click handlers - tracked
-  const channelImageHandler = () => {
-    window.location.hash = `#profile/${pubkey}`;
-  };
-  addTrackedEventListener(channelImage, 'click', channelImageHandler, pageKey);
-
-  const channelNameHandler = () => {
-    window.location.hash = `#profile/${pubkey}`;
-  };
-  addTrackedEventListener(channelName, 'click', channelNameHandler, pageKey);
-
-  // Social info - Video title and content
-  let titleSpan = document.createElement("span");
-  titleSpan.textContent = title;
-  videoTitle.insertBefore(titleSpan, videoTitle.querySelector(".arrow"));
-
-  videoDescription.textContent = content;
-  videoTime.textContent = relativeTime;
 
   // Extract and display tags (make them clickable)
   const tTags = video.tags.filter(tag => tag[0] === 't').map(tag => tag[1]);
@@ -911,23 +823,17 @@ setupVideoZapButton(zapContainer, video, videoId, pubkey);
   };
   addTrackedEventListener(moreBtn, 'click', moreBtnHandler, pageKey);
 
-  // Load comments after delay
-  setTimeout(() => {
-    renderComments(videoId, video);
-  }, 1000);
 
 
-    // Update playlist info if playlist exists
-  updateVideoPagePlaylistInfo();
+
+
+
+
+
+
 }
 
-function renderVideoPageWithExistingVideo(container, videoData, videoId) {
-  // This function is called when we're returning to the same video that's in miniplayer
-  console.log("Rendering video page with existing video from miniplayer");
-  
-  // Use the same render function but tell it to use existing video
-  renderVideoPage(videoData, videoId, true); // true = useExistingVideo
-}
+
 //////////////////////////
 ////////////////////////////
 
@@ -1585,88 +1491,11 @@ function handleMoreOption(optionType, video, videoId) {
   }
 }
 
-////////////////////
-// video player
-function renderVideoPlayer(container, video, shouldAutoplay = false) {
-  container.innerHTML = `
-    <div class="loading-spinner">
-      <p>Loading video...</p>
-    </div>
-  `;
 
-  let url = getValueFromTags(video, "url", "");
 
-  setTimeout(() => {
-    // Handle "not found" placeholder
-    if (url === "not-found") {
-      container.innerHTML = `
-        <div class="video-not-found-placeholder">
-          <div class="not-found-content">
-            <div class="not-found-icon">📹</div>
-            <h3>Event Not Found</h3>
-            <p>could not be located on any connected relays.</p>
-            <p class="video-id-display">ID: ${escapeHtml(video.id)}</p>
-          </div>
-        </div>
-      `;
-      return;
-    }
-
-    if (!url) {
-      container.innerHTML = '<div class="video-error">No video URL provided</div>';
-      return;
-    }
-
-    if (!isDomainWhitelisted(url)) {
-      container.innerHTML = createBlockedVideoUI(url, container, video, false);
-      setupBlockedVideoInteractions(container, url, video, false);
-      return;
-    }
-
-    // Create new player
-    container.innerHTML = createVideoPlayer(video, shouldAutoplay);
-    const videoElement = container.querySelector('video');
-    
-    // Register with video manager
-    const videoId = window.location.hash.split('/')[1]?.split('?')[0];
-    playVideo(videoElement, videoId, video);
-
-    // Attempt autoplay if requested
-    if (shouldAutoplay) {
-      const playPromise = videoElement.play();
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => {
-            console.log("Autoplay started successfully");
-          })
-          .catch((error) => {
-            console.warn("Autoplay was prevented:", error);
-          });
-      }
-    }
-
-    // Error handling
-    videoElement.addEventListener('error', (e) => {
-      console.error('Video failed to load:', e);
-      container.innerHTML = `
-        <div class="video-error">
-          <p>Failed to load video</p>
-          <p>URL: ${escapeHtml(url)}</p>
-        </div>
-      `;
-      if (app.videoPlayer.currentVideo === videoElement) {
-        stopVideoPlayback();
-      }
-    });
-
-    // Track play state
-    setupVideoEventListeners(videoElement);
-    
-  }, 100);
-}
 ////////////////////
 // Utility functions for media server whitelist
-function extractDomain(url) {
+/* function extractDomain(url) {
   try {
     const urlObj = new URL(url);
     return urlObj.hostname.toLowerCase();
@@ -1882,7 +1711,7 @@ function removeDomainFromWhitelist(url) {
   return false;
 }
 
-
+ */
 //////////////////////////
 async function setupPlaylistIfNeeded(playlistPubkey, playlistDTag, currentVideoId) {
   // If no playlist params, clear current playlist

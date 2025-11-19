@@ -391,11 +391,11 @@ function setupSinglePlaylistEventListeners(dTag, cachedVideoEvents = null) {
         }
         
         // Check for non-whitelisted domains
-        const nonWhitelistedDomains = await checkPlaylistDomains(videoEvents);
+/*         const nonWhitelistedDomains = await checkPlaylistDomains(videoEvents);
         
         if (nonWhitelistedDomains.length > 0) {
           await promptWhitelistDomains(nonWhitelistedDomains);
-        }
+        } */
         
         const videoId = firstVideo.dataset.videoId;
         const pubkey = isLocal ? 'local' : playlist.pubkey;
@@ -425,11 +425,11 @@ function setupSinglePlaylistEventListeners(dTag, cachedVideoEvents = null) {
         }
         
         // Check for non-whitelisted domains
-        const nonWhitelistedDomains = await checkPlaylistDomains(videoEvents);
+/*         const nonWhitelistedDomains = await checkPlaylistDomains(videoEvents);
         
         if (nonWhitelistedDomains.length > 0) {
           await promptWhitelistDomains(nonWhitelistedDomains);
-        }
+        } */
         
         const videoId = item.dataset.videoId;
         const pubkey = isLocal ? 'local' : playlist.pubkey;

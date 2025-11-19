@@ -281,11 +281,11 @@ function setupNetworkPlaylistEventListeners(playlist, cachedVideoEvents = null) 
         }
         
         // Check for non-whitelisted domains
-        const nonWhitelistedDomains = await checkPlaylistDomains(videoEvents);
+/*         const nonWhitelistedDomains = await checkPlaylistDomains(videoEvents);
         
         if (nonWhitelistedDomains.length > 0) {
           await promptWhitelistDomains(nonWhitelistedDomains);
-        }
+        } */
         
         const videoId = firstVideo.dataset.videoId;
         window.location.hash = `#watch/params?v=${videoId}&listp=${author}&listd=${dTag}`;
@@ -310,11 +310,11 @@ function setupNetworkPlaylistEventListeners(playlist, cachedVideoEvents = null) 
         }
         
         // Check for non-whitelisted domains
-        const nonWhitelistedDomains = await checkPlaylistDomains(videoEvents);
+/*         const nonWhitelistedDomains = await checkPlaylistDomains(videoEvents);
         
         if (nonWhitelistedDomains.length > 0) {
           await promptWhitelistDomains(nonWhitelistedDomains);
-        }
+        } */
         
         const videoId = item.dataset.videoId;
         window.location.hash = `#watch/params?v=${videoId}&listp=${author}&listd=${dTag}`;
@@ -508,7 +508,8 @@ function getPlaylistIdentifier(playlist) {
  * Check all videos in a playlist for non-whitelisted domains
  * Returns array of unique non-whitelisted domains
  */
-async function checkPlaylistDomains(videoEvents) {
+
+/* async function checkPlaylistDomains(videoEvents) {
   const nonWhitelistedDomains = new Set();
   
   for (const event of videoEvents) {
@@ -529,11 +530,14 @@ async function checkPlaylistDomains(videoEvents) {
   
   return Array.from(nonWhitelistedDomains);
 }
+ */
 
 /**
  * Prompt user to whitelist domains for seamless playlist experience
  * Returns true if user accepts, false if cancelled
  */
+
+/* 
 async function promptWhitelistDomains(domains) {
   if (domains.length === 0) return true;
   
@@ -557,3 +561,7 @@ async function promptWhitelistDomains(domains) {
   
   return userConfirmed;
 }
+
+
+
+ */

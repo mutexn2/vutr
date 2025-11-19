@@ -69,9 +69,9 @@ function renderWizardForm() {
             <h2 class="step-title">Video Sources</h2>
             <p class="step-description">Add one or more video URLs.</p>
             
-            <div class="video-tabs">
+            <div class="video-tabs" style="display: none;">
               <button type="button" class="tab-button active" data-tab="url">Add by URL</button>
-              <button type="button" class="tab-button" data-tab="upload" style="display: none;">Upload File</button>
+              <button type="button" class="tab-button" data-tab="upload">Upload File</button>
             </div>
             
             <div class="tab-content active" id="url-tab">
@@ -79,7 +79,7 @@ function renderWizardForm() {
                 <input type="text" id="video-url" placeholder="Enter video URL (mp4, webm, etc.)">
                 <button type="button" id="add-video">Add Video</button>
               </div>
-              <div class="validation-options">
+              <div class="validation-options" style="display: none;">
                 <label>
                   <input type="checkbox" id="lightweight-mode">
                   Skip blossom validation (faster, less accurate)

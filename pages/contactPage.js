@@ -321,12 +321,13 @@ const eventManager = {
 
 
 // PoW Configuration (hardcoded by developer)
-const POW_DIFFICULTY = 10; // Set your desired difficulty here
+const POW_DIFFICULTY = 0; // Set your desired difficulty here
 
 // Helper function to get PoW from event
 function getEventPow(event) {
   return window.NostrTools.nip13.getPow(event.id);
 }
+
 
 async function contactPageHandler() {
   // Clean up any existing chat subscription

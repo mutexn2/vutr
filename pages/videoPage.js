@@ -294,8 +294,9 @@ function renderVideoPage(video, videoId, pageHash, shouldAutoplay = false) {
   // Get references to containers
   let videoContainer = mainContent.querySelector(".video-container");
 
-  VideoPlayer.render(videoContainer, url, videoId, video, pageHash, shouldAutoplay);
+//  VideoPlayer.render(videoContainer, url, videoId, video, pageHash, shouldAutoplay);
 
+  handleVideoPlayback(videoContainer, url, videoId, video, pageHash, shouldAutoplay);
 
 
 
@@ -819,7 +820,7 @@ function setupVideoPageContent(video, videoId, title, content, relativeTime, pub
   // More button handler - tracked
   const moreBtnHandler = (e) => {
     console.log('More button clicked');  
-    showMoreMenu(moreBtn, video, videoId);
+    showMoreMenu(moreBtn, video, videoId, url);
   };
   addTrackedEventListener(moreBtn, 'click', moreBtnHandler, pageKey);
 
@@ -853,14 +854,14 @@ async function showShareMenu(buttonElement, video, videoId, url) {
 
   shareMenuControls.open();
 }
-async function showMoreMenu(buttonElement, video, videoId) {
+async function showMoreMenu(buttonElement, video, videoId, url) {
   if (moreMenuControls && moreMenuControls.isOpen()) {
     moreMenuControls.close();
     return;
   }
 
   if (!moreMenuControls) {
-    await createMoreMenu(buttonElement, video, videoId);
+    await createMoreMenu(buttonElement, video, videoId, url);
   }
 
   moreMenuControls.open();
@@ -965,7 +966,7 @@ originalOverlay.onClose = function() {
     app.overlayControls.share = shareMenuControls;
   }
 }
-async function createMoreMenu(buttonElement, video, videoId) {
+async function createMoreMenu(buttonElement, video, videoId, url) {
   // Create overlay container
   let overlayElement = document.createElement('div');
   overlayElement.id = 'more-overlay';
@@ -1054,7 +1055,7 @@ originalOverlay.onClose = function() {
 };
 
   // Set up event listeners
-  setupMoreMenuEvents(menuElement, video, videoId);
+  setupMoreMenuEvents(menuElement, video, videoId, url);
   
   // Store reference in app object
   if (app.overlayControls) {
@@ -1097,7 +1098,7 @@ function setupShareMenuEvents(menuElement, video, videoId, url) {
     // Store key for cleanup
   menuElement.dataset.cleanupKey = menuKey;
 }
-function setupMoreMenuEvents(menuElement, video, videoId) {
+function setupMoreMenuEvents(menuElement, video, videoId, url) {
     const menuKey = `moreMenu_${Date.now()}`;
 
   menuElement.querySelector('.more-video-json')?.addEventListener('click', () => {
@@ -1119,7 +1120,7 @@ function setupMoreMenuEvents(menuElement, video, videoId) {
 
   menuElement.querySelector('.more-block-server')?.addEventListener('click', () => {
     console.log('Block media server clicked');
-    handleMoreOption('block-server', video, videoId);
+    removeServerFromWhitelist(url);
     moreMenuControls?.close();
   });
   
@@ -1128,10 +1129,111 @@ function setupMoreMenuEvents(menuElement, video, videoId) {
   
 }
 
+//////////
+// Helper function to extract hostname from URL
+function extractHostname(url) {
+  try {
+    const urlObj = new URL(url);
+    return urlObj.hostname;
+  } catch (error) {
+    console.error("Invalid URL:", url);
+    return null;
+  }
+}
 
+// Helper function to check whitelist and handle video playback
+function handleVideoPlayback(videoContainer, url, videoId, video, pageHash, shouldAutoplay) {
+  const hostname = extractHostname(url);
+  
+  if (!hostname) {
+    showError("Invalid video URL");
+    return;
+  }
+  
+  // Check if server is in whitelist
+  const isWhitelisted = app.mediaServerWhitelist.includes(hostname);
+  
+  if (isWhitelisted) {
+    // Server is whitelisted, play video directly
+    VideoPlayer.render(videoContainer, url, videoId, video, pageHash, shouldAutoplay);
+  } else {
+    // Server is not whitelisted, show prompt
+    renderWhitelistPrompt(videoContainer, hostname, url, videoId, video, pageHash, shouldAutoplay);
+  }
+}
 
+// Render the whitelist prompt
+function renderWhitelistPrompt(videoContainer, hostname, url, videoId, video, pageHash, shouldAutoplay) {
+  videoContainer.innerHTML = `
+    <div class="whitelist-prompt">
+      <div class="whitelist-prompt-content">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="whitelist-icon">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+        </svg>
+        <h3>Server Not Whitelisted</h3>
+        <p>This video is hosted on <strong>${escapeHtml(hostname)}</strong>, which is not in your trusted media servers list.</p>
+        <div class="whitelist-prompt-actions">
+          <button id="add-to-whitelist-btn" class="btn-primary">Add to Whitelist & Play</button>
+          <button id="cancel-whitelist-btn" class="btn-secondary" style="display: none;">Cancel</button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  // Add event listeners
+  const addBtn = videoContainer.querySelector("#add-to-whitelist-btn");
+  const cancelBtn = videoContainer.querySelector("#cancel-whitelist-btn");
+  
+  addTrackedEventListener(
+    addBtn,
+    "click",
+    () => {
+      // Add server to whitelist
+      app.mediaServerWhitelist.push(hostname);
+      localStorage.setItem("mediaServerWhitelist", JSON.stringify(app.mediaServerWhitelist));
+      
+      // Clear the prompt and render video player
+      videoContainer.innerHTML = "";
+      VideoPlayer.render(videoContainer, url, videoId, video, pageHash, shouldAutoplay);
+      
+      showTemporaryNotification(`${hostname} has been added to your whitelist`);
+    },
+    app.currentPageCleanupKey
+  );
+  
+  addTrackedEventListener(
+    cancelBtn,
+    "click",
+    () => {
+      window.location.hash = "#";
+    },
+    app.currentPageCleanupKey
+  );
+}
 
-
+function removeServerFromWhitelist(url) {
+  const hostname = extractHostname(url);
+  
+  if (!hostname) {
+    console.log("Invalid video URL");
+    return false;
+  }
+  
+  // Check if server is in whitelist
+  const index = app.mediaServerWhitelist.indexOf(hostname);
+  
+  if (index === -1) {
+    showTemporaryNotification(`${hostname} is not in your whitelist`);
+    return false;
+  }
+  
+  // Remove from whitelist
+  app.mediaServerWhitelist.splice(index, 1);
+  localStorage.setItem("mediaServerWhitelist", JSON.stringify(app.mediaServerWhitelist));
+  
+  showTemporaryNotification(`${hostname} has been removed from your whitelist`);
+  return true;
+}
 /////////////////////
 /////////////////////
 
@@ -1493,225 +1595,7 @@ function handleMoreOption(optionType, video, videoId) {
 
 
 
-////////////////////
-// Utility functions for media server whitelist
-/* function extractDomain(url) {
-  try {
-    const urlObj = new URL(url);
-    return urlObj.hostname.toLowerCase();
-  } catch (error) {
-    return null;
-  }
-}
 
-function isDomainWhitelisted(url) {
-  const domain = extractDomain(url);
-  if (!domain) return false;
-  
-  return app.mediaServerWhitelist.some(whitelistedDomain => 
-    domain === whitelistedDomain.toLowerCase()
-  );
-}
-
-function addDomainToWhitelist(url) {
-  const domain = extractDomain(url);
-  if (!domain) return false;
-  
-  // Check if domain is already in whitelist
-  if (!isDomainWhitelisted(url)) {
-    app.mediaServerWhitelist.push(domain);
-    localStorage.setItem("mediaServerWhitelist", JSON.stringify(app.mediaServerWhitelist));
-    return true;
-  }
-  return false;
-}
-
-function isValidDomain(domain) {
-  // Basic domain validation
-  const domainRegex = /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
-  return domainRegex.test(domain) && domain.length <= 253;
-}
-
-function createBlockedVideoUI() {
-  return `
-    <div class="blocked-video-container">
-      <div class="blocked-video-icon">🔒</div>
-      <h3 class="blocked-video-title">Video Blocked for Safety</h3>
-      <p class="blocked-video-domain">
-        This video is hosted on: <strong class="blocked-domain"></strong>
-      </p>
-      <p class="blocked-video-description">
-        This domain is not in your trusted media servers list. You can allow it once or add it to your whitelist.
-      </p>
-      <div class="blocked-video-actions">
-        <button class="allow-once-btn">Allow Once</button>
-        <button class="add-to-whitelist-btn">Add to Whitelist</button>
-      </div>
-    </div>
-  `;
-}
-
-
-// Helper to check if a video is temporarily allowed
-function isVideoTemporarilyAllowed(videoId) {
-  return app.videoPlayer.temporarilyAllowedVideos.has(videoId);
-}
-
-// Helper to mark video as temporarily allowed
-function markVideoAsTemporarilyAllowed(videoId) {
-  app.videoPlayer.temporarilyAllowedVideos.add(videoId);
-}
-
-function allowVideoOnce(url, container, video, useDefault) {
-  let videoElement;
-  
-  if (useDefault) {
-    let mimeType = getValueFromTags(video, "m", "video/mp4");
-    container.innerHTML = `
-      <video controls class="default-video-player">
-        <source src="${escapeHtml(url)}" type="${escapeHtml(mimeType)}">
-        Your browser does not support the video tag.
-      </video>
-    `;
-    videoElement = container.querySelector('video');
-  } else {
-    // Don't use autoplay here since user explicitly allowed it
-    container.innerHTML = createVideoPlayer(video, false);
-    videoElement = container.querySelector('video');
-  }
-  
-  const videoId = window.location.hash.split('/')[1]?.split('?')[0];
-  if (videoElement && videoId) {
-    markVideoAsTemporarilyAllowed(videoId);
-    playVideo(videoElement, videoId, video);
-  }
-  
-  return videoElement;
-}
-
-function addToWhitelistAndPlay(url, container, video, useDefault) {
-  const domain = extractDomain(url);
-  
-  if (!domain || !isValidDomain(domain)) {
-    alert('Invalid domain format');
-    return;
-  }
-  
-  // Add domain to whitelist
-  const added = addDomainToWhitelist(url);
-  
-  if (added) {
-    console.log(`Added ${domain} to media server whitelist`);
-  }
-  
-  // Play the video and register with VideoManager
-  const videoElement = allowVideoOnce(url, container, video, useDefault);
-  return videoElement;
-}
-
-function setupBlockedVideoInteractions(container, url, video, useDefault) {
-  const domain = extractDomain(url);
-  
-  // Set dynamic content
-  const domainElement = container.querySelector('.blocked-domain');
-  if (domainElement) {
-    domainElement.textContent = domain || 'unknown domain';
-  }
-  
-  // Add event listeners
-  const allowOnceBtn = container.querySelector('.allow-once-btn');
-  const addToWhitelistBtn = container.querySelector('.add-to-whitelist-btn');
-  
-  if (allowOnceBtn) {
-    allowOnceBtn.addEventListener('click', () => {
-      const videoElement = allowVideoOnce(url, container, video, useDefault);
-      
-      // Setup event listeners for the newly created video
-      if (videoElement) {
-        setupVideoEventListeners(videoElement);
-      }
-    });
-  }
-  
-  if (addToWhitelistBtn) {
-    addToWhitelistBtn.addEventListener('click', () => {
-      const videoElement = addToWhitelistAndPlay(url, container, video, useDefault);
-      
-      // Setup event listeners for the newly created video
-      if (videoElement) {
-        setupVideoEventListeners(videoElement);
-      }
-    });
-  }
-}
-
-
-function blockMediaServer(video) {
-  const url = getValueFromTags(video, "url", "");
-  if (!url) {
-    console.error("No URL found for video");
-    return;
-  }
-
-  const domain = extractDomain(url);
-  if (!domain) {
-    console.error("Could not extract domain from URL");
-    return;
-  }
-
-  // Remove domain from whitelist if it exists
-  const domainLower = domain.toLowerCase();
-  const initialLength = app.mediaServerWhitelist.length;
-  app.mediaServerWhitelist = app.mediaServerWhitelist.filter(
-    whitelistedDomain => whitelistedDomain.toLowerCase() !== domainLower
-  );
-
-  // Update localStorage
-  localStorage.setItem("mediaServerWhitelist", JSON.stringify(app.mediaServerWhitelist));
-
-  const wasRemoved = app.mediaServerWhitelist.length < initialLength;
-  if (wasRemoved) {
-    console.log(`Removed ${domain} from media server whitelist`);
-  } else {
-    console.log(`${domain} was not in whitelist (may have been allowed once)`);
-  }
-
-  // Find the video container and re-render with blocked UI
-  const videoContainer = document.querySelector('.video-player-container') || 
-                        document.querySelector('[data-video-container]') ||
-                        document.querySelector('video')?.parentElement;
-
-  if (videoContainer) {
-
-    
-    // Re-render the video player which will now show the blocked UI
-    renderVideoPlayer(videoContainer, video);
-  } else {
-    console.warn("Could not find video container to re-render");
-    // Optionally show a message to the user
-    alert(`Media server ${domain} has been blocked. Please refresh the page to see the changes.`);
-  }
-}
-
-function removeDomainFromWhitelist(url) {
-  const domain = extractDomain(url);
-  if (!domain) return false;
-  
-  const domainLower = domain.toLowerCase();
-  const initialLength = app.mediaServerWhitelist.length;
-  
-  app.mediaServerWhitelist = app.mediaServerWhitelist.filter(
-    whitelistedDomain => whitelistedDomain.toLowerCase() !== domainLower
-  );
-  
-  if (app.mediaServerWhitelist.length < initialLength) {
-    localStorage.setItem("mediaServerWhitelist", JSON.stringify(app.mediaServerWhitelist));
-    return true;
-  }
-  return false;
-}
-
- */
 //////////////////////////
 async function setupPlaylistIfNeeded(playlistPubkey, playlistDTag, currentVideoId) {
   // If no playlist params, clear current playlist

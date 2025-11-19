@@ -264,65 +264,66 @@ function setupNetworkPlaylistEventListeners(playlist, cachedVideoEvents = null) 
   
   // Play All button
   const playAllBtn = document.querySelector('.play-all-btn');
-  if (playAllBtn) {
-    playAllBtn.addEventListener('click', async () => {
-      const firstVideo = document.querySelector('.network-playlist-video');
-      if (firstVideo) {
-        // Use cached video events or fetch if needed
-        let videoEvents = cachedVideoEvents;
-        
-        if (!videoEvents && app.playlistVideoCache.playlistId === playlistId) {
-          videoEvents = app.playlistVideoCache.videos;
-        }
-        
-        if (!videoEvents) {
-          const videoTags = filterValidVideoTags(playlist.tags);
-          videoEvents = await fetchVideoEvents(videoTags);
-        }
-        
-        // Check for non-whitelisted domains
-/*         const nonWhitelistedDomains = await checkPlaylistDomains(videoEvents);
-        
-        if (nonWhitelistedDomains.length > 0) {
-          await promptWhitelistDomains(nonWhitelistedDomains);
-        } */
-        
-        const videoId = firstVideo.dataset.videoId;
-        window.location.hash = `#watch/params?v=${videoId}&listp=${author}&listd=${dTag}`;
+if (playAllBtn) {
+  playAllBtn.addEventListener('click', async () => {
+    const firstVideo = document.querySelector('.network-playlist-video');
+    if (firstVideo) {
+      // Use cached video events or fetch if needed
+      let videoEvents = cachedVideoEvents;
+      
+      if (!videoEvents && app.playlistVideoCache.playlistId === playlistId) {
+        videoEvents = app.playlistVideoCache.videos;
       }
-    });
-  }
-  
-  // Make entire video item clickable WITH playlist params
-  document.querySelectorAll('.network-playlist-video').forEach(item => {
-    if (!item.classList.contains('placeholder-video')) {
-      item.addEventListener('click', async (e) => {
-        // Use cached video events or fetch if needed
-        let videoEvents = cachedVideoEvents;
-        
-        if (!videoEvents && app.playlistVideoCache.playlistId === playlistId) {
-          videoEvents = app.playlistVideoCache.videos;
-        }
-        
-        if (!videoEvents) {
-          const videoTags = filterValidVideoTags(playlist.tags);
-          videoEvents = await fetchVideoEvents(videoTags);
-        }
-        
-        // Check for non-whitelisted domains
-/*         const nonWhitelistedDomains = await checkPlaylistDomains(videoEvents);
-        
-        if (nonWhitelistedDomains.length > 0) {
-          await promptWhitelistDomains(nonWhitelistedDomains);
-        } */
-        
-        const videoId = item.dataset.videoId;
-        window.location.hash = `#watch/params?v=${videoId}&listp=${author}&listd=${dTag}`;
-      });
-      item.style.cursor = 'pointer';
+      
+      if (!videoEvents) {
+        const videoTags = filterValidVideoTags(playlist.tags);
+        videoEvents = await fetchVideoEvents(videoTags);
+      }
+      
+      // Check for non-whitelisted domains
+      const nonWhitelistedDomains = await checkPlaylistDomains(videoEvents);
+      
+      if (nonWhitelistedDomains.length > 0) {
+        await promptWhitelistDomains(nonWhitelistedDomains);
+      }
+      
+      const videoId = firstVideo.dataset.videoId;
+      window.location.hash = `#watch/params?v=${videoId}&listp=${author}&listd=${dTag}`;
     }
   });
+}
+
   
+  // Make entire video item clickable WITH playlist params
+document.querySelectorAll('.network-playlist-video').forEach(item => {
+  if (!item.classList.contains('placeholder-video')) {
+    item.addEventListener('click', async (e) => {
+      // Use cached video events or fetch if needed
+      let videoEvents = cachedVideoEvents;
+      
+      if (!videoEvents && app.playlistVideoCache.playlistId === playlistId) {
+        videoEvents = app.playlistVideoCache.videos;
+      }
+      
+      if (!videoEvents) {
+        const videoTags = filterValidVideoTags(playlist.tags);
+        videoEvents = await fetchVideoEvents(videoTags);
+      }
+      
+      // Check for non-whitelisted domains
+      const nonWhitelistedDomains = await checkPlaylistDomains(videoEvents);
+      
+      if (nonWhitelistedDomains.length > 0) {
+        await promptWhitelistDomains(nonWhitelistedDomains);
+      }
+      
+      const videoId = item.dataset.videoId;
+      window.location.hash = `#watch/params?v=${videoId}&listp=${author}&listd=${dTag}`;
+    });
+    item.style.cursor = 'pointer';
+  }
+});
+
 const bookmarkBtn = document.querySelector(".bookmark-playlist-btn");
 if (bookmarkBtn) {
   bookmarkBtn.addEventListener("click", async () => {
@@ -508,8 +509,7 @@ function getPlaylistIdentifier(playlist) {
  * Check all videos in a playlist for non-whitelisted domains
  * Returns array of unique non-whitelisted domains
  */
-
-/* async function checkPlaylistDomains(videoEvents) {
+async function checkPlaylistDomains(videoEvents) {
   const nonWhitelistedDomains = new Set();
   
   for (const event of videoEvents) {
@@ -519,49 +519,44 @@ function getPlaylistIdentifier(playlist) {
     const url = getValueFromTags(event, "url", "");
     if (!url) continue;
     
-    const domain = extractDomain(url);
-    if (!domain) continue;
+    const hostname = extractHostname(url);
+    if (!hostname) continue;
     
     // Check if domain is whitelisted
-    if (!isDomainWhitelisted(url)) {
-      nonWhitelistedDomains.add(domain);
+    if (!app.mediaServerWhitelist.includes(hostname)) {
+      nonWhitelistedDomains.add(hostname);
     }
   }
   
   return Array.from(nonWhitelistedDomains);
 }
- */
 
 /**
  * Prompt user to whitelist domains for seamless playlist experience
  * Returns true if user accepts, false if cancelled
  */
-
-/* 
 async function promptWhitelistDomains(domains) {
   if (domains.length === 0) return true;
   
   const domainList = domains.map(d => `  • ${d}`).join('\n');
-  const message = `Would you like to add these servers to your whitelist for seamless playback?\n\n${domainList}\n\n(If you cancel, this still works but you will have to manually allow servers as needed)`;
+  const message = `This playlist contains videos from servers not in your whitelist:\n\n${domainList}\n\nWould you like to add them for seamless playback?\n\n(If you cancel, you'll need to approve each server as videos play)`;
   
   const userConfirmed = confirm(message);
   
   if (userConfirmed) {
     // Add all domains to whitelist
-    domains.forEach(domain => {
-      if (!app.mediaServerWhitelist.includes(domain.toLowerCase())) {
-        app.mediaServerWhitelist.push(domain.toLowerCase());
+    domains.forEach(hostname => {
+      if (!app.mediaServerWhitelist.includes(hostname)) {
+        app.mediaServerWhitelist.push(hostname);
       }
     });
     
     // Save to localStorage
     localStorage.setItem("mediaServerWhitelist", JSON.stringify(app.mediaServerWhitelist));
+    
+    showTemporaryNotification(`Added ${domains.length} server${domains.length !== 1 ? 's' : ''} to whitelist`);
     console.log(`Added ${domains.length} domain(s) to whitelist:`, domains);
   }
   
   return userConfirmed;
 }
-
-
-
- */

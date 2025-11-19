@@ -372,74 +372,73 @@ function setupSinglePlaylistEventListeners(dTag, cachedVideoEvents = null) {
   const isLocal = isLocalPlaylist(playlist);
   const playlistId = isLocal ? `local:${dTag}` : `${playlist.pubkey}:${dTag}`;
   
-  // Play All button
-  const playAllBtn = document.querySelector('.play-all-btn');
-  if (playAllBtn) {
-    playAllBtn.addEventListener('click', async () => {
-      const firstVideo = document.querySelector('.playlist-video-item:not(.placeholder-video)');
-      if (firstVideo) {
-        // Use cached video events or fetch if needed
-        let videoEvents = cachedVideoEvents;
-        
-        if (!videoEvents && app.playlistVideoCache.playlistId === playlistId) {
-          videoEvents = app.playlistVideoCache.videos;
-        }
-        
-        if (!videoEvents) {
-          const videoTags = playlist.tags.filter(tag => tag[0] === "e");
-          videoEvents = await fetchVideoEvents(videoTags);
-        }
-        
-        // Check for non-whitelisted domains
-/*         const nonWhitelistedDomains = await checkPlaylistDomains(videoEvents);
-        
-        if (nonWhitelistedDomains.length > 0) {
-          await promptWhitelistDomains(nonWhitelistedDomains);
-        } */
-        
-        const videoId = firstVideo.dataset.videoId;
-        const pubkey = isLocal ? 'local' : playlist.pubkey;
-        window.location.hash = `#watch/params?v=${videoId}&listp=${pubkey}&listd=${dTag}`;
-      }
-    });
-  }
-  
-  // Make entire video item clickable WITH playlist params
-  document.querySelectorAll('.playlist-video-item').forEach(item => {
-    if (!item.classList.contains('placeholder-video')) {
-      item.addEventListener('click', async (e) => {
-        if (e.target.closest('.remove-video-btn') || e.target.closest('.drag-handle')) {
-          return;
-        }
-        
-        // Use cached video events or fetch if needed
-        let videoEvents = cachedVideoEvents;
-        
-        if (!videoEvents && app.playlistVideoCache.playlistId === playlistId) {
-          videoEvents = app.playlistVideoCache.videos;
-        }
-        
-        if (!videoEvents) {
-          const videoTags = playlist.tags.filter(tag => tag[0] === "e");
-          videoEvents = await fetchVideoEvents(videoTags);
-        }
-        
-        // Check for non-whitelisted domains
-/*         const nonWhitelistedDomains = await checkPlaylistDomains(videoEvents);
-        
-        if (nonWhitelistedDomains.length > 0) {
-          await promptWhitelistDomains(nonWhitelistedDomains);
-        } */
-        
-        const videoId = item.dataset.videoId;
-        const pubkey = isLocal ? 'local' : playlist.pubkey;
-        window.location.hash = `#watch/params?v=${videoId}&listp=${pubkey}&listd=${dTag}`;
-      });
+// Play All button
+const playAllBtn = document.querySelector('.play-all-btn');
+if (playAllBtn) {
+  playAllBtn.addEventListener('click', async () => {
+    const firstVideo = document.querySelector('.playlist-video-item:not(.placeholder-video)');
+    if (firstVideo) {
+      // Use cached video events or fetch if needed
+      let videoEvents = cachedVideoEvents;
       
-      item.style.cursor = 'pointer';
+      if (!videoEvents && app.playlistVideoCache.playlistId === playlistId) {
+        videoEvents = app.playlistVideoCache.videos;
+      }
+      
+      if (!videoEvents) {
+        const videoTags = playlist.tags.filter(tag => tag[0] === "e");
+        videoEvents = await fetchVideoEvents(videoTags);
+      }
+      
+      // Check for non-whitelisted domains
+      const nonWhitelistedDomains = await checkPlaylistDomains(videoEvents);
+      
+      if (nonWhitelistedDomains.length > 0) {
+        await promptWhitelistDomains(nonWhitelistedDomains);
+      }
+      
+      const videoId = firstVideo.dataset.videoId;
+      const pubkey = isLocal ? 'local' : playlist.pubkey;
+      window.location.hash = `#watch/params?v=${videoId}&listp=${pubkey}&listd=${dTag}`;
     }
   });
-  
+}
+
+// Make entire video item clickable WITH playlist params
+document.querySelectorAll('.playlist-video-item').forEach(item => {
+  if (!item.classList.contains('placeholder-video')) {
+    item.addEventListener('click', async (e) => {
+      if (e.target.closest('.remove-video-btn') || e.target.closest('.drag-handle')) {
+        return;
+      }
+      
+      // Use cached video events or fetch if needed
+      let videoEvents = cachedVideoEvents;
+      
+      if (!videoEvents && app.playlistVideoCache.playlistId === playlistId) {
+        videoEvents = app.playlistVideoCache.videos;
+      }
+      
+      if (!videoEvents) {
+        const videoTags = playlist.tags.filter(tag => tag[0] === "e");
+        videoEvents = await fetchVideoEvents(videoTags);
+      }
+      
+      // Check for non-whitelisted domains
+      const nonWhitelistedDomains = await checkPlaylistDomains(videoEvents);
+      
+      if (nonWhitelistedDomains.length > 0) {
+        await promptWhitelistDomains(nonWhitelistedDomains);
+      }
+      
+      const videoId = item.dataset.videoId;
+      const pubkey = isLocal ? 'local' : playlist.pubkey;
+      window.location.hash = `#watch/params?v=${videoId}&listp=${pubkey}&listd=${dTag}`;
+    });
+    
+    item.style.cursor = 'pointer';
+  }
+});
   
   // Remove video buttons (only for local playlists)
   if (isLocal) {

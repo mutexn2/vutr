@@ -219,6 +219,7 @@ let config = {
      //   { name: "queue", displayName: "Queue", icon: "⚙️" },
         { name: "settings", displayName: "Settings", icon: "⚙️" },
         { name: "historyplaylists", displayName: "Playlists history", icon: "📒" },
+        { name: "shorts", displayName: "Shorts", icon: "⚙️" },
         { name: "relaysetsdiscover", displayName: "Relay Sets", icon: "⚙️" },
         { name: "list", displayName: "listview", icon: "📒" },
         { name: "faq", displayName: "faq", icon: "❓" },

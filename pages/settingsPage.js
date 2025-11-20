@@ -31,19 +31,16 @@ async function settingsPageHandler() {
         <div class="settings-section strikethrough">
           <h2>Playback</h2>
           <div class="settings-group">
-            <div class="setting-item">
-              <div class="setting-info">
-                <label for="video-quality">Default Video Quality</label>
-                <span class="setting-description">Preferred video quality for playback</span>
-              </div>
-              <select id="video-quality" class="settings-select">
-                <option value="auto">Auto</option>
-                <option value="1080p">1080p</option>
-                <option value="720p">720p</option>
-                <option value="480p">480p</option>
-                <option value="360p">360p</option>
-              </select>
-            </div>
+<div class="setting-item">
+  <div class="setting-info">
+    <label for="video-quality">Preferred Video Quality</label>
+    <span class="setting-description">Preferred video quality for playback</span>
+  </div>
+  <select id="video-quality" class="settings-select">
+    <option value="lowest">Lowest</option>
+    <option value="highest">Highest</option>
+  </select>
+</div>
             <div class="setting-item setting-toggle">
               <div class="setting-info">
                 <label for="autoplay-toggle">Autoplay</label>
@@ -82,6 +79,34 @@ async function settingsPageHandler() {
             </div>
           </div>
         </div>
+
+
+<!-- Content Warnings Section -->
+<div class="settings-section">
+  <h2>Content Warnings</h2>
+  <div class="settings-group">
+    <div class="setting-item setting-toggle">
+      <div class="setting-info">
+        <label for="show-content-warning-toggle">Show Content with Warnings</label>
+        <span class="setting-description">Display videos that have content warnings</span>
+      </div>
+      <label class="toggle-switch">
+        <input type="checkbox" id="show-content-warning-toggle" checked>
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+    <div class="setting-item setting-toggle">
+      <div class="setting-info">
+        <label for="replace-thumbnail-toggle">Replace Thumbnails</label>
+        <span class="setting-description">Replace thumbnails with placeholder for warned content</span>
+      </div>
+      <label class="toggle-switch">
+        <input type="checkbox" id="replace-thumbnail-toggle" checked>
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+  </div>
+</div>
 
         <!-- Network Section -->
         <div class="settings-section">
@@ -134,7 +159,7 @@ async function settingsPageHandler() {
         </div>
 
         <!-- Media Servers Section -->
-        <div class="settings-section" style="display: none;">
+        <div class="settings-section">
           <h2>Media Servers</h2>
           <div class="settings-group">
             <div class="media-whitelist-section">
@@ -245,11 +270,12 @@ async function settingsPageHandler() {
   });
 
 
-  // Video quality
-  document.getElementById("video-quality").addEventListener("change", (e) => {
-    localStorage.setItem("videoQuality", e.target.value);
-    showTemporaryNotification("Video quality preference saved");
-  });
+// Video quality
+document.getElementById("video-quality").addEventListener("change", (e) => {
+  localStorage.setItem("preferQuality", e.target.value);
+  app.preferQuality = e.target.value;
+  showTemporaryNotification("Video quality preference saved");
+});
 
   // Playback speed
   document.getElementById("playback-speed").addEventListener("change", (e) => {
@@ -268,6 +294,16 @@ async function settingsPageHandler() {
     showTemporaryNotification(`Muted autoplay ${e.target.checked ? "enabled" : "disabled"}`);
   });
 
+// Content warning toggles
+document.getElementById("show-content-warning-toggle").addEventListener("change", (e) => {
+  localStorage.setItem("showContentWarning", e.target.checked);
+  showTemporaryNotification(`Content warnings ${e.target.checked ? "shown" : "hidden"}`);
+});
+
+document.getElementById("replace-thumbnail-toggle").addEventListener("change", (e) => {
+  localStorage.setItem("replaceThumbnail", e.target.checked);
+  showTemporaryNotification(`Thumbnail replacement ${e.target.checked ? "enabled" : "disabled"}`);
+});
 
   document.getElementById("notifications-enabled").addEventListener("change", (e) => {
     localStorage.setItem("notifications", e.target.checked);
@@ -373,7 +409,7 @@ function loadSettings() {
 
 
   // Load video quality
-  const savedQuality = localStorage.getItem("videoQuality") || "auto";
+  const savedQuality = localStorage.getItem("preferQuality") || "lowest";
   document.getElementById("video-quality").value = savedQuality;
 
   // Load playback speed
@@ -389,6 +425,14 @@ function loadSettings() {
     localStorage.getItem("notifications") === "true";
   document.getElementById("desktop-notifications").checked = 
     localStorage.getItem("desktopNotifications") === "true";
+
+// Load content warning settings
+document.getElementById("show-content-warning-toggle").checked = 
+  localStorage.getItem("showContentWarning") !== "false"; // Default true
+
+document.getElementById("replace-thumbnail-toggle").checked = 
+  localStorage.getItem("replaceThumbnail") !== "false"; // Default true
+      
 }
 
 

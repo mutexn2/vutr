@@ -1,6 +1,17 @@
 function createVideoCard(video) {
   if (!video || !video.id) return document.createElement('div');
   
+  // ===== CHECK CONTENT WARNING SETTINGS =====
+  let contentWarnings = video.tags?.filter((tag) => tag[0] === "content-warning").map((t) => t[1]) || [];
+  
+  const showContentWarning = localStorage.getItem("showContentWarning") !== "false"; // Default true
+  const replaceThumbnail = localStorage.getItem("replaceThumbnail") !== "false"; // Default true
+  
+  // If content has warnings and user doesn't want to see them, return empty div
+  if (contentWarnings.length > 0 && !showContentWarning) {
+    return document.createElement('div'); // Empty div, won't be displayed
+  }
+  
   let getValueFromTags = (tags, key, defaultValue = "") => {
     let tag = tags?.find((t) => t[0] === key);
     return tag ? tag[1] : defaultValue;
@@ -38,17 +49,57 @@ function createVideoCard(video) {
   let timeAgo = getRelativeTime(video.created_at);
   let imetaTags = video.tags?.filter((tag) => tag[0] === "imeta") || [];
   
-  let thumbnailSrc = sanitizeUrl(
-    extractFromImeta(imetaTags, "image")[0] ||
-    extractFromImeta(imetaTags, "thumb")[0] ||
-    "https://nostpic.com/media/df17934d47fbf9b26c360708f6413204e2a68bd9cc4057fc8c12eccfc59d7313/a82cbba16d74b6b64ff24c675abebed834b912e5e2b102ff2bf585c239482a78.webp"
-   
-  );
+// Extract thumbnail with proper priority
+let thumbnailSrc = "";
 
-let duration = extractFromImeta(imetaTags, "duration")[0] || "1";
+// First priority: Look for standalone "thumb" tag
+let thumbTag = video.tags?.find((tag) => tag[0] === "thumb");
+if (thumbTag && thumbTag[1]) {
+  thumbnailSrc = thumbTag[1];
+}
 
+// Second priority: Look for "image" in imeta tags
+if (!thumbnailSrc) {
+  let imageFromImeta = extractFromImeta(imetaTags, "image");
+  if (imageFromImeta.length > 0) {
+    thumbnailSrc = imageFromImeta[0];
+  }
+}
+
+// Third priority: Look for any other "image" values in imeta tags
+if (!thumbnailSrc) {
+  let allImageFromImeta = extractFromImeta(imetaTags, "image");
+  for (let img of allImageFromImeta) {
+    if (img) {
+      thumbnailSrc = img;
+      break;
+    }
+  }
+}
+
+// Fourth priority: Look for standalone "image" tag (outside imeta)
+if (!thumbnailSrc) {
+  let imageTag = video.tags?.find((tag) => tag[0] === "image");
+  if (imageTag && imageTag[1]) {
+    thumbnailSrc = imageTag[1];
+  }
+}
+
+// Fallback to default thumbnail
+if (!thumbnailSrc) {
+  thumbnailSrc = "https://nostpic.com/media/df17934d47fbf9b26c360708f6413204e2a68bd9cc4057fc8c12eccfc59d7313/a82cbba16d74b6b64ff24c675abebed834b912e5e2b102ff2bf585c239482a78.webp";
+}
+
+let originalThumbnailSrc = sanitizeUrl(thumbnailSrc);
+  
+  // Decide whether to replace thumbnail
+  let shouldReplaceThumbnail = contentWarnings.length > 0 && replaceThumbnail;
+  let finalThumbnailSrc = shouldReplaceThumbnail 
+    ? "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='225'%3E%3Crect width='400' height='225' fill='%23333'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%23fff' font-size='20' font-family='Arial'%3E⚠️ Content Warning%3C/text%3E%3C/svg%3E"
+    : originalThumbnailSrc;
+
+  let duration = extractFromImeta(imetaTags, "duration")[0] || "1";
   let formattedDuration = formatDuration(duration);
-
   let dimensions = extractFromImeta(imetaTags, "dim")[0] || "";
   let description = truncateText(content);
 
@@ -59,7 +110,6 @@ let duration = extractFromImeta(imetaTags, "duration")[0] || "1";
     let xHash = '';
     let directUrl = '';
 
-    // Extract x hash and url from imeta tag
     for (let i = 1; i < imetaTag.length; i++) {
       const item = imetaTag[i];
       if (item.startsWith('x ')) {
@@ -69,7 +119,6 @@ let duration = extractFromImeta(imetaTags, "duration")[0] || "1";
       }
     }
 
-    // Extract filename from URL and validate
     if (xHash && directUrl) {
       try {
         const urlObj = new URL(directUrl);
@@ -95,7 +144,6 @@ let duration = extractFromImeta(imetaTags, "duration")[0] || "1";
   let participants = video.tags?.filter((tag) => tag[0] === "p").map((p) => p[1]) || [];
   let hashtags = video.tags?.filter((tag) => tag[0] === "t").map((t) => t[1]) || [];
   let referenceLinks = video.tags?.filter((tag) => tag[0] === "r").map((r) => r[1]) || [];
-  let contentWarning = getValueFromTags(video.tags, "content-warning", "");
   let textTracks = video.tags?.filter((tag) => tag[0] === "text-track").map((track) => ({
     event: track[1],
     relay: track[2],
@@ -123,32 +171,31 @@ let duration = extractFromImeta(imetaTags, "duration")[0] || "1";
   card.className = 'video-card';
   card.dataset.videoId = video.id;
   
-card.innerHTML = `
+  card.innerHTML = `
     <div class="metadata">
-     
        ${bottomRightHTML}
         <span class="time"></span>
     </div>
-  <div class="thumbnail-container">
-    <img class="thumbnail" loading="lazy" />
-  </div>
-  <div class="video-info">
-    <h3 class="title"></h3>
-    <div class="creator">
-      <div class="creator-image"></div>
-      <div class="creator-name"></div>
+    <div class="thumbnail-container">
+      ${shouldReplaceThumbnail ? `<div class="content-warning-overlay">${contentWarnings.map(w => `⚠️ ${w}`).join(' • ')}</div>` : ''}
+      <img class="thumbnail" loading="lazy" />
     </div>
+    <div class="video-info">
+      <h3 class="title"></h3>
+      <div class="creator">
+        <div class="creator-image"></div>
+        <div class="creator-name"></div>
+      </div>
 
-    <button class="options-button" type="button" aria-label="Video options">
-      <svg viewBox="0 0 24 24" fill="currentColor">
-        <circle cx="12" cy="5" r="2"/>
-        <circle cx="12" cy="12" r="2"/>
-        <circle cx="12" cy="19" r="2"/>
-      </svg>
-    </button>
-   
-  </div>
-`;
+      <button class="options-button" type="button" aria-label="Video options">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <circle cx="12" cy="5" r="2"/>
+          <circle cx="12" cy="12" r="2"/>
+          <circle cx="12" cy="19" r="2"/>
+        </svg>
+      </button>
+    </div>
+  `;
 
   // Get references to elements that need dynamic content
   let thumbnailImg = card.querySelector('.thumbnail');
@@ -162,7 +209,7 @@ card.innerHTML = `
   let creatorSection = card.querySelector('.creator');
 
   // Set dynamic content programmatically
-  thumbnailImg.src = thumbnailSrc;
+  thumbnailImg.src = finalThumbnailSrc;
   thumbnailImg.alt = title;
   
   titleElement.textContent = truncateText(title, 50);
@@ -245,11 +292,12 @@ card.innerHTML = `
     videoInfoContainer.appendChild(linksDiv);
   }
 
-  if (contentWarning) {
+  // Show content warnings in card info if present
+  if (contentWarnings.length > 0) {
     let warningDiv = document.createElement('div');
     warningDiv.className = 'content-warning';
-    warningDiv.textContent = `⚠️ ${contentWarning}`;
-    videoInfoContainer.appendChild(warningDiv);
+    warningDiv.textContent = `⚠️ ${contentWarnings.join(', ')}`;
+    metadataContainer.appendChild(warningDiv);
   }
 
   if (textTracks.length) {
@@ -266,18 +314,14 @@ card.innerHTML = `
     videoInfoContainer.appendChild(segmentsDiv);
   }
 
-// Options menu functionality
-optionsButton.addEventListener('click', (e) => {
-  e.stopPropagation();
-//  console.log('Options button clicked for video:', video.id);
-  showVideoCardMenu(optionsButton, video, title);
-});
-
-
+  // Options menu functionality
+  optionsButton.addEventListener('click', (e) => {
+    e.stopPropagation();
+    showVideoCardMenu(optionsButton, video, title);
+  });
 
   return card;
 }
-
 
 
 

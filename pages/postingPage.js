@@ -197,23 +197,34 @@ function renderWizardForm() {
               <input type="text" id="custom-license" placeholder="Enter custom license" style="display: none; margin-top: 0.5rem;">
             </div>
 
-            <div class="form-group">
-              <label>Content Warnings</label>
-              <div class="content-warnings">
-                <label class="checkbox-label">
-                  <input type="checkbox" name="content-warning" value="nsfw">
-                  <span>NSFW (Not Safe For Work)</span>
-                </label>
-                <label class="checkbox-label">
-                  <input type="checkbox" name="content-warning" value="violence">
-                  <span>Violence</span>
-                </label>
-                <label class="checkbox-label">
-                  <input type="checkbox" name="content-warning" value="sensitive">
-                  <span>Sensitive Content</span>
-                </label>
-              </div>
-            </div>
+<div class="form-group">
+  <label>Content Warnings</label>
+  <div class="content-warnings">
+    <label class="checkbox-label">
+      <input type="checkbox" name="content-warning" value="nsfw">
+      <span>NSFW (Not Safe For Work)</span>
+    </label>
+    <label class="checkbox-label">
+      <input type="checkbox" name="content-warning" value="violence">
+      <span>Violence</span>
+    </label>
+    <label class="checkbox-label">
+      <input type="checkbox" name="content-warning" value="sensitive">
+      <span>Sensitive Content</span>
+    </label>
+    <label class="checkbox-label">
+      <input type="checkbox" id="content-warning-other-checkbox" name="content-warning" value="other">
+      <span>Other</span>
+    </label>
+    <input 
+      type="text" 
+      id="content-warning-other-input" 
+      class="content-warning-other-input" 
+      placeholder="Specify custom warning..."
+      style="display: none; margin-top: 8px; width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"
+    >
+  </div>
+</div>
           </div>
 
           <!-- Step 4: Additional Fields -->
@@ -289,6 +300,23 @@ function renderWizardForm() {
       </div>
     </div>
   `;
+
+
+  // Handle "Other" content warning checkbox
+const otherCheckbox = document.getElementById("content-warning-other-checkbox");
+const otherInput = document.getElementById("content-warning-other-input");
+
+if (otherCheckbox && otherInput) {
+  otherCheckbox.addEventListener("change", (e) => {
+    if (e.target.checked) {
+      otherInput.style.display = "block";
+      otherInput.focus();
+    } else {
+      otherInput.style.display = "none";
+      otherInput.value = "";
+    }
+  });
+}
 }
 
 function initializePostingPage() {
@@ -1283,13 +1311,20 @@ function addVideoToUI(video) {
       }
     }
 
-    // Add content warnings
-    const warnings = Array.from(document.querySelectorAll('input[name="content-warning"]:checked'))
-      .map(cb => cb.value);
-    
-    warnings.forEach(warning => {
-      tags.push(["content-warning", warning]);
-    });
+// Add content warnings
+const warnings = Array.from(document.querySelectorAll('input[name="content-warning"]:checked'))
+  .map(cb => {
+    if (cb.value === "other") {
+      const otherInput = document.getElementById("content-warning-other-input");
+      return otherInput.value.trim();
+    }
+    return cb.value;
+  })
+  .filter(warning => warning !== ""); // Remove empty values
+
+warnings.forEach(warning => {
+  tags.push(["content-warning", warning]);
+});
 
     return {
       kind: 21,

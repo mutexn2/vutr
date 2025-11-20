@@ -1902,6 +1902,41 @@ main {
   padding: 4px;
 }
 
+.content-warning-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.85);
+  color: #fff;
+  font-size: 12px;
+  text-align: center;
+  z-index: 2;
+  font-weight: 500;
+}
+
+.content-warning-other-input {
+  margin-top: 8px;
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.warning-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  cursor: help;
+}
+
+.metadata .warning-indicator {
+  margin-left: 4px;
+}
+
 .file-size,
 .blossom-indicator,
 .time {
@@ -2013,10 +2048,8 @@ main {
 .content-warning,
 .text-tracks,
 .segments {
-  font-size: 13px;
   color: var(--text);
   opacity: 0.8;
-  margin-top: 4px;
 }
 
 .content-warning {
@@ -2534,6 +2567,62 @@ main {
   flex-wrap: wrap;
 }
 /****************************************/
+.imeta-options-container {
+  padding: 15px;
+  background: var(--background);
+  border-bottom: 1px solid var(--border);
+}
+
+.imeta-option-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.imeta-options-header {
+  margin-bottom: 8px;
+}
+
+.imeta-options-header label {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.imeta-options-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.imeta-option-btn {
+  padding: 8px 16px;
+  background: var(--background);
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.imeta-option-btn:hover {
+  background: var(--surface);
+  border-color: var(--primary);
+}
+
+.imeta-option-btn.active {
+  background: var(--surface);
+  border-color: var(--[--primary]);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.imeta-option-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 /***video actions***/
 
 .video-action-tab-button {

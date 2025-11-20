@@ -41,7 +41,7 @@ let app = {
     playlistId: null
   },
 
-
+  preferQuality: localStorage.getItem("preferQuality") || "lowest",
   // ======== Play all ==========
   currentPlaylist: null, // The full playlist event object
   currentPlaylistIndex: 0, // Current video index in playlist

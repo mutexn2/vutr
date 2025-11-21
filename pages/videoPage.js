@@ -1,6 +1,7 @@
 async function videoPageHandler() {
   logMemoryUsage();
-    // Show loading
+  
+  // Show loading
   mainContent.innerHTML = `
     <div id="videoPage-container">
       <h1>Discovering Videos</h1>
@@ -9,6 +10,7 @@ async function videoPageHandler() {
       </div>
     </div>
   `;
+  
   // Clean up previous page listeners
   if (app.currentPageCleanupKey) {
     removeTrackedEventListeners(app.currentPageCleanupKey);
@@ -19,80 +21,26 @@ async function videoPageHandler() {
   if (shareMenuControls?.isOpen()) shareMenuControls.close();
   if (moreMenuControls?.isOpen()) moreMenuControls.close();
 
-  // Parse URL
-  const currentURL = window.location.hash;
-  const urlParts = currentURL.split("/");
-  let videoId = urlParts[1];
-  let discoveryRelays = [];
-  let authorPubkey = null;
-  let playlistPubkey = null;
-  let playlistDTag = null;
-
-  if (!videoId) {
-    window.location.hash = "#";
-    return;
-  }
-
-  // Parse query parameters
-  if (videoId && videoId.includes("?")) {
-    const [baseId, queryString] = videoId.split("?");
-    const params = new Map();
-    const pairs = queryString.split("&");
-
-    for (const pair of pairs) {
-      const equalIndex = pair.indexOf("=");
-      if (equalIndex > 0) {
-        const key = decodeURIComponent(pair.slice(0, equalIndex));
-        const value = decodeURIComponent(pair.slice(equalIndex + 1));
-        params.set(key, value);
-      }
-    }
-
-    const vParam = params.get("v");
-    if (vParam) videoId = vParam;
-
-    const discoveryParam = params.get("discovery");
-    if (discoveryParam) {
-      discoveryRelays = discoveryParam.split(",").map(r => r.trim());
-    }
-
-    const authorParam = params.get("author");
-    if (authorParam) authorPubkey = authorParam;
-
-    const listpParam = params.get("listp");
-    const listdParam = params.get("listd");
-    if (listpParam && listdParam) {
-      playlistPubkey = listpParam;
-      playlistDTag = listdParam;
-    }
-  }
-
-  // Handle nevent format
-  if (videoId.startsWith("nevent1")) {
-    try {
-      let decoded = window.NostrTools.nip19.decode(videoId);
-      if (decoded.type === "nevent") {
-        videoId = decoded.data.id;
-      }
-    } catch (error) {
-      showError(`Invalid video ID format: ${escapeHtml(error.message)}`);
+  try {
+    // Parse URL and extract all parameters
+    const urlParams = parseVideoURL();
+    
+    if (!urlParams.videoId) {
+      window.location.hash = "#";
       return;
     }
-  }
 
-  // Setup playlist if needed
-  await setupPlaylistIfNeeded(playlistPubkey, playlistDTag, videoId);
+    // Setup playlist if needed
+    await setupPlaylistIfNeeded(urlParams.playlistPubkey, urlParams.playlistDTag, urlParams.videoId);
 
-
-  try {
-    // Fetch video data
-    let video = await fetchVideoData(videoId, authorPubkey, discoveryRelays);
+    // Fetch video data with progressive relay strategy
+    const video = await fetchVideoDataProgressive(urlParams);
     
     // Determine autoplay
     const shouldAutoplay = !!app.currentPlaylist;
     
     // Render video page
-    renderVideoPage(video, videoId, currentURL, shouldAutoplay);
+    renderVideoPage(video, urlParams.videoId, window.location.hash, shouldAutoplay);
     
   } catch (error) {
     console.error("Error rendering video page:", error);
@@ -100,61 +48,172 @@ async function videoPageHandler() {
   }
 }
 
-
-async function fetchVideoData(videoId, authorPubkey, discoveryRelays) {
-  let video;
+/**
+ * Parse video URL and extract all parameters
+ * Handles both old format (#watch#videoid) and new format (#watch/params?v=videoid)
+ */
+function parseVideoURL() {
+  const currentURL = window.location.hash;
+  const urlParts = currentURL.split("/");
+  let videoId = urlParts[1];
   
-  if (authorPubkey) {
-    const extendedRelays = await getExtendedRelaysForProfile(authorPubkey);
-    video = await NostrClient.getEventsFromRelays(extendedRelays, {
-      kinds: [21, 22],
-      limit: 1,
-      id: videoId,
-    });
-  } else if (discoveryRelays.length > 0) {
-    const formattedRelays = discoveryRelays.map(relay => {
-      let clean = relay.trim().replace(/^wss?::\/\//, "wss://");
-      if (!clean.startsWith("ws://") && !clean.startsWith("wss://")) {
-        clean = `wss://${clean}`;
-      }
-      return clean;
-    });
+  const result = {
+    videoId: null,
+    authorPubkey: null,
+    discoveryRelays: [],
+    playlistPubkey: null,
+    playlistDTag: null
+  };
+
+  if (!videoId) {
+    return result;
+  }
+
+  // Check if we have query parameters
+  if (videoId.includes("?")) {
+    const [baseId, queryString] = videoId.split("?");
+    const params = new URLSearchParams(queryString);
     
-    const allRelays = [...new Set([...formattedRelays, ...app.relays])];
-    video = await NostrClient.getEventsFromRelays(allRelays, {
-      kinds: [21, 22],
-      limit: 1,
-      id: videoId,
-    });
+    // Extract video ID
+    result.videoId = params.get("v") || baseId;
+    
+    // Extract author pubkey
+    result.authorPubkey = params.get("author");
+    
+    // Extract discovery relays
+    const discoveryParam = params.get("discovery");
+    if (discoveryParam) {
+      result.discoveryRelays = discoveryParam
+        .split(",")
+        .map(r => normalizeRelayURLForVideoPage(r.trim()))
+        .filter(Boolean);
+    }
+    
+    // Extract playlist parameters
+    result.playlistPubkey = params.get("listp");
+    result.playlistDTag = params.get("listd");
+    
   } else {
-    video = await NostrClient.getEvents({
-      kinds: [21, 22],
-      limit: 1,
-      id: videoId,
-    });
+    // Old format: #watch#videoid
+    result.videoId = videoId;
   }
 
-  // Auto-try extensive search if not found
-  if (!video) {
-    console.log("Video not found, trying extensive search...");
-    const staticRelays = ["relay.nostr.band", "nos.lol", "nostr.mom"];
-    video = await NostrClient.getEventsFromRelays(
-      staticRelays.map(r => `wss://${r}`),
-      {
-        kinds: [21, 22],
-        limit: 1,
-        id: videoId,
+  // Handle nevent format
+  if (result.videoId && result.videoId.startsWith("nevent1")) {
+    try {
+      const decoded = window.NostrTools.nip19.decode(result.videoId);
+      if (decoded.type === "nevent") {
+        result.videoId = decoded.data.id;
+        // Extract relays from nevent if no discovery relays specified
+        if (!result.discoveryRelays.length && decoded.data.relays) {
+          result.discoveryRelays = decoded.data.relays.map(r => normalizeRelayURLForVideoPage(r));
+        }
       }
-    );
+    } catch (error) {
+     // throw new Error(`Invalid video ID format: ${error.message}`);
+        showError(`Invalid video ID format: ${formatErrorForDisplay(error)}`);
+    }
   }
 
-  if (video) {
-    return sanitizeNostrEvent(video);
-  } else {
-    return createNotFoundVideoPlaceholder(videoId);
-  }
+  return result;
 }
 
+/**
+ * Normalize relay URL to proper wss:// format
+ */
+function normalizeRelayURLForVideoPage(relay) {
+  if (!relay) return null;
+  
+  let clean = relay.trim();
+  
+  // Remove malformed protocol prefixes
+  clean = clean.replace(/^wss?::\/\//, "wss://");
+  
+  // Add wss:// if missing
+  if (!clean.startsWith("ws://") && !clean.startsWith("wss://")) {
+    clean = `wss://${clean}`;
+  }
+  
+  return clean;
+}
+
+/**
+ * Fetch video data with progressive relay strategy
+ * Tries relays in order of likelihood: discovery → author → global → fallback
+ */
+async function fetchVideoDataProgressive(urlParams) {
+  const { videoId, authorPubkey, discoveryRelays } = urlParams;
+  
+  const filter = {
+    kinds: [21, 22],
+    limit: 1,
+    id: videoId,
+  };
+
+  // Strategy 1: Try with discovery relays + app relays (fastest, most specific)
+  if (discoveryRelays.length > 0) {
+    console.log(`Trying discovery relays: ${discoveryRelays.join(", ")}`);
+    const combinedRelays = [...new Set([...discoveryRelays, ...app.relays])];
+    const video = await NostrClient.getEventsFromRelays(combinedRelays, filter);
+    if (video) {
+      console.log("✓ Found video via discovery relays");
+      return sanitizeNostrEvent(video);
+    }
+  }
+
+  // Strategy 2: Try with author's extended relays (if author pubkey provided)
+  if (authorPubkey) {
+    console.log(`Trying author relays for: ${authorPubkey.slice(0, 8)}...`);
+    try {
+      const extendedRelays = await getExtendedRelaysForProfile(authorPubkey);
+      const video = await NostrClient.getEventsFromRelays(extendedRelays, filter);
+      if (video) {
+        console.log("✓ Found video via author relays");
+        return sanitizeNostrEvent(video);
+      }
+    } catch (error) {
+      console.warn("Error fetching from author relays:", error);
+    }
+  }
+
+  // Strategy 3: Try with app relays only (if not already tried with discovery)
+  if (discoveryRelays.length === 0) {
+    console.log("Trying app relays");
+    const video = await NostrClient.getEvents(filter);
+    if (video) {
+      console.log("✓ Found video via app relays");
+      return sanitizeNostrEvent(video);
+    }
+  }
+
+  // Strategy 4: Try with global relays
+  if (app.globalRelays && app.globalRelays.length > 0) {
+    console.log("Trying global relays");
+    const video = await NostrClient.getEventsFromRelays(app.globalRelays, filter);
+    if (video) {
+      console.log("✓ Found video via global relays");
+      return sanitizeNostrEvent(video);
+    }
+  }
+
+  // Strategy 5: Last resort - try popular static relays
+  console.log("Trying fallback relays (last resort)");
+  const fallbackRelays = [
+    "wss://relay.nostr.band",
+    "wss://nos.lol",
+    "wss://nostr.mom"
+  ];
+  const video = await NostrClient.getEventsFromRelays(fallbackRelays, filter);
+  
+  if (video) {
+    console.log("✓ Found video via fallback relays");
+    return sanitizeNostrEvent(video);
+  }
+
+  // Not found anywhere
+  console.warn("✗ Video not found on any relays");
+  return createNotFoundVideoPlaceholder(videoId);
+}
 
 
 
@@ -823,13 +882,6 @@ function setupVideoPageContent(video, videoId, title, content, relativeTime, pub
     showMoreMenu(moreBtn, video, videoId, url);
   };
   addTrackedEventListener(moreBtn, 'click', moreBtnHandler, pageKey);
-
-
-
-
-
-
-
 
 
 }

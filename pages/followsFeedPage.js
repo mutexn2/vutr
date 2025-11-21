@@ -23,60 +23,103 @@ async function followsFeedPageHandler() {
     let followedPubkeys;
     let sourceLabel;
     
-    if (pubkeySource === 'friends') {
-      // Get kind-3 pubkeys
-      if (!app.myPk) {
+if (pubkeySource === 'friends') {
+  // Get kind-3 pubkeys with retry logic for app.myPk
+  let retries = 0;
+  const maxRetries = 3;
+  
+  const checkAndFetchKind3 = async () => {
+    if (!app.myPk) {
+      if (retries < maxRetries) {
+        retries++;
+        console.log(`app.myPk not available, retrying in 2 seconds... (attempt ${retries}/${maxRetries})`);
+        
+        // Wait 2 seconds and try again
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        return checkAndFetchKind3();
+      } else {
+        // Max retries reached, show login message
         mainContent.innerHTML = `
           <h1>Login Required</h1>
           <p>You need to be logged in to view your friends feed. Please <a href="#login">log in</a> first.</p>
         `;
-        return;
+        return null;
       }
-      
-      mainContent.innerHTML = `
-        <h1>Following Feed</h1>
-        <div class="loading-indicator">
-            <p>Loading kind-3 event...</p>
-        </div>
-      `;
-      
-      const kindThreeEvents = await NostrClient.getEvents({
-        kinds: [3],
-        authors: [app.myPk],
-      });
-      
-      if (!kindThreeEvents || kindThreeEvents.length === 0) {
-        mainContent.innerHTML = `
-          <h1>No Kind-3 Following List</h1>
-          <p>You don't have a kind-3 following list published. Visit the <a href="#kind1follows">Friends</a> page to see more details.</p>
-        `;
-        return;
-      }
-      
-      const latestEvent = kindThreeEvents.reduce((latest, current) => 
-        current.created_at > latest.created_at ? current : latest
-      );
-      
-      followedPubkeys = latestEvent.tags
-        .filter(tag => tag[0] === 'p' && tag[1])
-        .map(tag => tag[1]);
-      
-      sourceLabel = 'Friends (kind-3)';
-    } else {
-      // Get local follows
-      followedPubkeys = getFollowedPubkeys();
-      sourceLabel = 'Subscriptions (local)';
     }
     
-    if (followedPubkeys.length === 0) {
-      const linkTarget = pubkeySource === 'friends' ? '#kind1follows' : '#follows';
+    // app.myPk is available, proceed with the original logic
+    mainContent.innerHTML = `
+      <h1>Following Feed</h1>
+      <div class="loading-indicator">
+          <p>Loading kind-3 event...</p>
+      </div>
+    `;
+    
+    const kindThreeEvents = await NostrClient.getEvents({
+      kinds: [3],
+      authors: [app.myPk],
+    });
+    
+    if (!kindThreeEvents || kindThreeEvents.length === 0) {
+      mainContent.innerHTML = `
+        <h1>No Kind-3 Following List</h1>
+        <p>You don't have a kind-3 following list published. Visit the <a href="#kind1follows">Friends</a> page to see more details.</p>
+      `;
+      return null;
+    }
+    
+    const latestEvent = kindThreeEvents.reduce((latest, current) => 
+      current.created_at > latest.created_at ? current : latest
+    );
+    
+    followedPubkeys = latestEvent.tags
+      .filter(tag => tag[0] === 'p' && tag[1])
+      .map(tag => tag[1]);
+    
+    // Check if we actually have any followed pubkeys
+    if (!followedPubkeys || followedPubkeys.length === 0) {
+      mainContent.innerHTML = `
+        <h1>No Friends Followed</h1>
+        <p>Your kind-3 following list exists but doesn't contain any followed users. Visit the <a href="#kind1follows">Friends</a> page to add some friends.</p>
+      `;
+      return null;
+    }
+    
+    sourceLabel = 'Friends (kind-3)';
+    return followedPubkeys;
+  };
+  
+  // Start the retry process
+  await checkAndFetchKind3();
+  
+} else {
+  // Get local follows
+  followedPubkeys = getFollowedPubkeys();
+  
+  // Check if we have any local follows
+  if (!followedPubkeys || followedPubkeys.length === 0) {
+    mainContent.innerHTML = `
+      <h1>No Local Subscriptions</h1>
+      <p>You haven't subscribed to any users locally. Browse around and click the follow button on users to add them to your subscriptions.</p>
+    `;
+    return;
+  }
+  
+  sourceLabel = 'Subscriptions (local)';
+}
+
+    if (!followedPubkeys || followedPubkeys.length === 0) {
+
+         const linkTarget = pubkeySource === 'friends' ? '#kind1follows' : '#follows';
       const linkText = pubkeySource === 'friends' ? 'Friends' : 'Following';
       mainContent.innerHTML = `
         <h1>No Followed Channels</h1>
         <p>You haven't followed any channels yet. Visit the <a href="${linkTarget}">${linkText}</a> page to start following channels!</p>
       `;
-      return;
-    }
+      console.log('No followed pubkeys available');
+      return;   
+}
+
 
     console.log(`🎯 Starting subscription feed for ${followedPubkeys.length} followed channels from ${sourceLabel}`);
 
@@ -85,7 +128,7 @@ async function followsFeedPageHandler() {
       <div class="follows-feed-header">
         <div class="pubkey-source-tabs">
           <button class="source-tab-button ${pubkeySource === 'local' ? 'active' : ''}" data-source="local">
-            Local Following
+            Local Subscriptions
           </button>
           <button class="source-tab-button ${pubkeySource === 'friends' ? 'active' : ''}" data-source="friends">
             Friends (kind-3)
@@ -158,13 +201,14 @@ async function followsFeedPageHandler() {
 
   } catch (error) {
     console.error("❌ Error rendering follows feed page:", error);
-    let errorDiv = document.createElement("div");
+/*     let errorDiv = document.createElement("div");
     errorDiv.innerHTML = `
       <h1>Error</h1>
       <div class="loading-indicator">
         <p>Error rendering follows feed page: ${error.message}</p>
       </div>
-    `;
+    `; */
+    showError(`Error rendering follows feed page:  ${formatErrorForDisplay(error)}`);
     mainContent.replaceChildren(errorDiv);
   }
 }

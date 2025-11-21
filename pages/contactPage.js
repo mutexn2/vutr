@@ -1213,7 +1213,7 @@ function hideLoadingIndicator() {
   if (indicator) indicator.style.display = "none";
 }
 
-function showError(error) {
+/* function showError(error) {
   const errorDiv = document.createElement("div");
   errorDiv.className = "error-container";
 
@@ -1226,7 +1226,7 @@ function showError(error) {
   errorDiv.appendChild(title);
   errorDiv.appendChild(message);
   mainContent.replaceChildren(errorDiv);
-}
+} */
 
 function showRawData(event) {
   const modal = openModal({

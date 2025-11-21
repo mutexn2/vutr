@@ -971,11 +971,12 @@ function hideCommentsLoadingIndicator() {
 }
 
 function showCommentsError(container) {
-  container.innerHTML = `
+/*   container.innerHTML = `
     <div class="comments-content">
       <div class="error-message">Failed to load comments. Please try again later.</div>
     </div>
-  `;
+  `; */
+   showError(`Error rendering follows feed page:  ${formatErrorForDisplay(error)}`);
 }
 
 

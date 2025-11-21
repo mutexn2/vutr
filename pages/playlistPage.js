@@ -539,7 +539,7 @@ async function promptWhitelistDomains(domains) {
   if (domains.length === 0) return true;
   
   const domainList = domains.map(d => `  • ${d}`).join('\n');
-  const message = `This playlist contains videos from servers not in your whitelist:\n\n${domainList}\n\nWould you like to add them for seamless playback?\n\n(If you cancel, you'll need to approve each server as videos play)`;
+  const message = `This playlist contains videos from servers not in your whitelist:\n\n${domainList}\n\nWould you like to add them for seamless playback?\n\n(still works if you cancel but you'll need to approve servers as needed)`;
   
   const userConfirmed = confirm(message);
   

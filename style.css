@@ -2532,7 +2532,7 @@ main {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 400px;
+  height: 100%;
   padding: 2rem;
   background: var(--surface);
   border-radius: 8px;
@@ -2566,6 +2566,43 @@ main {
   justify-content: center;
   flex-wrap: wrap;
 }
+@media (max-width: 768px) {
+
+
+.whitelist-prompt {
+  padding: 8px;
+}
+
+
+.whitelist-icon {
+  width: 32px;
+  height: 32px;
+  margin: 4px;
+}
+
+.whitelist-prompt h3 {
+  padding: 0;
+  font-size: 16px;
+  margin-bottom: 4px;
+}
+
+.whitelist-prompt p {
+  margin-bottom: 4px;
+}
+
+.whitelist-prompt-actions {
+  gap: 4px;
+}
+}
+
+/* @media (max-width: 480px) {
+
+  .relays-discovery-page .relay-url {
+    font-size: medium;
+  }
+}
+ */
+
 /****************************************/
 .imeta-options-container {
   padding: 15px;
@@ -4713,7 +4750,7 @@ main {
   }
 
   .progress-line {
-    margin: 0 0.25rem;
+    margin: 0;
   }
 
   .step-title {
@@ -7272,6 +7309,7 @@ noscript {
 }
 
 /************************************************/
+/********subscriptions page*******/
 .follows-feed-header {
   display: flex;
   flex-direction: column;
@@ -7292,6 +7330,37 @@ noscript {
   font-size: small;
 }
 
+.pubkey-source-tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--border);
+}
+
+.source-tab-button {
+  padding: 10px 20px;
+  background-color: var(--background);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.source-tab-button:hover {
+  background-color: var(--surface);
+}
+
+.source-tab-button.active {
+  background-color: var(--surface);
+  border-color: var(--primary);
+}
+
+.follows-feed-header {
+  margin-bottom: 20px;
+}
 .follows-feed-header h2 {
   white-space: wrap;
 }
@@ -12919,6 +12988,7 @@ input[type="number"] {
   color: var(--text);
   margin-bottom: 8px;
   word-wrap: break-word;
+  text-align: center;
 }
 
 .zap-detail-time {

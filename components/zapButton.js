@@ -725,7 +725,7 @@ function showVideoZapDetails(videoId) {
         </div>
         <div class="zap-detail-time">${timeAgo}</div>
         </div>
-        ${zap.comment ? `<div class="zap-detail-comment">"${escapeHtml(zap.comment)}"</div>` : ''}
+        ${zap.comment ? `<div class="zap-detail-comment">${escapeHtml(zap.comment)}</div>` : ''}
       </div>
     `;
   }).join('');

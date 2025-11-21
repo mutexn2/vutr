@@ -1,130 +1,112 @@
+// Helper functions at module level (outside createVideoCard)
+const getValueFromTagsForVideoCard = (tags, key, defaultValue = "") => {
+  let tag = tags?.find((t) => t[0] === key);
+  return tag ? tag[1] : defaultValue;
+};
+
+const formatDurationForCard = (duration) => {
+  if (!duration) return "";
+  let durationFloat = parseFloat(duration);
+  if (isNaN(durationFloat)) return "";
+  let minutes = Math.floor(durationFloat / 60);
+  let seconds = Math.floor(durationFloat % 60);
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+};
+
+const extractFromImetaForCard = (imetaTags, key) => {
+  let values = [];
+  imetaTags.forEach((tag) => {
+    tag.slice(1).forEach((item) => {
+      if (item.startsWith(`${key} `)) {
+        values.push(item.substring(key.length + 1));
+      }
+    });
+  });
+  return values;
+};
+
+const truncateTextForCard = (text, maxLength = 80) => {
+  if (!text) return "";
+  return text.length > maxLength ? `${text.substring(0, maxLength)}...` : text;
+};
+
 function createVideoCard(video) {
   if (!video || !video.id) return document.createElement('div');
   
   // ===== CHECK CONTENT WARNING SETTINGS =====
-  let contentWarnings = video.tags?.filter((tag) => tag[0] === "content-warning").map((t) => t[1]) || [];
+  const contentWarnings = video.tags?.filter((tag) => tag[0] === "content-warning").map((t) => t[1]) || [];
+  const hasContentWarning = contentWarnings.length > 0;
   
   const showContentWarning = localStorage.getItem("showContentWarning") !== "false"; // Default true
   const replaceThumbnail = localStorage.getItem("replaceThumbnail") !== "false"; // Default true
   
   // If content has warnings and user doesn't want to see them, return empty div
-  if (contentWarnings.length > 0 && !showContentWarning) {
+  if (hasContentWarning && !showContentWarning) {
     return document.createElement('div'); // Empty div, won't be displayed
   }
-  
-  let getValueFromTags = (tags, key, defaultValue = "") => {
-    let tag = tags?.find((t) => t[0] === key);
-    return tag ? tag[1] : defaultValue;
-  };
-
-  let formatDuration = (duration) => {
-    if (!duration) return "";
-    let durationFloat = parseFloat(duration);
-    if (isNaN(durationFloat)) return "";
-    let minutes = Math.floor(durationFloat / 60);
-    let seconds = Math.floor(durationFloat % 60);
-    return `${minutes}:${seconds.toString().padStart(2, "0")}`;
-  };
-
-  let extractFromImeta = (imetaTags, key) => {
-    let values = [];
-    imetaTags.forEach((tag) => {
-      tag.slice(1).forEach((item) => {
-        if (item.startsWith(`${key} `)) {
-          values.push(item.substring(key.length + 1));
-        }
-      });
-    });
-    return values;
-  };
-
-  let truncateText = (text, maxLength = 80) => {
-    if (!text) return "";
-    return text.length > maxLength ? `${text.substring(0, maxLength)}...` : text;
-  };
 
   // Extract all data first
-  let title = getValueFromTags(video.tags, "title", "Untitled");
+  let title = getValueFromTagsForVideoCard(video.tags, "title", "Untitled");
   let content = video.content?.trim() || "";
   let timeAgo = getRelativeTime(video.created_at);
   let imetaTags = video.tags?.filter((tag) => tag[0] === "imeta") || [];
   
-// Extract thumbnail with proper priority
-let thumbnailSrc = "";
-
-// First priority: Look for standalone "thumb" tag
-let thumbTag = video.tags?.find((tag) => tag[0] === "thumb");
-if (thumbTag && thumbTag[1]) {
-  thumbnailSrc = thumbTag[1];
-}
-
-// Second priority: Look for "image" in imeta tags
-if (!thumbnailSrc) {
-  let imageFromImeta = extractFromImeta(imetaTags, "image");
-  if (imageFromImeta.length > 0) {
-    thumbnailSrc = imageFromImeta[0];
+  // Extract thumbnail with proper priority
+  let thumbnailSrc = "";
+  
+  // Priority 1: Standalone "thumb" tag
+  let thumbTag = video.tags?.find((tag) => tag[0] === "thumb");
+  if (thumbTag?.[1]) {
+    thumbnailSrc = thumbTag[1];
   }
-}
-
-// Third priority: Look for any other "image" values in imeta tags
-if (!thumbnailSrc) {
-  let allImageFromImeta = extractFromImeta(imetaTags, "image");
-  for (let img of allImageFromImeta) {
-    if (img) {
-      thumbnailSrc = img;
-      break;
-    }
+  
+  // Priority 2: "image" in imeta tags
+  if (!thumbnailSrc && imetaTags.length > 0) {
+    let imagesFromImeta = extractFromImetaForCard(imetaTags, "image");
+    thumbnailSrc = imagesFromImeta[0] || "";
   }
-}
-
-// Fourth priority: Look for standalone "image" tag (outside imeta)
-if (!thumbnailSrc) {
-  let imageTag = video.tags?.find((tag) => tag[0] === "image");
-  if (imageTag && imageTag[1]) {
-    thumbnailSrc = imageTag[1];
+  
+  // Priority 3: Standalone "image" tag (outside imeta)
+  if (!thumbnailSrc) {
+    let imageTag = video.tags?.find((tag) => tag[0] === "image");
+    thumbnailSrc = imageTag?.[1] || "";
   }
-}
+  
+  // Fallback to default thumbnail
+  if (!thumbnailSrc) {
+    thumbnailSrc = "https://nostpic.com/media/df17934d47fbf9b26c360708f6413204e2a68bd9cc4057fc8c12eccfc59d7313/a82cbba16d74b6b64ff24c675abebed834b912e5e2b102ff2bf585c239482a78.webp";
+  }
 
-// Fallback to default thumbnail
-if (!thumbnailSrc) {
-  thumbnailSrc = "https://nostpic.com/media/df17934d47fbf9b26c360708f6413204e2a68bd9cc4057fc8c12eccfc59d7313/a82cbba16d74b6b64ff24c675abebed834b912e5e2b102ff2bf585c239482a78.webp";
-}
-
-let originalThumbnailSrc = sanitizeUrl(thumbnailSrc);
+  let originalThumbnailSrc = sanitizeUrl(thumbnailSrc);
   
   // Decide whether to replace thumbnail
-  let shouldReplaceThumbnail = contentWarnings.length > 0 && replaceThumbnail;
+  let shouldReplaceThumbnail = hasContentWarning && replaceThumbnail;
   let finalThumbnailSrc = shouldReplaceThumbnail 
     ? "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='225'%3E%3Crect width='400' height='225' fill='%23333'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%23fff' font-size='20' font-family='Arial'%3E⚠️ Content Warning%3C/text%3E%3C/svg%3E"
     : originalThumbnailSrc;
 
-  let duration = extractFromImeta(imetaTags, "duration")[0] || "1";
-  let formattedDuration = formatDuration(duration);
-  let dimensions = extractFromImeta(imetaTags, "dim")[0] || "";
-  let description = truncateText(content);
+  // Extract duration: check imeta first, then standalone tag
+  let duration = extractFromImetaForCard(imetaTags, "duration")[0];
+  if (!duration) {
+    duration = getValueFromTagsForVideoCard(video.tags, "duration");
+  }
+  let formattedDuration = formatDurationForCard(duration || "");
+  
+  let dimensions = extractFromImetaForCard(imetaTags, "dim")[0] || "";
+  let description = truncateTextForCard(content);
 
   // BLOSSOM VALIDATION
   let isValidBlossom = false;
   const imetaTag = video.tags?.find(tag => tag[0] === 'imeta');
+  
   if (imetaTag) {
-    let xHash = '';
-    let directUrl = '';
-
-    for (let i = 1; i < imetaTag.length; i++) {
-      const item = imetaTag[i];
-      if (item.startsWith('x ')) {
-        xHash = item.substring(2);
-      } else if (item.startsWith('url ')) {
-        directUrl = item.substring(4);
-      }
-    }
-
+    const xHash = imetaTag.find(item => item.startsWith('x '))?.substring(2);
+    const directUrl = imetaTag.find(item => item.startsWith('url '))?.substring(4);
+    
     if (xHash && directUrl) {
       try {
-        const urlObj = new URL(directUrl);
-        const filename = urlObj.pathname.split('/').pop() || '';
-        const filenameWithoutExt = filename.split('.')[0];
-        isValidBlossom = filenameWithoutExt === xHash;
+        const filename = new URL(directUrl).pathname.split('/').pop()?.split('.')[0];
+        isValidBlossom = filename === xHash;
       } catch (e) {
         // Invalid URL, keep isValidBlossom as false
       }
@@ -133,7 +115,7 @@ let originalThumbnailSrc = sanitizeUrl(thumbnailSrc);
 
   // EXTRACT SIZE FROM IMETA
   let fileSize = null;
-  const sizeValues = extractFromImeta(imetaTags, "size");
+  const sizeValues = extractFromImetaForCard(imetaTags, "size");
   if (sizeValues.length > 0) {
     const sizeBytes = parseInt(sizeValues[0]);
     if (!isNaN(sizeBytes)) {
@@ -212,7 +194,7 @@ let originalThumbnailSrc = sanitizeUrl(thumbnailSrc);
   thumbnailImg.src = finalThumbnailSrc;
   thumbnailImg.alt = title;
   
-  titleElement.textContent = truncateText(title, 50);
+  titleElement.textContent = truncateTextForCard(title, 50);
   titleElement.title = title;
   
   timeElement.textContent = timeAgo;
@@ -293,7 +275,7 @@ let originalThumbnailSrc = sanitizeUrl(thumbnailSrc);
   }
 
   // Show content warnings in card info if present
-  if (contentWarnings.length > 0) {
+  if (hasContentWarning) {
     let warningDiv = document.createElement('div');
     warningDiv.className = 'content-warning';
     warningDiv.textContent = `⚠️ ${contentWarnings.join(', ')}`;
@@ -322,9 +304,6 @@ let originalThumbnailSrc = sanitizeUrl(thumbnailSrc);
 
   return card;
 }
-
-
-
 
 
 //////////////////////////////////////////////
@@ -452,15 +431,9 @@ function setupVideoCardMenuEvents(menuElement, video) {
   menuElement.querySelector('.video-add-playlist')?.addEventListener('click', () => {
     console.log('Add to Playlist clicked for video:', video.id);
     
-    // Extract video data similar to video page
-    let getValueFromTags = (tags, key, defaultValue = "") => {
-      let tag = tags?.find((t) => t[0] === key);
-      return tag ? tag[1] : defaultValue;
-    };
-    
-    let title = getValueFromTags(video.tags, "title", "Untitled");
-    let url = getValueFromTags(video.tags, "url", "No URL found");
-    let mimeType = getValueFromTags(video.tags, "m", "Unknown MIME type");
+    let title = getValueFromTagsForVideoCard(video.tags, "title", "Untitled");
+    let url = getValueFromTagsForVideoCard(video.tags, "url", "No URL found");
+    let mimeType = getValueFromTagsForVideoCard(video.tags, "m", "Unknown MIME type");
     let content = video.content?.trim() || "";
     let relativeTime = getRelativeTime(video.created_at);
     let pubkey = video.pubkey;

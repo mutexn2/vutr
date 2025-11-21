@@ -114,7 +114,7 @@ async function homePageHandler() {
         scrollState.periodIndex++;
         scrollState.currentPeriodSize = scrollState.periodSizes[scrollState.periodIndex];
         const periodName = ['1 day', '1 week', '1 month', '3 months', '6 months', '1 year'][scrollState.periodIndex];
-        console.log(`Increasing search period to: ${periodName}`);
+      //  console.log(`Increasing search period to: ${periodName}`);
         return true;
       }
       return false; // Already at maximum period size
@@ -221,7 +221,7 @@ async function homePageHandler() {
         if (periodEvents.length === 0) {
           // No events found in this period
           scrollState.emptyPeriodCount++;
-          console.log(`No events found for current period, empty count: ${scrollState.emptyPeriodCount}/${scrollState.maxEmptyPeriods}`);
+        //  console.log(`No events found for current period, empty count: ${scrollState.emptyPeriodCount}/${scrollState.maxEmptyPeriods}`);
           
           // Check if we should increase period size
           if (scrollState.emptyPeriodCount >= 2) { // After 2 empty periods, increase size
@@ -234,7 +234,7 @@ async function homePageHandler() {
             } else {
               // Already at max period size, check if we should stop
               if (scrollState.emptyPeriodCount >= scrollState.maxEmptyPeriods) {
-                console.log(`Reached ${scrollState.maxEmptyPeriods} consecutive empty periods at maximum period size, stopping`);
+              //  console.log(`Reached ${scrollState.maxEmptyPeriods} consecutive empty periods at maximum period size, stopping`);
                 scrollState.hasMoreContent = false;
                 break;
               }
@@ -266,7 +266,7 @@ async function homePageHandler() {
         currentUntil = oldestEvent.created_at;
         currentSince = currentUntil - scrollState.currentPeriodSize;
         
-        console.log(`Loaded ${periodEvents.length} events, total loaded this batch: ${scrollState.loadedEventsCount - startLoadedCount}`);
+      //  console.log(`Loaded ${periodEvents.length} events, total loaded this batch: ${scrollState.loadedEventsCount - startLoadedCount}`);
         
         // If we got fewer events than a full page, try the previous period
         if ((scrollState.loadedEventsCount - startLoadedCount) < scrollState.eventsPerPage) {
@@ -280,7 +280,7 @@ async function homePageHandler() {
       loadMoreStatus.style.display = 'none';
 
       const loadedThisBatch = scrollState.loadedEventsCount - startLoadedCount;
-      console.log(`Finished loading batch: ${loadedThisBatch} new events, total: ${scrollState.loadedEventsCount}`);
+    //  console.log(`Finished loading batch: ${loadedThisBatch} new events, total: ${scrollState.loadedEventsCount}`);
       
       if (scrollState.hasMoreContent && loadedThisBatch > 0) {
         loadMoreBtn.style.display = 'block';

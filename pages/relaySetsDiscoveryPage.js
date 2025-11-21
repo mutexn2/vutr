@@ -6,9 +6,29 @@ function extractWebSocketUrls(event) {
 }
 
 async function relaySetsDiscoveryPageHandler() {
+  // Clean up any existing subscriptions first
+  cleanupRelaySetDiscovery();
+  
+  // Parse URL parameters for tab selection
+  const currentHash = window.location.hash;
+  const urlParams = new URLSearchParams(currentHash.split('?')[1] || '');
+  const pubkeySource = urlParams.get('source') || 'latest'; // 'latest', 'local', or 'friends'
+
   mainContent.innerHTML = `
     <h1>Discovering Relay sets</h1>
     <div class="relays-discovery-page">
+      <div class="pubkey-source-tabs">
+        <button class="source-tab-button ${pubkeySource === 'latest' ? 'active' : ''}" data-source="latest">
+          Latest Sets
+        </button>
+        <button class="source-tab-button ${pubkeySource === 'local' ? 'active' : ''}" data-source="local">
+          Subscriptions
+        </button>
+        <button class="source-tab-button ${pubkeySource === 'friends' ? 'active' : ''}" data-source="friends">
+          Friends (kind-3)
+        </button>
+      </div>
+      
       <div class="discovery-tabs">
         <button class="tab-button active" data-tab="sets">Relay Sets</button>
         <button class="tab-button disabled" data-tab="ranking" id="ranking-tab-btn" disabled title="Available after discovery completes">Working...</button>
@@ -36,14 +56,129 @@ async function relaySetsDiscoveryPageHandler() {
     </div>
   `;
 
+  // Setup pubkey source tab event handlers
+  const sourceTabButtons = document.querySelectorAll('.source-tab-button');
+  sourceTabButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      const newSource = button.dataset.source;
+      const baseHash = '#relaysetsdiscover';
+      const params = new URLSearchParams();
+      if (newSource !== 'latest') params.set('source', newSource);
+      const paramString = params.toString();
+      const newUrl = paramString ? `${baseHash}/params?${paramString}` : baseHash;
+      window.location.hash = newUrl;
+    });
+  });
+
+  // Get the appropriate pubkeys based on source
+  let followedPubkeys = null;
+  let sourceLabel = 'Latest';
+
+  if (pubkeySource === 'local') {
+    followedPubkeys = getFollowedPubkeys();
+    if (!followedPubkeys || followedPubkeys.length === 0) {
+      mainContent.innerHTML = `
+        <h1>No Local Subscriptions</h1>
+        <p>You haven't subscribed to any users locally. Browse around and click the follow button on users to add them to your subscriptions.</p>
+      `;
+      return;
+    }
+    sourceLabel = 'Subscriptions';
+  } else if (pubkeySource === 'friends') {
+    // Get kind-3 pubkeys with retry logic
+    let retries = 0;
+    const maxRetries = 3;
+    
+    while (!app.myPk && retries < maxRetries) {
+      retries++;
+      console.log(`app.myPk not available, retrying in 2 seconds... (attempt ${retries}/${maxRetries})`);
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+    
+    if (!app.myPk) {
+      mainContent.innerHTML = `
+        <h1>Login Required</h1>
+        <p>You need to be logged in to view your friends' relay sets. Please <a href="#login">log in</a> first.</p>
+      `;
+      return;
+    }
+
+    mainContent.querySelector('.loading-indicator').innerHTML = '<p>Loading kind-3 event...</p>';
+    
+    const kindThreeEvents = await NostrClient.getEvents({
+      kinds: [3],
+      authors: [app.myPk],
+    });
+    
+    if (!kindThreeEvents || kindThreeEvents.length === 0) {
+      mainContent.innerHTML = `
+        <h1>No Kind-3 Following List</h1>
+        <p>You don't have a kind-3 following list published. Visit the <a href="#kind1follows">Friends</a> page to see more details.</p>
+      `;
+      return;
+    }
+    
+    const latestEvent = kindThreeEvents.reduce((latest, current) =>
+      current.created_at > latest.created_at ? current : latest
+    );
+    
+    followedPubkeys = latestEvent.tags
+      .filter(tag => tag[0] === 'p' && tag[1])
+      .map(tag => tag[1]);
+    
+    if (!followedPubkeys || followedPubkeys.length === 0) {
+      mainContent.innerHTML = `
+        <h1>No Friends Followed</h1>
+        <p>Your kind-3 following list exists but doesn't contain any followed users. Visit the <a href="#kind1follows">Friends</a> page to add some friends.</p>
+      `;
+      return;
+    }
+    
+    sourceLabel = 'Friends (kind-3)';
+  }
+
   const rSets = document.querySelector('.videos-listview');
   let receivedEvents = new Map();
   let subscription = null;
+  let timeoutId = null;
 
   try {
-    const relays = app.relays || [];
+    // Start with globalRelays as the base for all modes
+    let relaysToUse = new Set(app.globalRelays || []);
     
-    if (relays.length === 0) {
+    console.log(`Starting with ${relaysToUse.size} global relays`);
+    
+    // For all modes, add pubkey-specific relays if we have pubkeys
+    if (followedPubkeys && followedPubkeys.length > 0) {
+      const MAX_PUBKEYS_FOR_RELAY_SEARCH = 50;
+      const pubkeysForRelaySearch = followedPubkeys.length > MAX_PUBKEYS_FOR_RELAY_SEARCH
+        ? followedPubkeys.slice(0, MAX_PUBKEYS_FOR_RELAY_SEARCH)
+        : followedPubkeys;
+      
+      console.log(`Discovering relays for ${pubkeysForRelaySearch.length} pubkeys...`);
+      
+      for (const pubkey of pubkeysForRelaySearch) {
+        try {
+          const pubkeyRelays = await getExtendedRelaysForProfile(pubkey);
+          if (pubkeyRelays && pubkeyRelays.length > 0) {
+            pubkeyRelays.forEach(relay => {
+              if (relay && (relay.startsWith('wss://') || relay.startsWith('ws://'))) {
+                relaysToUse.add(relay);
+              }
+            });
+          }
+        } catch (error) {
+          console.warn(`Failed to get relays for pubkey ${pubkey.slice(0, 8)}...`, error);
+        }
+      }
+      
+      console.log(`Total relays after adding user relays: ${relaysToUse.size}`);
+    }
+    
+    // Convert Set back to Array
+    relaysToUse = Array.from(relaysToUse);
+    
+    if (relaysToUse.length === 0) {
       mainContent.innerHTML = `
         <h1>No Relays Configured</h1>
         <p>Please configure relays in network settings first.</p>
@@ -51,12 +186,22 @@ async function relaySetsDiscoveryPageHandler() {
       return;
     }
 
+    console.log(`Using ${relaysToUse.length} total relays for ${sourceLabel} mode`);
+
     if (!window.nostrPool) {
       window.nostrPool = new window.NostrTools.SimplePool();
     }
 
+    // Build the filter
     const filter = { kinds: [30002], limit: 100 };
-    console.log(`Subscribing to kind:30002 events on relays:`, relays);
+    
+    // Add authors filter for local/friends mode
+    if (followedPubkeys) {
+      filter.authors = followedPubkeys;
+      console.log(`Subscribing to kind:30002 events from ${followedPubkeys.length} followed pubkeys on ${relaysToUse.length} relays`);
+    } else {
+      console.log(`Subscribing to kind:30002 events on ${relaysToUse.length} relays`);
+    }
 
     // Store receivedEvents on the container for access across tabs
     rSets._receivedEvents = receivedEvents;
@@ -68,14 +213,14 @@ async function relaySetsDiscoveryPageHandler() {
     const BATCH_SIZE = 10;
     
     subscription = window.nostrPool.subscribeMany(
-      relays,
+      relaysToUse,
       [filter],
       {
         onevent: (event) => {
-          console.log('Received event:', event.id, 'from pubkey:', event.pubkey);
+        //  console.log('Received event:', event.id, 'from pubkey:', event.pubkey);
           const card = handleNewRelaySetEvent(event, receivedEvents, rSets);
           if (card) {
-            console.log('Created card for event:', event.id);
+          //  console.log('Created card for event:', event.id);
             pendingCards.push(card);
             
             if (pendingCards.length >= BATCH_SIZE) {
@@ -96,20 +241,27 @@ async function relaySetsDiscoveryPageHandler() {
             pendingCards = [];
             setupLazyCardRendering(rSets);
           }
-          updateLoadingState(receivedEvents, rSets);
+          updateLoadingState(receivedEvents, rSets, sourceLabel, followedPubkeys?.length);
         }
       }
     );
 
-    setTimeout(() => {
+    // Store subscription for cleanup
+    app.currentRelaySetSubscription = subscription;
+
+    timeoutId = setTimeout(() => {
       if (subscription) {
         console.log('Closing subscription after timeout');
         subscription.close();
         subscription = null;
-        updateLoadingState(receivedEvents, rSets);
+        app.currentRelaySetSubscription = null;
+        updateLoadingState(receivedEvents, rSets, sourceLabel, followedPubkeys?.length);
         enableRankingTab();
       }
     }, 10000);
+
+    // Store timeout for cleanup
+    app.currentRelaySetTimeout = timeoutId;
 
   } catch (error) {
     console.error("Error setting up relay sets discovery:", error);
@@ -124,8 +276,8 @@ async function relaySetsDiscoveryPageHandler() {
   }
 
   setupDiscoveryTabs();
-  app.currentRelaySetSubscription = subscription;
 }
+
 
 function enableRankingTab() {
   const rankingTabBtn = document.getElementById('ranking-tab-btn');
@@ -137,116 +289,135 @@ function enableRankingTab() {
   }
 }
 
-// UNIFIED event delegation for both tabs - fixes the double-firing issue
 function setupUnifiedEventDelegationForDiscoveryPage(pageContainer, receivedEventsMap) {
-  if (pageContainer._unifiedDelegationSetUp) return;
-  pageContainer._unifiedDelegationSetUp = true;
-  
-pageContainer.addEventListener('click', (e) => {
-  const target = e.target;
-  
-  // Helper function to get button text from SVG structure
-  const getButtonText = (target) => {
-    const button = target.closest('button');
-    if (!button) return null;
-    const span = button.querySelector('span');
-    return span ? span.textContent.trim() : null;
-  };
-  
-  const buttonText = getButtonText(target);
-  
-  // Handle "Add to Set" button specifically in ranking tab
-  if (target.classList.contains('ranking-add-to-set-btn') || 
-      target.closest('.ranking-add-to-set-btn')) {
-    e.stopPropagation();
-    const relayItem = target.closest('.relay-item');
-    const relayUrl = relayItem.dataset.relay;
-    showRelaySetSelector(relayUrl);
-    return;
+  // Remove existing listener if it exists
+  if (pageContainer._discoveryClickHandler) {
+    pageContainer.removeEventListener('click', pageContainer._discoveryClickHandler);
   }
   
-  // Handle Check Status button
-  if (buttonText === "Check Status") {
-    e.stopPropagation();
-    const relayItem = target.closest(".relay-item");
-    const relayUrl = relayItem.dataset.relay;
-    const index = parseInt(relayItem.dataset.index);
+  // Create the click handler function
+  const clickHandler = (e) => {
+    const target = e.target;
     
-    // Get the correct status ID for ranking items
-    const statusId = `status-ranking-${index}`;
-    const statusElement = document.getElementById(statusId);
-    if (statusElement) {
-      checkRelayStatusForRanking(relayUrl, statusId, true);
+    // Helper function to get button text from SVG structure
+    const getButtonText = (target) => {
+      const button = target.closest('button');
+      if (!button) return null;
+      const span = button.querySelector('span');
+      return span ? span.textContent.trim() : null;
+    };
+    
+    const buttonText = getButtonText(target);
+    
+    // Handle "Add to Set" button specifically in ranking tab
+    if (target.classList.contains('ranking-add-to-set-btn') || 
+        target.closest('.ranking-add-to-set-btn')) {
+      e.stopPropagation();
+      e.preventDefault();
+      const relayItem = target.closest('.relay-item');
+      const relayUrl = relayItem.dataset.relay;
+      showRelaySetSelector(relayUrl);
+      return;
     }
-    return;
-  }
-  
-  // Handle Relay Info button
-  if (buttonText === "Relay Info" || buttonText === "Info") {
-    e.preventDefault(); 
-    e.stopPropagation();
-    const relayUrl = target.closest(".relay-item").dataset.relay;
-    getRelayInfo(relayUrl);
-    return;
-  }
-  
-  // Handle Visit button
+    
+    // Handle Check Status button
+    if (buttonText === "Check Status") {
+      e.stopPropagation();
+      e.preventDefault();
+      const relayItem = target.closest(".relay-item");
+      const relayUrl = relayItem.dataset.relay;
+      const index = parseInt(relayItem.dataset.index);
+      
+      // Get the correct status ID for ranking items
+      const statusId = `status-ranking-${index}`;
+      const statusElement = document.getElementById(statusId);
+      if (statusElement) {
+        checkRelayStatusForRanking(relayUrl, statusId, true);
+      }
+      return;
+    }
+    
+    // Handle Relay Info button
+    if (buttonText === "Relay Info" || buttonText === "Info") {
+      e.preventDefault(); 
+      e.stopPropagation();
+      const relayUrl = target.closest(".relay-item").dataset.relay;
+      getRelayInfo(relayUrl);
+      return;
+    }
+    
+    // Handle Visit button
 /*   if (buttonText === "Visit") {
-    e.stopPropagation();
-    let relayUrl = target.closest(".relay-item").dataset.relay;
-    if (relayUrl.startsWith('wss://')) {
-      relayUrl = relayUrl.slice(6);
-    } else if (relayUrl.startsWith('ws://')) {
-      relayUrl = relayUrl.slice(5);
-    }
-    window.location.hash = `#singlerelay/${relayUrl}`;
-    return;
-  } */
-  
-  // Handle Block/Unblock button
-  if (buttonText === "Block" || buttonText === "Unblock") {
-    e.stopPropagation();
-    const relayItem = target.closest(".relay-item");
-    const relayUrl = relayItem.dataset.relay;
-    const button = target.closest('button');
-    const buttonSpan = button.querySelector('span');
+      e.stopPropagation();
+      e.preventDefault();
+      let relayUrl = target.closest(".relay-item").dataset.relay;
+      if (relayUrl.startsWith('wss://')) {
+        relayUrl = relayUrl.slice(6);
+      } else if (relayUrl.startsWith('ws://')) {
+        relayUrl = relayUrl.slice(5);
+      }
+      window.location.hash = `#singlerelay/${relayUrl}`;
+      return;
+    } */
     
-    if (buttonText === "Block") {
-      if (confirm(`Block all future connections to:\n${extractDomainName(relayUrl)}?`)) {
-        window.WebSocketManager.blockURL(relayUrl);
-        
-        button.style.backgroundColor = '#ff00005c';
-        button.style.borderColor = 'red';
-        buttonSpan.textContent = 'Unblock';
-        
-        const originalText = buttonSpan.textContent;
-        buttonSpan.textContent = 'Blocked!';
-        setTimeout(() => {
+    // Handle Block/Unblock button
+    if (buttonText === "Block" || buttonText === "Unblock") {
+      e.stopPropagation();
+      e.preventDefault();
+      const relayItem = target.closest(".relay-item");
+      const relayUrl = relayItem.dataset.relay;
+      const button = target.closest('button');
+      const buttonSpan = button.querySelector('span');
+      
+      if (buttonText === "Block") {
+        if (confirm(`Block all future connections to:\n${extractDomainName(relayUrl)}?`)) {
+          window.WebSocketManager.blockURL(relayUrl);
+          
+          button.style.backgroundColor = '#ff00005c';
+          button.style.borderColor = 'red';
           buttonSpan.textContent = 'Unblock';
-        }, 1000);
-      }
-    } else if (buttonText === "Unblock") {
-      if (confirm(`Unblock connections to:\n${extractDomainName(relayUrl)}?`)) {
-        window.WebSocketManager.unblockURL(relayUrl);
-        
-        button.style.backgroundColor = '';
-        button.style.borderColor = '';
-        buttonSpan.textContent = 'Block';
-        
-        const originalText = buttonSpan.textContent;
-        buttonSpan.textContent = 'Unblocked!';
-        setTimeout(() => {
+          
+          const originalText = buttonSpan.textContent;
+          buttonSpan.textContent = 'Blocked!';
+          setTimeout(() => {
+            buttonSpan.textContent = 'Unblock';
+          }, 1000);
+        }
+      } else if (buttonText === "Unblock") {
+        if (confirm(`Unblock connections to:\n${extractDomainName(relayUrl)}?`)) {
+          window.WebSocketManager.unblockURL(relayUrl);
+          
+          button.style.backgroundColor = '';
+          button.style.borderColor = '';
           buttonSpan.textContent = 'Block';
-        }, 1000);
+          
+          const originalText = buttonSpan.textContent;
+          buttonSpan.textContent = 'Unblocked!';
+          setTimeout(() => {
+            buttonSpan.textContent = 'Block';
+          }, 1000);
+        }
       }
+      return;
     }
-    return;
-  }
+    
+    // Handle "Add to Set" button in feed tab (relay-item level)
+    if (target.classList.contains('relay-add-btn') || 
+        target.closest('.relay-add-btn')) {
+      e.stopPropagation();
+      e.preventDefault();
+      const button = target.closest('.relay-add-btn');
+      const relayUrl = button.dataset.url;
+      showRelaySetSelector(relayUrl);
+      return;
+    }
+    
     // Rest of the handlers for relay-set-card elements...
     const card = target.closest('.relay-set-card');
     if (!card) return;
     
     e.stopPropagation();
+    e.preventDefault();
     const eventId = card.dataset.eventId;
     const rSets = document.querySelector('.videos-listview');
     const receivedEvents = rSets ? rSets._receivedEvents : null;
@@ -300,7 +471,13 @@ pageContainer.addEventListener('click', (e) => {
       handleCollapseRelaysClick(target.closest('.clickable-collapse'), card);
       return;
     }
-  });
+  };
+  
+  // Store the handler reference and add it
+  pageContainer._discoveryClickHandler = clickHandler;
+  pageContainer.addEventListener('click', clickHandler);
+  
+  console.log('✅ Unified event delegation set up for discovery page');
 }
 
 function handleNewRelaySetEvent(event, receivedEvents, container) {
@@ -314,13 +491,13 @@ function handleNewRelaySetEvent(event, receivedEvents, container) {
     tag[0] === 'relay' || tag[0] === 'r'
   );
   if (!hasRelayTags) {
-    console.log('Event has no relay tags');
+  //  console.log('Event has no relay tags');
     return null;
   }
 
   const wsUrls = extractWebSocketUrls(sanitizedEvent);
   if (wsUrls.length === 0) {
-    console.log('No WebSocket URLs found in event');
+  //  console.log('No WebSocket URLs found in event');
     return null;
   }
 
@@ -344,44 +521,86 @@ function handleNewRelaySetEvent(event, receivedEvents, container) {
     card.style.minHeight = '200px';
     
     container._receivedEvents = receivedEvents;
-    console.log('Appended card to container, container child count:', container.children.length);
+  //  console.log('Appended card to container, container child count:', container.children.length);
     return card;
   }
   
-  console.log('Event already exists or is older');
+//  console.log('Event already exists or is older');
   return null;
 }
 
-function updateLoadingState(receivedEvents, container) {
+function updateLoadingState(receivedEvents, container, sourceLabel = 'Latest', pubkeyCount = null) {
   const loadingIndicator = document.querySelector('.loading-indicator');
   
   if (receivedEvents.size === 0) {
     if (loadingIndicator) {
-      loadingIndicator.innerHTML = `
-        <p>No relay sets found. Try connecting to more relays or check your network connection.</p>
-      `;
+      const message = pubkeyCount 
+        ? `No relay sets found from ${pubkeyCount} followed users. They may not have published any relay sets yet.`
+        : 'No relay sets found. Try connecting to more relays or check your network connection.';
+      loadingIndicator.innerHTML = `<p>${message}</p>`;
     }
   } else {
     if (loadingIndicator) loadingIndicator.style.display = 'none';
     
     const header = document.querySelector('h1');
     if (header && !document.querySelector('h2')) {
-      header.insertAdjacentHTML('afterend', '<h2>Relay Sets (kind-30002)</h2>');
+      const subtitle = pubkeyCount 
+        ? `Relay Sets from ${sourceLabel} (${pubkeyCount} users)`
+        : `Relay Sets from ${sourceLabel}`;
+      header.insertAdjacentHTML('afterend', `<h2>${subtitle}</h2>`);
     }
   }
 }
 
 function cleanupRelaySetDiscovery() {
+  console.log('🧹 Cleaning up relay set discovery page...');
+  
+  // Close any active subscription
   if (app.currentRelaySetSubscription) {
-    app.currentRelaySetSubscription.close();
+    try {
+      app.currentRelaySetSubscription.close();
+      console.log('✅ Relay set subscription closed');
+    } catch (error) {
+      console.warn('⚠️ Error closing relay set subscription:', error);
+    }
     app.currentRelaySetSubscription = null;
-    console.log('Relay set discovery subscription closed');
   }
   
-  // Clean up delegation flag
+  // Clear any pending timeout
+  if (app.currentRelaySetTimeout) {
+    clearTimeout(app.currentRelaySetTimeout);
+    console.log('✅ Relay set timeout cleared');
+    app.currentRelaySetTimeout = null;
+  }
+  
+  // Clean up event delegation
+  if (mainContent && mainContent._discoveryClickHandler) {
+    mainContent.removeEventListener('click', mainContent._discoveryClickHandler);
+    mainContent._discoveryClickHandler = null;
+    console.log('✅ Event delegation removed');
+  }
+  
+  // Clean up delegation flag (legacy)
   if (mainContent) {
     mainContent._unifiedDelegationSetUp = false;
   }
+  
+  // Clean up any lazy observers
+  const container = document.querySelector('.videos-listview');
+  if (container && container._lazyObserver) {
+    container._lazyObserver.disconnect();
+    container._lazyObserver = null;
+    console.log('✅ Lazy observer disconnected');
+  }
+  
+  const rankingContainer = document.querySelector('.ranking-list');
+  if (rankingContainer && rankingContainer._relayInfoObserver) {
+    rankingContainer._relayInfoObserver.disconnect();
+    rankingContainer._relayInfoObserver = null;
+    console.log('✅ Ranking observer disconnected');
+  }
+  
+  console.log('✅ Relay set discovery cleanup complete');
 }
 
 function handleMoreRelaysClick(moreRelaysBtn, card) {
@@ -509,7 +728,7 @@ function createRelaySetCard(event) {
   card.className = 'relay-set-card';
   card.dataset.eventId = event.id;
   
-  console.log('Created card element for event:', event.id);
+//  console.log('Created card element for event:', event.id);
   return card;
 }
 

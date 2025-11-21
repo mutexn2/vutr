@@ -64,12 +64,12 @@ if (nextBtn) nextBtn.addEventListener('click', (e) => {
     pageHash,
     shouldAutoplay = false
   ) {
-    console.log(`VideoPlayer.render called:`, {
+/*     console.log(`VideoPlayer.render called:`, {
       videoUrl,
       videoId,
       pageHash,
       currentPageHash: state.pageHash,
-    });
+    }); */
 
     // Check if this is the exact same video (same page hash)
     if (state.pageHash === pageHash && state.videoElement) {
@@ -241,11 +241,11 @@ if (nextBtn) nextBtn.addEventListener('click', (e) => {
 
   // Handle route changes - called from router
   function handleRouteChange(newHash) {
-    console.log(`VideoPlayer.handleRouteChange:`, {
+/*     console.log(`VideoPlayer.handleRouteChange:`, {
       newHash,
       hasVideo: !!state.videoElement,
       currentHash: state.pageHash,
-    });
+    }); */
 
     // No active video - nothing to do
     if (!state.videoElement) {

@@ -189,6 +189,23 @@ let config = {
     content: "",
     sig: "local",
   },
+  defaultMuteSet: {
+    id: "local",
+    pubkey: "local",
+    created_at: Math.floor(Date.now() / 1000),
+    kind: 30007,
+    tags: [
+      ["d", "21"],
+      ["title", "Local-Mutes"],
+      [
+        "image",
+        "https://cdn.britannica.com/40/188540-050-9AC748DE/Yak-Himalayas-Nepal.jpg",
+      ],
+
+    ],
+    content: "",
+    sig: "local",
+  },  
   favoriteChannels: {
     id: "local-favorites",
     pubkey: "local",
@@ -218,6 +235,7 @@ let config = {
       items: [
      //   { name: "queue", displayName: "Queue", icon: "⚙️" },
         { name: "settings", displayName: "Settings", icon: "⚙️" },
+        { name: "localmuted", displayName: "Muted", icon: "⚙️" },
         { name: "historyplaylists", displayName: "Playlists history", icon: "📒" },
         { name: "shorts", displayName: "Shorts", icon: "⚙️" },
         { name: "relaysetsdiscover", displayName: "Relay Sets", icon: "⚙️" },

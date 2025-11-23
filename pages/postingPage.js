@@ -862,65 +862,153 @@ thumbOption.addEventListener("click", () => {
     }
   }
 
-  async function handleAddVideo() {
-    const input = document.getElementById("video-url");
-    const url = input.value.trim();
-    if (!url) {
-      alert("Please enter a video URL");
-      return;
-    }
-
-    const button = document.getElementById("add-video");
-    setButtonLoading(button, true, "Processing...");
-
-    try {
-      const lightweightCheckbox = document.getElementById("lightweight-mode");
-      const isLightweightMode = lightweightCheckbox.checked;
-
-      showVideoProgress("Checking video accessibility...");
-
-      let metadata;
-
-      if (isLightweightMode) {
-        showVideoProgress("Getting video metadata...");
-        metadata = await fetchVideoMetadata(url);
-      } else {
-        const blob = await fetchVideoWithProgress(url, (progress) => {
-          if (progress.indeterminate) {
-            showVideoProgress("Downloading video...", { indeterminate: true });
-          } else {
-            showVideoProgress("Downloading video...", progress);
-          }
-        });
-
-        showVideoProgress("Extracting metadata...");
-        metadata = await fetchVideoMetadata(url, blob);
-      }
-
-      metadata.index = metadataIndex++;
-
-      showVideoProgress("Generating thumbnail...");
-      metadata.thumbnail = await extractThumbnail(url);
-
-      window.videoMetadataList.push(metadata);
-      addVideoToUI(metadata);
-      input.value = "";
-      updateVideoCounter();
-      saveFormDataToStorage();
-      hideVideoProgress();
-    } catch (error) {
-      console.error("Error fetching video metadata:", error);
-      hideVideoProgress();
-
-      if (error.message.includes("Expected video content")) {
-        alert(`❌ ${error.message}\n\nPlease ensure the URL points to a video file.`);
-      } else {
-        alert("Failed to fetch video metadata. Please check the URL.");
-      }
-    } finally {
-      setButtonLoading(button, false, "Add Video");
-    }
+async function handleAddVideo() {
+  const input = document.getElementById("video-url");
+  const url = input.value.trim();
+  if (!url) {
+    alert("Please enter a video URL");
+    return;
   }
+
+  const button = document.getElementById("add-video");
+  setButtonLoading(button, true, "Processing...");
+
+  try {
+    const lightweightCheckbox = document.getElementById("lightweight-mode");
+    const isLightweightMode = lightweightCheckbox.checked;
+
+    // Step 1: Check accessibility first (lightweight HEAD request)
+    showVideoProgress("Checking video accessibility...");
+    const headResponse = await fetch(url, { method: "HEAD" });
+    if (!headResponse.ok) throw new Error("Invalid URL or video not accessible");
+
+    const contentType = headResponse.headers.get("Content-Type") || "video/mp4";
+    if (!contentType.startsWith("video/")) {
+      throw new Error(`Expected video content, but received: ${contentType}`);
+    }
+
+    const contentLength = parseInt(headResponse.headers.get("Content-Length") || "0");
+
+    let metadata;
+
+    if (isLightweightMode) {
+      // Lightweight mode: minimal data, no download
+      showVideoProgress("Creating metadata (lightweight mode)...");
+      metadata = {
+        url,
+        type: contentType,
+        size: contentLength,
+        hash: generateRandomHash(),
+        blobHash: null,
+        isHashValid: false,
+        dimensions: "1920x1080", // Default
+        width: 1920,
+        height: 1080,
+        duration: Math.max(60, contentLength / 1000000), // Estimate
+        uploaded: Math.floor(Date.now() / 1000),
+        isLightweight: true,
+      };
+    } else {
+      // Full mode: download once and extract everything
+      const videoBlob = await fetchVideoWithProgress(url, (progress) => {
+        if (progress.indeterminate) {
+          showVideoProgress("Downloading video...", { indeterminate: true });
+        } else {
+          showVideoProgress("Downloading video...", progress);
+        }
+      });
+
+      showVideoProgress("Extracting complete metadata...");
+      
+      // Extract ALL metadata from the blob in one pass
+      const fullMetadata = await extractCompleteVideoMetadata(videoBlob, contentType, contentLength);
+      
+      // Generate and validate hash
+      showVideoProgress("Validating hash...");
+      const blobHash = await generateSHA256Hash(videoBlob);
+      const hashValidation = validateHashAgainstUrl(url, blobHash);
+      
+      metadata = {
+        url,
+        type: contentType,
+        size: contentLength,
+        hash: hashValidation.isValid ? blobHash : generateRandomHash(),
+        blobHash,
+        isHashValid: hashValidation.isValid,
+        ...fullMetadata, // Spread all extracted metadata
+        uploaded: Math.floor(Date.now() / 1000),
+        isLightweight: false,
+      };
+    }
+
+    metadata.index = metadataIndex++;
+
+    // Generate thumbnail (this is separate and won't re-download)
+    showVideoProgress("Generating thumbnail...");
+    metadata.thumbnail = await extractThumbnail(url);
+
+    window.videoMetadataList.push(metadata);
+    addVideoToUI(metadata);
+    input.value = "";
+    updateVideoCounter();
+    saveFormDataToStorage();
+    hideVideoProgress();
+  } catch (error) {
+    console.error("Error fetching video metadata:", error);
+    hideVideoProgress();
+
+    if (error.message.includes("Expected video content")) {
+      alert(`❌ ${error.message}\n\nPlease ensure the URL points to a video file.`);
+    } else {
+      alert(`Failed to fetch video metadata: ${error.message}`);
+    }
+  } finally {
+    setButtonLoading(button, false, "Add Video");
+  }
+}
+
+async function extractCompleteVideoMetadata(blob, mimeType, fileSize) {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement('video');
+    const blobUrl = URL.createObjectURL(blob);
+    
+    video.onloadedmetadata = () => {
+      const metadata = {
+        duration: video.duration,
+        width: video.videoWidth,
+        height: video.videoHeight,
+        dimensions: `${video.videoWidth}x${video.videoHeight}`,
+        aspectRatio: video.videoWidth / video.videoHeight,
+      };
+      
+      // Try to extract additional metadata if available
+      // Note: Not all browsers expose all properties
+      if (video.webkitAudioDecodedByteCount !== undefined) {
+        metadata.audioByteCount = video.webkitAudioDecodedByteCount;
+      }
+      if (video.webkitVideoDecodedByteCount !== undefined) {
+        metadata.videoByteCount = video.webkitVideoDecodedByteCount;
+      }
+      
+      // Calculate estimated bitrate
+      if (metadata.duration > 0) {
+        metadata.bitrate = Math.round((fileSize * 8) / metadata.duration); // bits per second
+      }
+      
+      URL.revokeObjectURL(blobUrl);
+      resolve(metadata);
+    };
+    
+    video.onerror = () => {
+      URL.revokeObjectURL(blobUrl);
+      reject(new Error('Failed to load video metadata'));
+    };
+    
+    video.preload = 'metadata'; // Only load metadata, not the whole video
+    video.src = blobUrl;
+  });
+}
+
 
   async function handleFileUpload(event) {
     const file = event.target.files[0];
@@ -1033,58 +1121,6 @@ thumbOption.addEventListener("click", () => {
     }
   }
 
-  // Helper functions for metadata fetching
-  async function fetchVideoMetadata(url) {
-    const response = await fetch(url, { method: "HEAD" });
-    if (!response.ok) throw new Error("Invalid URL");
-
-    const size = parseInt(response.headers.get("Content-Length") || "0");
-    const type = response.headers.get("Content-Type") || "video/mp4";
-
-    if (!type.startsWith("video/")) {
-      throw new Error(`Expected video content, but received: ${type}`);
-    }
-
-    const lightweightCheckbox = document.getElementById("lightweight-mode");
-    const isLightweightMode = lightweightCheckbox.checked;
-
-    let blobHash, isHashValid, finalHash, videoMetadata;
-
-    if (isLightweightMode) {
-      blobHash = null;
-      isHashValid = false;
-      finalHash = generateRandomHash();
-
-      videoMetadata = {
-        width: 1920,
-        height: 1080,
-        duration: Math.max(60, size / 1000000),
-      };
-    } else {
-      const fullResponse = await fetch(url);
-      const blob = await fullResponse.blob();
-
-      blobHash = await generateSHA256Hash(blob);
-      const hashValidation = validateHashAgainstUrl(url, blobHash);
-      finalHash = hashValidation.isValid ? blobHash : generateRandomHash();
-      isHashValid = hashValidation.isValid;
-
-      videoMetadata = await extractVideoMetadata(blob);
-    }
-
-    return {
-      url,
-      type,
-      size,
-      hash: finalHash,
-      blobHash,
-      isHashValid,
-      dimensions: `${videoMetadata.width}x${videoMetadata.height}`,
-      duration: videoMetadata.duration,
-      uploaded: Math.floor(Date.now() / 1000),
-      isLightweight: isLightweightMode,
-    };
-  }
 
   async function createUploadMetadata(file) {
     const hash = await generateHash(file.name + Date.now());
@@ -1200,6 +1236,7 @@ function addVideoToUI(video) {
         <p><strong>Size:</strong> <span class="video-size">${video.size > 0 ? `${(video.size / 1024 / 1024).toFixed(2)} MB` : "Unknown"}</span></p>
         <p><strong>Dimensions:</strong> <span class="video-dimensions">${video.dimensions}</span></p>
         <p><strong>Duration:</strong> <span class="video-duration">${video.duration?.toFixed(2)}s</span></p>
+        <p><strong>Bitrate:</strong> <span class="video-bitrate">${video.bitrate?.toFixed(0)}</span></p>
         <p><strong>Hash <span class="hash-status">${video.isLightweight ? "(random)" : (video.isHashValid ? "(blossom)" : "(not blossom)")}</span>:</strong> <span class="video-hash">${video.hash}</span></p>
       </div>
     </div>
@@ -1256,83 +1293,89 @@ function addVideoToUI(video) {
     });
   }
 
-  function buildK21EventData() {
-    const now = Math.floor(Date.now() / 1000);
+function buildK21EventData() {
+  const now = Math.floor(Date.now() / 1000);
 
-    const imetaTags = window.videoMetadataList.map((video) => [
+  const imetaTags = window.videoMetadataList.map((video) => {
+    const imetaTag = [
       "imeta",
-      `dim ${video.dimensions}`,
-      `size ${video.size}`,
       `url ${video.url}`,
       `x ${video.hash}`,
       `m ${video.type}`,
+      `dim ${video.dimensions}`,
+      `size ${video.size}`,
       `image ${video.thumbnail}`,
       `fallback ${video.url}`,
       `duration ${video.duration}`,
-    ]);
-
-    const customFields = Array.from(document.querySelectorAll(".custom-field"))
-      .map((field) => {
-        const name = field.querySelector(".field-name").value.trim();
-        const value = field.querySelector(".field-value").value.trim();
-        return [name, value];
-      })
-      .filter(([name, value]) => name && value);
-
-    const relayTags = Array.from(eventRelays).map((relay) => ["relay", relay]);
-
-    const tags = [
-  ["title", document.getElementById("title").value.trim()],
-  ["thumb", selectedThumbnail?.trim() || ""],
-  ["published_at", now.toString()],
-  ["alt", document.getElementById("summary").value.trim()],
-      ...imetaTags,
-      ...Array.from(selectedTags).map((tag) => ["t", tag]),
-      ...relayTags,
-      ...customFields,
     ];
-
-    // Add language if selected
-    const language = document.getElementById("language").value;
-    if (language) {
-      tags.push(["language", language]);
+    
+    // Add bitrate if available
+    if (video.bitrate) {
+      imetaTag.push(`bitrate ${video.bitrate}`);
     }
+    
+    return imetaTag;
+  });
 
-    // Add license
-    const license = document.getElementById("license").value;
-    if (license) {
-      if (license === "custom") {
-        const customLicense = document.getElementById("custom-license").value.trim();
-        if (customLicense) {
-          tags.push(["license", customLicense]);
-        }
-      } else {
-        tags.push(["license", license]);
-      }
-    }
+  const customFields = Array.from(document.querySelectorAll(".custom-field"))
+    .map((field) => {
+      const name = field.querySelector(".field-name").value.trim();
+      const value = field.querySelector(".field-value").value.trim();
+      return [name, value];
+    })
+    .filter(([name, value]) => name && value);
 
-// Add content warnings
-const warnings = Array.from(document.querySelectorAll('input[name="content-warning"]:checked'))
-  .map(cb => {
-    if (cb.value === "other") {
-      const otherInput = document.getElementById("content-warning-other-input");
-      return otherInput.value.trim();
-    }
-    return cb.value;
-  })
-  .filter(warning => warning !== ""); // Remove empty values
+  const relayTags = Array.from(eventRelays).map((relay) => ["relay", relay]);
 
-warnings.forEach(warning => {
-  tags.push(["content-warning", warning]);
-});
+  const tags = [
+    ["title", document.getElementById("title").value.trim()],
+    ["thumb", selectedThumbnail?.trim() || ""],
+    ["published_at", now.toString()],
+    ["alt", document.getElementById("summary").value.trim()],
+    ...imetaTags,
+    ...Array.from(selectedTags).map((tag) => ["t", tag]),
+    ...relayTags,
+    ...customFields,
+  ];
 
-    return {
-      kind: 21,
-      created_at: now,
-      content: document.getElementById("content").value.trim(),
-      tags,
-    };
+  const language = document.getElementById("language").value;
+  if (language) {
+    tags.push(["language", language]);
   }
+
+  const license = document.getElementById("license").value;
+  if (license) {
+    if (license === "custom") {
+      const customLicense = document.getElementById("custom-license").value.trim();
+      if (customLicense) {
+        tags.push(["license", customLicense]);
+      }
+    } else {
+      tags.push(["license", license]);
+    }
+  }
+
+  const warnings = Array.from(document.querySelectorAll('input[name="content-warning"]:checked'))
+    .map(cb => {
+      if (cb.value === "other") {
+        const otherInput = document.getElementById("content-warning-other-input");
+        return otherInput.value.trim();
+      }
+      return cb.value;
+    })
+    .filter(warning => warning !== "");
+
+  warnings.forEach(warning => {
+    tags.push(["content-warning", warning]);
+  });
+
+  return {
+    kind: 21,
+    created_at: now,
+    content: document.getElementById("content").value.trim(),
+    tags,
+  };
+}
 
   function setButtonLoading(button, isLoading, text) {
     button.disabled = isLoading;

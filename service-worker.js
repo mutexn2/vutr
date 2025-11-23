@@ -1,4 +1,4 @@
-const CACHE_VERSION = "vutr-v0.0002140023";
+const CACHE_VERSION = "vutr-v0.0002140040";
 
 const BASE_PATH = self.location.pathname.replace("service-worker.js", "");
 
@@ -62,6 +62,7 @@ const APP_SHELL_PATHS = [
   "/pages/likedPage.js",
   "/pages/kind1FollowsPage.js",
   "/pages/localFollowsPage.js",
+  "/pages/localMutedPage.js",
   "/pages/followsFeedPage.js",
   "/pages/bookmarksPage.js",
   "/pages/bookmarkedListsPage.js",

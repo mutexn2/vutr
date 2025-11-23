@@ -56,6 +56,10 @@ let app = {
       JSON.stringify(config.favoriteChannels)
   ),  
 
+  muteSet: JSON.parse(
+    localStorage.getItem("muteSet") || JSON.stringify(config.defaultMuteSet)
+  ),
+
   // home sub
   homeSubscription: null,
   homePool: null,  
@@ -155,6 +159,7 @@ let routes = {
   "#bookmarkedplaylists": bookmarkedListsPageHandler,
   "#historyplaylists": historyListsPageHandler,
   "#localfollows": localFollowsPageHandler,
+  "#localmuted": localMutedPageHandler,
   "#kind1follows": kind1FollowsPageHandler,
   "#followsfeed": followsFeedPageHandler,
   "#tag": tagPageHandler,
@@ -344,6 +349,14 @@ function initializeFirstVisit() {
         JSON.stringify(config.defaultFollowSet)
       );
     }
+
+    if (!localStorage.getItem("muteSet")) {
+      localStorage.setItem(
+        "muteSet",
+        JSON.stringify(config.defaultMuteSet)
+      );
+    }
+
 
     if (!localStorage.getItem("favoriteChannels")) {
       localStorage.setItem(

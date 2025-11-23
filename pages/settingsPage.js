@@ -87,7 +87,7 @@ async function settingsPageHandler() {
   <div class="settings-group">
     <div class="setting-item setting-toggle">
       <div class="setting-info">
-        <label for="show-content-warning-toggle">Show Content with Warnings</label>
+        <label for="show-content-warning-toggle">Show Sensitive Content</label>
         <span class="setting-description">Display videos that have content warnings</span>
       </div>
       <label class="toggle-switch">

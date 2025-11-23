@@ -24,18 +24,14 @@ async function faqPageHandler() {
 
 
     <div class="faq-item">
-      <h3>What is this?</h3>
+      <h3>What is it?</h3>
       <p>
         - A prototype video client built around <a href="https://github.com/nostr-protocol/nips/blob/master/71.md"
           target="_blank">Nostr (NIP-71)</a>.
       </p>
       <p>- Experimental project exploring nostr.</p>
-      <p>- Using nostr as the discovery/social layer for the URLs.</p>      
-      <p>- Any http file server exposing a direct media URL should work. <a href="https://github.com/hzrd149/blossom"
-          target="_blank">Blossom</a> is currently optional and not fully applied. 
-      </p>
-      <p>- Just a frontend and not running or related to any nostr relay or media server.</p>    
-      <p>- Runs fully local on device.</p>   
+
+ 
       <a href="https://github.com/mutexn2/vutr" target="_blank">Open-source</a>
     </div>
 
@@ -44,7 +40,7 @@ async function faqPageHandler() {
 
     <div class="faq-item">
       <div class="donation">
-        <p>Open-source software is built by the community, for the community.</p>
+
         <p>Your donation supports ongoing development and maintenance.</p>
         <button class="donate-btn">Donate</button>
       </div>
@@ -64,6 +60,14 @@ async function faqPageHandler() {
 
 
     <!--
+          <p>- Using nostr as the discovery/social layer for the URLs.</p>      
+      <p>- Any http file server exposing a direct media URL should work. <a href="https://github.com/hzrd149/blossom"
+          target="_blank">Blossom</a> is currently optional and not fully applied. 
+      </p>
+            <p>Open-source software is built by the community, for the community.</p>
+      <p>- Just a frontend and not running or related to any nostr relay or media server.</p>    
+      <p>- Runs fully local on device.</p>  
+
     <div class="faq-item" id="another-notice">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
         class="size-6">

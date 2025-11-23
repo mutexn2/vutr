@@ -223,6 +223,7 @@
       "pages/likedPage.js",
       "pages/kind1FollowsPage.js",
       "pages/localFollowsPage.js",
+      "pages/localMutedPage.js",
       "pages/followsFeedPage.js",
       "pages/bookmarksPage.js",
       "pages/bookmarkedListsPage.js",

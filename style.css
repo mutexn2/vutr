@@ -482,8 +482,7 @@ h1 {
 #notify-menu-btn svg,
 #colorPicker svg,
 .searchToggle svg,
-#toggleTheme svg,
-.profile-info svg {
+#toggleTheme svg {
   width: 24px;
   height: 24px;
   fill: var(--text);
@@ -493,8 +492,7 @@ h1 {
 .light-theme #notify-menu-btn svg,
 .light-theme #colorPicker svg,
 .light-theme .searchToggle svg,
-.light-theme #toggleTheme svg,
-.light-theme .profile-info svg {
+.light-theme #toggleTheme svg {
   fill: var(--primary);
   stroke: var(--text);
 }
@@ -516,7 +514,8 @@ h1 {
   stroke: var(--text);
 }
 
-.sidebar svg {
+.sidebar svg,
+.profile-info svg {
   width: 24px;
   height: 24px;
   fill: var(--background);
@@ -1914,6 +1913,10 @@ main {
   text-align: center;
   z-index: 2;
   font-weight: 500;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: end;
 }
 
 .content-warning-other-input {

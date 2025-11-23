@@ -33,6 +33,11 @@ const truncateTextForCard = (text, maxLength = 80) => {
 function createVideoCard(video) {
   if (!video || !video.id) return document.createElement('div');
   
+  // ===== CHECK IF AUTHOR IS MUTED =====
+  if (isProfileMuted(video.pubkey)) {
+    return document.createElement('div'); // Empty div, won't be displayed
+  }
+
   // ===== CHECK CONTENT WARNING SETTINGS =====
   const contentWarnings = video.tags?.filter((tag) => tag[0] === "content-warning").map((t) => t[1]) || [];
   const hasContentWarning = contentWarnings.length > 0;
@@ -284,7 +289,7 @@ function createVideoCard(video) {
   if (hasContentWarning) {
     let warningDiv = document.createElement('div');
     warningDiv.className = 'content-warning';
-    warningDiv.textContent = `⚠️ ${contentWarnings.join(', ')}`;
+    warningDiv.textContent = `⚠️`;
     metadataContainer.appendChild(warningDiv);
   }
 
@@ -444,7 +449,6 @@ function setupVideoCardMenuEvents(menuElement, video) {
     let relativeTime = getRelativeTime(video.created_at);
     let pubkey = video.pubkey;
     
-    // Call the playlist selector with the video data
     showPlaylistSelector(video, video.id, {
       title: title,
       url: url,
@@ -454,12 +458,29 @@ function setupVideoCardMenuEvents(menuElement, video) {
       pubkey: pubkey,
     });
     
-    // Close the video card menu
     videoCardMenuControls?.close();
   });
   
   menuElement.querySelector('.video-mute-user')?.addEventListener('click', () => {
     console.log('Mute User clicked for video:', video.id, 'pubkey:', video.pubkey);
+    
+    if (confirm('Are you sure you want to mute this user? Their content will be hidden from your feed.')) {
+      const success = addMutedPubkey(video.pubkey);
+      if (success) {
+        showTemporaryNotification('User muted successfully');
+        
+        // Remove the video card from the DOM
+        const videoCard = document.querySelector(`[data-video-id="${video.id}"]`);
+        if (videoCard) {
+          videoCard.style.transition = 'opacity 0.3s ease';
+          videoCard.style.opacity = '0';
+          setTimeout(() => videoCard.remove(), 300);
+        }
+      } else {
+        showTemporaryNotification('User is already muted');
+      }
+    }
+    
     videoCardMenuControls?.close();
   });
   

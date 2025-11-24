@@ -90,24 +90,27 @@ async function homePageHandler() {
       }
     });
 
-    // Function to render a single event immediately
-    function renderEventImmediately(event) {
-      const card = createVideoCard(event);
-      grid.appendChild(card);
-      
-      // Add entrance animation
-      card.style.opacity = '0';
-      card.style.transform = 'translateY(-10px)';
-      
-      requestAnimationFrame(() => {
-        card.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-        card.style.opacity = '1';
-        card.style.transform = 'translateY(0)';
-      });
-      
-      scrollState.loadedEventsCount++;
-    }
-
+function renderEventImmediately(event) {
+  // Filter before creating the card
+  if (!shouldDisplayVideo(event)) {
+    return; // Don't render, don't increment count
+  }
+  
+  const card = createVideoCard(event);
+  grid.appendChild(card);
+  
+  // Add entrance animation
+  card.style.opacity = '0';
+  card.style.transform = 'translateY(-10px)';
+  
+  requestAnimationFrame(() => {
+    card.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+    card.style.opacity = '1';
+    card.style.transform = 'translateY(0)';
+  });
+  
+  scrollState.loadedEventsCount++;
+}
     // Function to increase period size adaptively
     function increasePeriodSize() {
       if (scrollState.periodIndex < scrollState.periodSizes.length - 1) {
@@ -367,8 +370,12 @@ async function homePageHandler() {
   }
 }
 
-// Helper function to render new video at the top of the grid
 function renderNewVideoAtTop(video, grid) {
+  // Filter before creating the card
+  if (!shouldDisplayVideo(video)) {
+    return;
+  }
+  
   let card = createVideoCard(video);
   
   // Insert at the beginning of the grid
@@ -383,4 +390,22 @@ function renderNewVideoAtTop(video, grid) {
   setTimeout(() => {
     card.classList.remove("new-video");
   }, 2000);
+}
+
+function shouldDisplayVideo(event) {
+  // Check if author is muted
+  if (isProfileMuted(event.pubkey)) {
+    return false;
+  }
+  
+  // Check content warning settings
+  const contentWarnings = event.tags?.filter((tag) => tag[0] === "content-warning") || [];
+  const hasContentWarning = contentWarnings.length > 0;
+  const showContentWarning = localStorage.getItem("showContentWarning") !== "false";
+  
+  if (hasContentWarning && !showContentWarning) {
+    return false;
+  }
+  
+  return true;
 }

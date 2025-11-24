@@ -1,3 +1,54 @@
+// LocalStorage management for chat messages
+const chatStorage = {
+  STORAGE_KEY: 'nostr_chat_messages',
+  MAX_STORED_MESSAGES: 100, // Adjust as needed
+
+  // Save messages to localStorage
+  saveMessages(events) {
+    try {
+      const eventsArray = Array.from(events.values());
+      // Sort by timestamp and keep only the most recent
+      const sorted = eventsArray.sort((a, b) => b.created_at - a.created_at);
+      const toStore = sorted.slice(0, this.MAX_STORED_MESSAGES);
+      
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(toStore));
+      console.log(`Saved ${toStore.length} messages to localStorage`);
+    } catch (error) {
+      console.error('Error saving messages to localStorage:', error);
+    }
+  },
+
+  // Load messages from localStorage
+  loadMessages() {
+    try {
+      const stored = localStorage.getItem(this.STORAGE_KEY);
+      if (!stored) return [];
+      
+      const messages = JSON.parse(stored);
+      console.log(`Loaded ${messages.length} messages from localStorage`);
+      return messages;
+    } catch (error) {
+      console.error('Error loading messages from localStorage:', error);
+      return [];
+    }
+  },
+
+  // Get the timestamp of the most recent cached message
+  getLastMessageTimestamp() {
+    const messages = this.loadMessages();
+    if (messages.length === 0) return null;
+    
+    const latest = Math.max(...messages.map(m => m.created_at));
+    return latest;
+  },
+
+  // Clear stored messages (useful for debugging)
+  clearMessages() {
+    localStorage.removeItem(this.STORAGE_KEY);
+    console.log('Cleared chat messages from localStorage');
+  }
+};
+
 let newMessageCount = 0;
 // Reply state management
 let replyState = {
@@ -425,75 +476,120 @@ async function contactPageHandler() {
     clearReplyState();
   });
 
-  try {
-    app.chatPool = new window.NostrTools.SimplePool();
-    const existingEvents = new Set();
-    let isInitialLoad = true;
-    let initialLoadCount = 0;
+try {
+  app.chatPool = new window.NostrTools.SimplePool();
+  const existingEvents = new Set();
+  let isInitialLoad = true;
+  let initialLoadCount = 0;
 
-    app.chatSubscription = app.chatPool.subscribe(
-      app.chatRelays,
-      {
-        kinds: [42],
-        limit: 21,
-        "#e": [
-          "39c44dcdd67271483f1c5217bcfd214c8c34980fa55f0f6b834a3e253e296c15",
-        ],
-      },
-      {
-        onevent(event) {
-          console.log("got event:", event);
+  // STEP 1: Load cached messages from localStorage
+  const cachedMessages = chatStorage.loadMessages();
+  if (cachedMessages.length > 0) {
+    console.log(`Rendering ${cachedMessages.length} cached messages...`);
+    
+    cachedMessages.forEach(event => {
+      if (!existingEvents.has(event.id)) {
+        existingEvents.add(event.id);
+        eventManager.processEvent(event);
+        
+        const meetsPow = eventMeetsPowRequirement(event);
+        if (meetsPow) {
+          initialLoadCount++;
+          setTimeout(() => renderInitialEvent(event, messagesContainer), 0);
+        }
+      }
+    });
 
-          if (existingEvents.has(event.id)) {
-            return;
-          }
-          existingEvents.add(event.id);
+    // Hide loading indicator and scroll after cached messages are rendered
+    setTimeout(() => {
+      hideLoadingIndicator();
+      scrollToBottom(false);
+    }, 100);
+  }
 
-          // Process through event manager
-          eventManager.processEvent(event);
+  // STEP 2: Determine the timestamp to start fetching from
+  const lastCachedTimestamp = chatStorage.getLastMessageTimestamp();
+  const fetchSince = lastCachedTimestamp 
+    ? lastCachedTimestamp - 300 // Start 5 minutes before last cached message for safety
+    : undefined; // If no cache, fetch normally with limit
 
-          // Check PoW requirement (silently filter)
-          const meetsPow = eventMeetsPowRequirement(event);
-          
-          if (meetsPow) {
-            if (isInitialLoad) {
-              initialLoadCount++;
-              setTimeout(() => renderInitialEvent(event, messagesContainer), 0);
-            } else {
-              appendNewMessage(event, messagesContainer);
-            }
+  // STEP 3: Subscribe to new messages from relays
+  const subscriptionFilter = {
+    kinds: [42],
+    "#e": ["39c44dcdd67271483f1c5217bcfd214c8c34980fa55f0f6b834a3e253e296c15"],
+  };
+
+  // If we have cached messages, fetch only newer ones
+  if (fetchSince) {
+    subscriptionFilter.since = fetchSince;
+    console.log(`Fetching messages since ${new Date(fetchSince * 1000).toISOString()}`);
+  } else {
+    // No cache, fetch with limit as before
+    subscriptionFilter.limit = 21;
+    console.log('No cached messages, fetching recent messages with limit');
+  }
+
+  app.chatSubscription = app.chatPool.subscribe(
+    app.chatRelays,
+    subscriptionFilter,
+    {
+      onevent(event) {
+        console.log("got event:", event);
+
+        if (existingEvents.has(event.id)) {
+          return;
+        }
+        existingEvents.add(event.id);
+
+        // Process through event manager
+        eventManager.processEvent(event);
+
+        // Check PoW requirement
+        const meetsPow = eventMeetsPowRequirement(event);
+        
+        if (meetsPow) {
+          if (isInitialLoad) {
+            initialLoadCount++;
+            setTimeout(() => renderInitialEvent(event, messagesContainer), 0);
           } else {
-            // Silently ignore messages that don't meet PoW requirement
-            const eventPow = getEventPow(event);
-            console.log(`Filtered out event with PoW ${eventPow} (required: ${POW_DIFFICULTY})`);
+            appendNewMessage(event, messagesContainer);
           }
-        },
+        } else {
+          const eventPow = getEventPow(event);
+          console.log(`Filtered out event with PoW ${eventPow} (required: ${POW_DIFFICULTY})`);
+        }
+      },
 
-        oneose() {
-          console.log(
-            "End of stored events reached, got",
-            initialLoadCount,
-            "events"
-          );
-          isInitialLoad = false;
+      oneose() {
+        console.log("End of stored events reached, got", initialLoadCount, "events");
+        isInitialLoad = false;
+        
+        // Only hide loading if we didn't have cache (otherwise already hidden)
+        if (cachedMessages.length === 0) {
           hideLoadingIndicator();
           setTimeout(() => scrollToBottom(false), 100);
+        }
 
-          setTimeout(() => {
-            autoFetchMissingReferences();
-            setTimeout(() => scrollToBottom(false), 300); 
-          }, 500);
-        },
+        // Save current messages to localStorage
+        chatStorage.saveMessages(eventManager.allEvents);
 
-        onclose() {
-          console.log("Chat subscription closed");
-        },
-      }
-    );
-  } catch (error) {
-    console.error("Error setting up chat:", error);
-    showError(error);
-  }
+        setTimeout(() => {
+          autoFetchMissingReferences();
+          setTimeout(() => scrollToBottom(false), 300);
+        }, 500);
+      },
+
+      onclose() {
+        console.log("Chat subscription closed");
+        // Save messages one last time when subscription closes
+        chatStorage.saveMessages(eventManager.allEvents);
+      },
+    }
+  );
+} catch (error) {
+  console.error("Error setting up chat:", error);
+  showError(error);
+}
 }
 
 function renderInitialEvent(event, container) {
@@ -507,14 +603,17 @@ function appendNewMessage(event, container) {
   const messageElement = createMessageElement(event);
   container.appendChild(messageElement);
 
+  // Save to localStorage when new message arrives
+  chatStorage.saveMessages(eventManager.allEvents);
+
   requestAnimationFrame(() => {
     if (wasAtBottom) {
       setTimeout(() => {
         container.scrollTop = container.scrollHeight;
       }, 300);
     } else {
-      newMessageCount++; // Increment counter
-      showNewMessageIndicator(newMessageCount); // Pass count to function
+      newMessageCount++;
+      showNewMessageIndicator(newMessageCount);
     }
   });
 }
@@ -1187,7 +1286,6 @@ async function handleLikeWithUI(event, likeButton, likeCountSpan) {
 function handleZap(event) {
   console.log("Zap event:", event.id);
   console.log("Would initiate Lightning Network payment flow");
-  console.log("Would create kind 9734 zap request");
 }
 
 ///////////////////////////////

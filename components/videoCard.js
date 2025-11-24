@@ -33,10 +33,6 @@ const truncateTextForCard = (text, maxLength = 80) => {
 function createVideoCard(video) {
   if (!video || !video.id) return document.createElement('div');
   
-  // ===== CHECK IF AUTHOR IS MUTED =====
-  if (isProfileMuted(video.pubkey)) {
-    return document.createElement('div'); // Empty div, won't be displayed
-  }
 
   // ===== CHECK CONTENT WARNING SETTINGS =====
   const contentWarnings = video.tags?.filter((tag) => tag[0] === "content-warning").map((t) => t[1]) || [];
@@ -163,7 +159,7 @@ function createVideoCard(video) {
   let card = document.createElement('div');
   card.className = 'video-card';
   card.dataset.videoId = video.id;
-  
+  card.dataset.pubkey = video.pubkey; 
   card.innerHTML = `
     <div class="metadata">
        ${bottomRightHTML}
@@ -461,28 +457,31 @@ function setupVideoCardMenuEvents(menuElement, video) {
     videoCardMenuControls?.close();
   });
   
-  menuElement.querySelector('.video-mute-user')?.addEventListener('click', () => {
-    console.log('Mute User clicked for video:', video.id, 'pubkey:', video.pubkey);
-    
-    if (confirm('Are you sure you want to mute this user? Their content will be hidden from your feed.')) {
-      const success = addMutedPubkey(video.pubkey);
-      if (success) {
-        showTemporaryNotification('User muted successfully');
-        
-        // Remove the video card from the DOM
-        const videoCard = document.querySelector(`[data-video-id="${video.id}"]`);
-        if (videoCard) {
-          videoCard.style.transition = 'opacity 0.3s ease';
-          videoCard.style.opacity = '0';
-          setTimeout(() => videoCard.remove(), 300);
+menuElement.querySelector('.video-mute-user')?.addEventListener('click', () => {
+  console.log('Mute User clicked for video:', video.id, 'pubkey:', video.pubkey);
+  
+  if (confirm('Are you sure you want to mute this user? Their content will be hidden from your feed.')) {
+    const success = addMutedPubkey(video.pubkey);
+    if (success) {
+      showTemporaryNotification('User muted successfully');
+      
+      // Remove ALL video cards from this author
+      const authorCards = document.querySelectorAll('.video-card');
+      authorCards.forEach(card => {
+        const cardVideoId = card.dataset.videoId;
+        if (card.dataset.pubkey === video.pubkey) {
+          card.style.transition = 'opacity 0.3s ease';
+          card.style.opacity = '0';
+          setTimeout(() => card.remove(), 300);
         }
-      } else {
-        showTemporaryNotification('User is already muted');
-      }
+      });
+    } else {
+      showTemporaryNotification('User is already muted');
     }
-    
-    videoCardMenuControls?.close();
-  });
+  }
+  
+  videoCardMenuControls?.close();
+});
   
   menuElement.querySelector('.video-report')?.addEventListener('click', () => {
     console.log('Report clicked for video:', video.id);

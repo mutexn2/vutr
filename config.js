@@ -127,7 +127,7 @@ let config = {
         ["title", "curated content"],
         [
           "image",
-          "https://cdn.nostrcheck.me/2bde9958f6a4cf1273f8f6a60ad444b0fa438428e6d2a20213b791c92c166b39.png",
+          "https://nostpic.com/media/df17934d47fbf9b26c360708f6413204e2a68bd9cc4057fc8c12eccfc59d7313/a82cbba16d74b6b64ff24c675abebed834b912e5e2b102ff2bf585c239482a78.webp",
         ],
         ["description", "some curated videos."],
 
@@ -159,6 +159,24 @@ let config = {
       content: "",
       sig: "local",
     },
+    {
+      id: "d3df7c57daadc758c4216f25f8d3df7c57daad7ae757fa4606f0c39d4dd220ef",
+      pubkey: "local",
+      created_at: 1695329657,
+      kind: 30005,
+      tags: [
+        ["d", "vutr-watch-later"],
+        ["title", "Watch later"],
+        [
+          "image",
+          "https://nostpic.com/media/df17934d47fbf9b26c360708f6413204e2a68bd9cc4057fc8c12eccfc59d7313/a82cbba16d74b6b64ff24c675abebed834b912e5e2b102ff2bf585c239482a78.webp",
+        ],
+        ["description", "some videos."],
+
+      ],
+      content: "",
+      sig: "local",
+    },    
   ],
 
   defaultBookmarkedPlaylists: [],

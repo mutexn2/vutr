@@ -1,11 +1,10 @@
-> NOTE: This client is still in development and will have bugs
-
 # Vutr
 
 Video URLs Transmitted by Relays.
 
 A prototype video client built around [Nostr (NIP-71)](https://github.com/nostr-protocol/nips/blob/master/71.md) for decentralized video discovery and playback.
 
+[Live instance](https://vutr.space)
 
 ## ⚠️ Security Notice
 
@@ -14,12 +13,10 @@ A prototype video client built around [Nostr (NIP-71)](https://github.com/nostr-
 ## Features
 
 - Uses Nostr protocol as the social/discovery layer
-- Compatible (mostly) with any file server ([Blossom](https://github.com/hzrd149/blossom) optional)
+- Any service exposing direct media file URLs should work
+- [Blossom](https://github.com/hzrd149/blossom) (optional)
+- Just a frontend and Not affiliated with any nostr relay or media server
 - Runs fully locally on your device
-- Just a frontend and Not affiliated with any relay or media server
-
-
-
 
 ## Technology
 
@@ -29,7 +26,7 @@ A prototype video client built around [Nostr (NIP-71)](https://github.com/nostr-
 - PWA
 
 ## Running locally
-clone repo
+
 ```bash
 cd vutr
 ./run.sh

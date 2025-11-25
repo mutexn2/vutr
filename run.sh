@@ -72,8 +72,8 @@ start_file_watcher() {
         inotifywait -e close_write -r . --exclude="$SERVICE_WORKER_FILE|.git/" -q
         echo -e "${YELLOW}File change detected → updating version...${NC}"
         update_version
-        echo "Refresh the app"
-        echo "http://localhost:8081"
+        echo -e "${YELLOW}http://localhost:8081${NC}"
+        echo -e "${BLUE}Refresh the app${NC}"
     done
 }
 

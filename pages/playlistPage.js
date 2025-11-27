@@ -2,7 +2,6 @@ async function playlistPageHandler() {
   const urlParts = window.location.hash.split("/");
   const playlistPath = urlParts[1] || "";
   
-  // Split the path to separate the base path from query parameters
   const [basePath, queryString] = playlistPath.split("?");
   
   if (!basePath) {
@@ -13,7 +12,6 @@ async function playlistPageHandler() {
   showPlaylistLoadingState();
   
   try {
-    // Parse and validate specific parameters
     const { discovery, author, dtag, error } = parsePlaylistParams(queryString);
     
     if (error) {
@@ -22,62 +20,44 @@ async function playlistPageHandler() {
     
     console.log("Playlist params:", { author, dtag, discovery });
     
-    // Query for the playlist event - only using author and dtag
-    let playlistResult = null;
+    // Get extended relays for the author (similar to profile page)
+    const extendedRelays = await getExtendedRelaysForProfile(author);
+    const allRelays = [...new Set([...app.globalRelays, ...extendedRelays])];
     
-    // Step 1: Try app.relays + discovery relays (if provided)
-    const primaryRelays = getPrimaryRelays(discovery);
-    console.log("Searching primary relays:", primaryRelays);
+    console.log(`Searching for playlist across ${allRelays.length} relays`);
     
-    playlistResult = await NostrClient.getEventsFromRelays(primaryRelays, {
-      kinds: [30005],
-      authors: [author],
-      tags: { d: [dtag] },
-      limit: 1,
-    });
+    // Initialize pool and subscription tracking
+    app.playlistPool = new window.NostrTools.SimplePool();
     
-    // Step 2: If not found, try extended search with user's relays + global relays
-    if (!playlistResult || (Array.isArray(playlistResult) && playlistResult.length === 0)) {
-      console.log("Playlist not found in primary relays, trying extended search...");
+    // Register cleanup
+    const cleanup = () => {
+      console.log("Cleaning up playlist resources");
       
-      const extendedRelays = await getExtendedRelaysForProfile(author);
-      const allExtendedRelays = [...new Set([...extendedRelays, ...app.globalRelays])];
+      if (app.playlistSubscription) {
+        app.playlistSubscription.close();
+        app.playlistSubscription = null;
+      }
       
-      console.log("Searching extended relays:", allExtendedRelays);
+      if (app.playlistPool) {
+        app.playlistPool.close(allRelays);
+        app.playlistPool = null;
+      }
       
-      playlistResult = await NostrClient.getEventsFromRelays(allExtendedRelays, {
-        kinds: [30005],
-        authors: [author],
-        tags: { d: [dtag] },
-        limit: 1,
-      });
-    }
+      if (app.playlistVideoSubscription) {
+        app.playlistVideoSubscription.close();
+        app.playlistVideoSubscription = null;
+      }
+      
+      if (app.playlistVideoPool) {
+        app.playlistVideoPool.close(allRelays);
+        app.playlistVideoPool = null;
+      }
+    };
     
-    if (playlistResult && (Array.isArray(playlistResult) ? playlistResult.length > 0 : true)) {
-      console.log("Playlist found:", JSON.stringify(playlistResult, null, 2));
-      
-      const playlist = Array.isArray(playlistResult) ? playlistResult[0] : playlistResult;
-      
-      const sanitizedPlaylist = sanitizeNostrEvent(playlist);
-      const videoTags = filterValidVideoTags(sanitizedPlaylist.tags);
-      
-      // Fetch video events
-      const videoEvents = await fetchVideoEvents(videoTags);
-      
-      // Cache the video events
-      const playlistId = `${author}:${dtag}`;
-      app.playlistVideoCache = {
-        videos: videoEvents,
-        playlistId: playlistId
-      };
-      
-      renderNetworkPlaylist(sanitizedPlaylist, videoEvents, playlistId);
-      setupNetworkPlaylistEventListeners(sanitizedPlaylist, videoEvents);
-      
-    } else {
-      console.log("Playlist not found after extended search");
-      showPlaylistNotFound();
-    }
+    registerCleanup(cleanup);
+    
+    // Load playlist with real-time updates
+    await loadPlaylistWithUpdates(author, dtag, allRelays);
     
   } catch (error) {
     console.error("Error rendering playlist page:", error);
@@ -85,6 +65,403 @@ async function playlistPageHandler() {
   }
 }
 
+
+async function loadPlaylistWithUpdates(author, dtag, allRelays) {
+  let latestPlaylist = null;
+  let latestTimestamp = 0;
+  const playlistId = `${author}:${dtag}`;
+  
+  return new Promise((resolve) => {
+    let isInitialLoadComplete = false;
+    
+    const filter = {
+      kinds: [30005],
+      authors: [author],
+      "#d": [dtag],
+    };
+    
+    const sub = app.playlistPool.subscribeMany(
+      allRelays,
+      [filter],
+      {
+        onevent(event) {
+          const sanitizedEvent = sanitizeNostrEvent(event);
+          if (!sanitizedEvent) return;
+          
+          if (sanitizedEvent.created_at > latestTimestamp) {
+            latestTimestamp = sanitizedEvent.created_at;
+            latestPlaylist = sanitizedEvent;
+            
+            console.log("Found playlist version:", {
+              created_at: sanitizedEvent.created_at,
+              id: sanitizedEvent.id
+            });
+            
+            if (isInitialLoadComplete) {
+              console.log("🔥 Received newer playlist version in real-time!");
+              renderPlaylistUpdate(sanitizedEvent, playlistId);
+            }
+          }
+        },
+        
+        oneose() {
+          console.log("Initial playlist search complete");
+          
+          if (latestPlaylist) {
+            renderPlaylistWithPlaceholders(latestPlaylist, playlistId, allRelays);
+            isInitialLoadComplete = true;
+            resolve(latestPlaylist);
+          } else {
+            console.log("Playlist not found");
+            showPlaylistNotFound();
+            resolve(null);
+          }
+        }
+      }
+    );
+    
+    app.playlistSubscription = sub;
+    
+    setTimeout(() => {
+      if (!isInitialLoadComplete) {
+        if (latestPlaylist) {
+          renderPlaylistWithPlaceholders(latestPlaylist, playlistId, allRelays);
+          isInitialLoadComplete = true;
+          resolve(latestPlaylist);
+        } else {
+          showPlaylistNotFound();
+          resolve(null);
+        }
+      }
+    }, 10000);
+  });
+}
+
+async function renderPlaylistWithPlaceholders(playlist, playlistId, allRelays) {
+  const videoTags = filterValidVideoTags(playlist.tags);
+  const videoIds = videoTags.map(tag => tag[1]);
+  
+  // Extract relay hints from playlist
+  const playlistRelayHints = extractRelayHintsFromPlaylist(playlist.tags);
+  
+  // Combine all relays: global + author's + playlist hints
+  const combinedRelays = [...new Set([...allRelays, ...playlistRelayHints])];
+  
+  console.log(`Using ${combinedRelays.length} relays (${allRelays.length} base + ${playlistRelayHints.length} from playlist)`);
+  
+  // Create placeholder events
+  const placeholderEvents = videoIds.map(id => createPlaceholderVideo(id));
+  
+  // Initialize cache with placeholders
+  app.playlistVideoCache = {
+    videos: placeholderEvents,
+    playlistId: playlistId,
+    timestamp: Date.now()
+  };
+  
+  // Render immediately with placeholders
+  renderNetworkPlaylist(playlist, placeholderEvents, playlistId);
+  setupNetworkPlaylistEventListeners(playlist, placeholderEvents);
+  
+  // Now fetch real video data progressively with combined relays
+  await fetchVideoEventsProgressively(videoIds, combinedRelays, playlistId);
+}
+
+async function fetchVideoEventsProgressively(videoIds, allRelays, playlistId) {
+  if (videoIds.length === 0) return;
+  
+  const videoMap = new Map();
+  
+  const filter = {
+    kinds: [21, 22],
+    ids: videoIds
+  };
+  
+  const pool = new window.NostrTools.SimplePool();
+  
+  const sub = pool.subscribeMany(
+    allRelays,
+    [filter],
+    {
+      onevent(event) {
+        const sanitizedEvent = sanitizeNostrEvent(event);
+        if (!sanitizedEvent || videoMap.has(sanitizedEvent.id)) return;
+        
+        videoMap.set(sanitizedEvent.id, sanitizedEvent);
+        
+        console.log("📹 Received video event:", sanitizedEvent.id);
+        
+        // Update cache
+        const existingCache = app.playlistVideoCache;
+        if (existingCache && existingCache.playlistId === playlistId) {
+          const videoIndex = existingCache.videos.findIndex(v => v.id === sanitizedEvent.id);
+          if (videoIndex !== -1) {
+            existingCache.videos[videoIndex] = sanitizedEvent;
+          }
+        }
+        
+        // Update UI immediately
+        updateVideoCardInPlaylist(sanitizedEvent);
+      },
+      
+      oneose() {
+        console.log(`Video fetch complete: ${videoMap.size}/${videoIds.length} found`);
+      }
+    }
+  );
+  
+  // Store for cleanup
+  app.playlistVideoSubscription = sub;
+  app.playlistVideoPool = pool;
+}
+
+
+async function renderPlaylist(playlist, playlistId) {
+  const videoTags = filterValidVideoTags(playlist.tags);
+  
+  // Fetch video events using the same relay strategy
+  const author = playlist.pubkey;
+  const extendedRelays = await getExtendedRelaysForProfile(author);
+  const allRelays = [...new Set([...app.globalRelays, ...extendedRelays])];
+  
+  const videoEvents = await fetchVideoEventsOptimized(videoTags, allRelays);
+  
+  // Cache the video events
+  app.playlistVideoCache = {
+    videos: videoEvents,
+    playlistId: playlistId,
+    timestamp: Date.now()
+  };
+  
+  renderNetworkPlaylist(playlist, videoEvents, playlistId);
+  setupNetworkPlaylistEventListeners(playlist, videoEvents);
+  
+  // Subscribe to video updates
+  subscribeToVideoUpdates(videoTags, allRelays, playlistId);
+}
+
+async function renderPlaylistUpdate(playlist, playlistId) {
+  console.log("Rendering updated playlist version");
+  showTemporaryNotification("📝 Playlist updated by creator");
+  
+  const videoTags = filterValidVideoTags(playlist.tags);
+  const videoIds = videoTags.map(tag => tag[1]);
+  
+  // Get extended relays again
+  const extendedRelays = await getExtendedRelaysForProfile(playlist.pubkey);
+  
+  // Extract relay hints from updated playlist
+  const playlistRelayHints = extractRelayHintsFromPlaylist(playlist.tags);
+  
+  // Combine all relays
+  const allRelays = [...new Set([...app.globalRelays, ...extendedRelays, ...playlistRelayHints])];
+  
+  console.log(`Using ${allRelays.length} relays for update (including ${playlistRelayHints.length} from playlist)`);
+  
+  // Create placeholders for new structure
+  const placeholderEvents = videoIds.map(id => {
+    // Check if we already have this video in cache
+    const cached = app.playlistVideoCache?.videos?.find(v => v.id === id);
+    return cached && !cached.isPlaceholder ? cached : createPlaceholderVideo(id);
+  });
+  
+  // Update cache
+  app.playlistVideoCache = {
+    videos: placeholderEvents,
+    playlistId: playlistId,
+    timestamp: Date.now()
+  };
+  
+  // Re-render
+  renderNetworkPlaylist(playlist, placeholderEvents, playlistId);
+  setupNetworkPlaylistEventListeners(playlist, placeholderEvents);
+  
+  // Fetch any missing videos
+  const missingVideoIds = placeholderEvents
+    .filter(v => v.isPlaceholder)
+    .map(v => v.id);
+  
+  if (missingVideoIds.length > 0) {
+    await fetchVideoEventsProgressively(missingVideoIds, allRelays, playlistId);
+  }
+}
+
+async function fetchVideoEventsOptimized(videoTags, allRelays) {
+  if (videoTags.length === 0) return [];
+  
+  const videoIds = videoTags.map(tag => tag[1]);
+  const videoMap = new Map();
+  
+  return new Promise((resolve) => {
+    let isComplete = false;
+    
+    // Fixed filter format
+    const filter = {
+      kinds: [21, 22],
+      ids: videoIds
+    };
+    
+    const pool = new window.NostrTools.SimplePool();
+    
+    const sub = pool.subscribeMany(
+      allRelays,
+      [filter],  // Array of filters
+      {
+        onevent(event) {
+          const sanitizedEvent = sanitizeNostrEvent(event);
+          if (sanitizedEvent && !videoMap.has(sanitizedEvent.id)) {
+            videoMap.set(sanitizedEvent.id, sanitizedEvent);
+          }
+        },
+        
+        oneose() {
+          if (!isComplete) {
+            isComplete = true;
+            sub.close();
+            pool.close(allRelays);
+            
+            // Return videos in original order, with placeholders for missing ones
+            const orderedVideos = videoIds.map(id => {
+              if (videoMap.has(id)) {
+                return videoMap.get(id);
+              } else {
+                return createPlaceholderVideo(id);
+              }
+            });
+            
+            resolve(orderedVideos);
+          }
+        }
+      }
+    );
+    
+    // Timeout after 8 seconds
+    setTimeout(() => {
+      if (!isComplete) {
+        isComplete = true;
+        sub.close();
+        pool.close(allRelays);
+        
+        const orderedVideos = videoIds.map(id => 
+          videoMap.has(id) ? videoMap.get(id) : createPlaceholderVideo(id)
+        );
+        
+        resolve(orderedVideos);
+      }
+    }, 8000);
+  });
+}
+
+function subscribeToVideoUpdates(videoTags, allRelays, playlistId) {
+  if (videoTags.length === 0) return;
+  
+  const videoIds = videoTags.map(tag => tag[1]);
+  
+  // Fixed filter format
+  const filter = {
+    kinds: [21, 22],
+    ids: videoIds
+  };
+  
+  const pool = new window.NostrTools.SimplePool();
+  
+  const sub = pool.subscribeMany(
+    allRelays,
+    [filter],  // Array of filters
+    {
+      onevent(event) {
+        const sanitizedEvent = sanitizeNostrEvent(event);
+        if (!sanitizedEvent) return;
+        
+        // Check if this is a new/updated video
+        const existingCache = app.playlistVideoCache;
+        if (existingCache && existingCache.playlistId === playlistId) {
+          const existingVideo = existingCache.videos.find(v => v.id === sanitizedEvent.id);
+          
+          if (!existingVideo || existingVideo.isPlaceholder) {
+            console.log("🎬 Received video data:", sanitizedEvent.id);
+            
+            // Update cache
+            const videoIndex = existingCache.videos.findIndex(v => v.id === sanitizedEvent.id);
+            if (videoIndex !== -1) {
+              existingCache.videos[videoIndex] = sanitizedEvent;
+            }
+            
+            // Update UI
+            updateVideoCardInPlaylist(sanitizedEvent);
+          }
+        }
+      }
+    }
+  );
+  
+  // Store for cleanup
+  app.playlistVideoSubscription = sub;
+  app.playlistVideoPool = pool;
+  
+  // Add to cleanup
+  registerCleanup(() => {
+    if (app.playlistVideoSubscription) {
+      app.playlistVideoSubscription.close();
+      app.playlistVideoSubscription = null;
+    }
+    if (app.playlistVideoPool) {
+      app.playlistVideoPool.close(allRelays);
+      app.playlistVideoPool = null;
+    }
+  });
+}
+function updateVideoCardInPlaylist(videoEvent) {
+  const videoCard = document.querySelector(`[data-video-id="${videoEvent.id}"]`);
+  if (!videoCard) return;
+  
+  // Remove placeholder class
+  videoCard.classList.remove('placeholder-video');
+  
+  // Get the index from the card
+  const index = parseInt(videoCard.dataset.index);
+  
+  // Recreate the entire card content (but NOT the wrapper itself)
+  videoCard.innerHTML = `
+    ${renderVideoThumbnail(videoEvent)}
+    ${renderVideoDetails(videoEvent, index + 1)}
+  `;
+  
+  // Add update animation
+  videoCard.classList.add('video-updated');
+  setTimeout(() => {
+    videoCard.classList.remove('video-updated');
+  }, 1000);
+  
+  // The click listener is still attached to the parent card element
+  // so we don't need to re-attach it - it survives the innerHTML update
+}
+function createPlaceholderVideo(videoId) {
+  return {
+    id: videoId,
+    kind: 21,
+    pubkey: '',
+    created_at: 0,
+    content: '',
+    tags: [
+      ['title', 'Loading...'],
+    ],
+    sig: '',
+    isPlaceholder: true
+  };
+}
+
+
+// Helper functions for rendering
+function createVideoThumbnailElement(event) {
+  // Your existing thumbnail rendering logic
+  return renderVideoThumbnail(event);
+}
+
+function createVideoDetailsElement(event, index) {
+  // Your existing details rendering logic
+  return renderVideoDetails(event, index);
+}
 // Helper function to get primary relays (app.relays + discovery)
 function getPrimaryRelays(discoveryRelays) {
   const appRelays = (app.relays || []).map(cleanRelayUrl);
@@ -262,11 +639,11 @@ function setupNetworkPlaylistEventListeners(playlist, cachedVideoEvents = null) 
   const author = playlist.pubkey;
   const playlistId = `${author}:${dTag}`;
   
-  // Play All button
-  const playAllBtn = document.querySelector('.play-all-btn');
+// Play All button
+const playAllBtn = document.querySelector('.play-all-btn');
 if (playAllBtn) {
   playAllBtn.addEventListener('click', async () => {
-    const firstVideo = document.querySelector('.network-playlist-video');
+    const firstVideo = document.querySelector('.network-playlist-video:not(.placeholder-video)');
     if (firstVideo) {
       // Use cached video events or fetch if needed
       let videoEvents = cachedVideoEvents;
@@ -277,7 +654,7 @@ if (playAllBtn) {
       
       if (!videoEvents) {
         const videoTags = filterValidVideoTags(playlist.tags);
-        videoEvents = await fetchVideoEvents(videoTags);
+        videoEvents = await fetchVideoEvents(videoTags, playlist);
       }
       
       // Check for non-whitelisted domains
@@ -288,42 +665,71 @@ if (playAllBtn) {
       }
       
       const videoId = firstVideo.dataset.videoId;
-      window.location.hash = `#watch/params?v=${videoId}&listp=${author}&listd=${dTag}`;
+      
+      // Get relay hint for the first video
+      const relayHint = getRelayHintForVideo(playlist.tags, videoId);
+      
+      // Build URL with discovery parameter if relay hint exists
+      let watchUrl = `#watch/params?v=${videoId}&listp=${author}&listd=${dTag}`;
+      if (relayHint) {
+        watchUrl += `&discovery=${encodeURIComponent(relayHint)}`;
+        console.log(`Adding relay hint for first video ${videoId}: ${relayHint}`);
+      }
+      
+      window.location.hash = watchUrl;
     }
   });
 }
-
   
-  // Make entire video item clickable WITH playlist params
+// Make entire video item clickable WITH playlist params
 document.querySelectorAll('.network-playlist-video').forEach(item => {
-  if (!item.classList.contains('placeholder-video')) {
-    item.addEventListener('click', async (e) => {
-      // Use cached video events or fetch if needed
-      let videoEvents = cachedVideoEvents;
-      
-      if (!videoEvents && app.playlistVideoCache.playlistId === playlistId) {
-        videoEvents = app.playlistVideoCache.videos;
-      }
-      
-      if (!videoEvents) {
-        const videoTags = filterValidVideoTags(playlist.tags);
-        videoEvents = await fetchVideoEvents(videoTags);
-      }
-      
-      // Check for non-whitelisted domains
-      const nonWhitelistedDomains = await checkPlaylistDomains(videoEvents);
-      
-      if (nonWhitelistedDomains.length > 0) {
-        await promptWhitelistDomains(nonWhitelistedDomains);
-      }
-      
-      const videoId = item.dataset.videoId;
-      window.location.hash = `#watch/params?v=${videoId}&listp=${author}&listd=${dTag}`;
-    });
-    item.style.cursor = 'pointer';
-  }
+  item.addEventListener('click', async (e) => {
+    // Skip if placeholder
+    if (item.classList.contains('placeholder-video')) {
+      return;
+    }
+    
+    // Don't trigger if clicking on action buttons
+    if (e.target.closest('button')) {
+      return;
+    }
+    
+    // Use cached video events or fetch if needed
+    let videoEvents = cachedVideoEvents;
+    
+    if (!videoEvents && app.playlistVideoCache.playlistId === playlistId) {
+      videoEvents = app.playlistVideoCache.videos;
+    }
+    
+    if (!videoEvents) {
+      const videoTags = filterValidVideoTags(playlist.tags);
+      videoEvents = await fetchVideoEvents(videoTags, playlist);
+    }
+    
+    // Check for non-whitelisted domains
+    const nonWhitelistedDomains = await checkPlaylistDomains(videoEvents);
+    
+    if (nonWhitelistedDomains.length > 0) {
+      await promptWhitelistDomains(nonWhitelistedDomains);
+    }
+    
+    const videoId = item.dataset.videoId;
+    
+    // Get relay hint for this specific video
+    const relayHint = getRelayHintForVideo(playlist.tags, videoId);
+    
+    // Build URL with discovery parameter if relay hint exists
+    let watchUrl = `#watch/params?v=${videoId}&listp=${author}&listd=${dTag}`;
+    if (relayHint) {
+      watchUrl += `&discovery=${encodeURIComponent(relayHint)}`;
+      console.log(`Adding relay hint for video ${videoId}: ${relayHint}`);
+    }
+    
+    window.location.hash = watchUrl;
+  });
+  
+  item.style.cursor = 'pointer';
 });
-
 const bookmarkBtn = document.querySelector(".bookmark-playlist-btn");
 if (bookmarkBtn) {
   bookmarkBtn.addEventListener("click", async () => {
@@ -559,4 +965,53 @@ async function promptWhitelistDomains(domains) {
   }
   
   return userConfirmed;
+}
+
+
+/////////
+/**
+ * Extract relay hints from playlist e-tags
+ * @param {Array} tags - Playlist tags array
+ * @returns {Array} - Array of unique relay URLs
+ */
+function extractRelayHintsFromPlaylist(tags) {
+  if (!tags || !Array.isArray(tags)) return [];
+  
+  const relayHints = new Set();
+  
+  tags.forEach(tag => {
+    // e-tags can have relay hints as third element: ["e", "event-id", "relay-url"]
+    if (tag[0] === "e" && tag[2]) {
+      const relayUrl = cleanRelayUrl(tag[2]);
+      if (relayUrl) {
+        relayHints.add(relayUrl);
+      }
+    }
+  });
+  
+  const hints = Array.from(relayHints);
+  if (hints.length > 0) {
+    console.log(`📡 Found ${hints.length} relay hints in playlist:`, hints);
+  }
+  
+  return hints;
+}
+
+
+
+
+/**
+ * Get the relay hint for a specific video ID from playlist tags
+ * @param {Array} playlistTags - The playlist's tags array
+ * @param {string} videoId - The video event ID
+ * @returns {string|null} - The relay URL or null if not found
+ */
+function getRelayHintForVideo(playlistTags, videoId) {
+  if (!playlistTags || !Array.isArray(playlistTags)) return null;
+  
+  const eTag = playlistTags.find(tag => 
+    tag[0] === "e" && tag[1] === videoId && tag[2]
+  );
+  
+  return eTag ? eTag[2] : null;
 }

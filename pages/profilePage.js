@@ -14,7 +14,6 @@ async function profilePageHandler() {
   let profilePageContainer = document.getElementById("profilePage-container");
 
   try {
-
     const profileParam = window.location.hash.split("/")[1];
 
     if (!profileParam) {
@@ -25,13 +24,13 @@ async function profilePageHandler() {
     const profile = await decodeProfileParam(profileParam);
 
     if (!profile) {
-        profilePageContainer.innerHTML = `
-    <div class="error-container">
-      <h1>Invalid Profile</h1>
-      <p>The profile ID you're trying to view is invalid or couldn't be decoded.</p>
-      <a href="#" class="nav-link">Return to Home</a>
-    </div>
-  `;
+      profilePageContainer.innerHTML = `
+        <div class="error-container">
+          <h1>Invalid Profile</h1>
+          <p>The profile ID you're trying to view is invalid or couldn't be decoded.</p>
+          <a href="#" class="nav-link">Return to Home</a>
+        </div>
+      `;
       return;
     }
 
@@ -47,8 +46,8 @@ async function profilePageHandler() {
 
     console.log("profileNpub:", profileNpub);
 
-    // Render the complete profile page
-  profilePageContainer.innerHTML = `
+    // Render the complete profile page with updated tabs
+    profilePageContainer.innerHTML = `
     <div class="profile-container" data-extended-relays='${JSON.stringify(extendedRelays)}'>
       ${app.myPk === profile ? '<div class="settings-section"></div>' : ''}
       <div class="profile-page">
@@ -93,90 +92,767 @@ async function profilePageHandler() {
         </div>
       </div>
       
-<div class="profile-tabs">
-  <div class="tab-scroll-container">
-    <button class="profile-tab-button active" data-tab="videos">Videos</button>
-    <button class="profile-tab-button" data-tab="extended-videos">Videos (Extended)</button>
-    <button class="profile-tab-button" data-tab="playlists">Playlists</button>
-    <button class="profile-tab-button" data-tab="relay-sets">Relay Sets</button>
-    <button class="profile-tab-button" data-tab="posts">Posts</button>
-  <!--  <button class="profile-tab-button" data-tab="media-servers">media servers</button> -->
-  </div>
-</div>
+      <div class="profile-tabs">
+        <div class="tab-scroll-container">
+          <button class="profile-tab-button active" data-tab="videos">Videos</button>
+          <button class="profile-tab-button" data-tab="playlists">Playlists</button>
+          <button class="profile-tab-button" data-tab="relay-sets">Relay Sets</button>
+          <button class="profile-tab-button" data-tab="posts">Posts</button>
+        </div>
+      </div>
 
-<div class="profile-tab-content">
-  <div id="videos-tab" class="profile-tab-panel active">
-    <div id="channelVideos">
-      <h1>searching for videos</h1>
-      <p>kind-21,22 video events</p>
-    </div>
-  </div>
-  
-  <div id="extended-videos-tab" class="profile-tab-panel">
-    <div id="extendedChannelVideos">
-      <h1>Extended video search</h1>
-      <p>Searching across all discovered relays...</p>
-    </div>
-  </div>
+      <div class="profile-tab-content">
+        <div id="videos-tab" class="profile-tab-panel active">
+          <div id="channelVideos">
+            <h1>Searching for videos</h1>
+            <p>Loading kind-21 and kind-22 video events...</p>
+          </div>
+        </div>
+        
+        <div id="playlists-tab" class="profile-tab-panel">
+          <div id="channelPlaylists">
+            <h1>Searching for playlists</h1>
+            <p>Loading kind-30005 playlist events...</p>
+          </div>
+        </div>
 
-  <div id="playlists-tab" class="profile-tab-panel">
-    <div class="tab-placeholder">
-      <h1>Playlists</h1>
-      <p>Coming soon...</p>
-    </div>
-  </div>
+        <div id="relay-sets-tab" class="profile-tab-panel">
+          <div class="tab-placeholder">
+            <h1>Relay Sets</h1>
+            <p>Coming soon...</p>
+          </div>
+        </div>
 
-  <div id="relay-sets-tab" class="profile-tab-panel">
-    <div class="tab-placeholder">
-      <h1>Relay Sets</h1>
-      <p>Coming soon...</p>
-    </div>
-  </div>
-
-  <div id="posts-tab" class="profile-tab-panel">
-    <div class="tab-placeholder">
-      <h1>Posts</h1>
-      <p>Coming soon...</p>
-    </div>
-  </div>
-
-  <div id="media-servers-tab" class="profile-tab-panel">
-    <div class="tab-placeholder">
-      <h1>Media Servers</h1>
-      <p>...</p>
-    </div>
-  </div>
-</div>
+        <div id="posts-tab" class="profile-tab-panel">
+          <div class="tab-placeholder">
+            <h1>Posts</h1>
+            <p>Coming soon...</p>
+          </div>
+        </div>
+      </div>
     </div>
   `;
-
-  populateProfileData(kindZeroContent, profile, profileNpub);
+    populateProfileData(kindZeroContent, profile, profileNpub);
 
     // Setup all event listeners
     setupAllProfileEventListeners(profile, kindZeroContent, extendedRelays);
 
-    // Load videos asynchronously
-    loadProfileVideos(profile).catch((error) => {
+    // Load videos asynchronously with new interval-based logic
+    loadProfileVideosWithIntervals(profile, extendedRelays).catch((error) => {
       console.error("Error loading profile videos:", error);
       handleVideoLoadError();
     });
   } catch (error) {
     console.error("Error rendering profile page:", error);
-      const errorMessage = error.message || "Unknown error occurred";
-  profilePageContainer.innerHTML = `
-    <div class="error-container">
-      <h1>Profile Load Error</h1>
-      <p>Failed to load profile: ${errorMessage}</p>
-      <button class="retry-button">Retry</button>
-      <a href="#" class="nav-link">Return to Home</a>
+    const errorMessage = error.message || "Unknown error occurred";
+    profilePageContainer.innerHTML = `
+      <div class="error-container">
+        <h1>Profile Load Error</h1>
+        <p>Failed to load profile: ${errorMessage}</p>
+        <button class="retry-button">Retry</button>
+        <a href="#" class="nav-link">Return to Home</a>
+      </div>
+    `;
+
+    const retryButton = document.querySelector(".retry-button");
+    if (retryButton) {
+      retryButton.addEventListener("click", () => window.location.reload());
+    }
+  }
+}
+
+const profileTabState = {
+  activeTab: null,
+  cleanupFunctions: {},
+};
+
+
+async function loadProfileVideosWithIntervals(profile, extendedRelays) {
+  const videosContent = document.getElementById("channelVideos");
+  if (!videosContent) return;
+
+  // Check if already loaded
+  if (videosContent.dataset.loaded === "true") {
+    return;
+  }
+
+  const allRelays = [...new Set([...app.globalRelays, ...extendedRelays])];
+  
+  console.log(`Loading videos from ${allRelays.length} relays`);
+
+  app.profileVideosPool = new window.NostrTools.SimplePool();
+
+  // Register cleanup for this tab
+  const cleanup = () => {
+    console.log("Cleaning up profile videos resources");
+    
+    if (app.profileVideosSubscription) {
+      app.profileVideosSubscription.close();
+      app.profileVideosSubscription = null;
+    }
+    
+    if (app.profileVideosPool) {
+      app.profileVideosPool.close(allRelays);
+      app.profileVideosPool = null;
+    }
+  };
+
+  profileTabState.cleanupFunctions.videos = cleanup;
+  
+  // Also register global cleanup
+  registerCleanup(cleanup);
+
+  videosContent.innerHTML = `
+    <h1>Published Videos</h1>
+    <p>Searching for videos...</p>
+    <div class="videos-grid"></div>
+    <div class="load-more-container" style="text-align: center; padding: 20px;">
+      <button id="profile-videos-load-more-btn" class="load-more-btn" style="display: none;">Load More Videos</button>
+      <p id="profile-videos-load-more-status" style="display: none;"></p>
     </div>
   `;
 
-  const retryButton = document.querySelector(".retry-button");
-  if (retryButton) {
-    retryButton.addEventListener("click", () => window.location.reload());
+  const grid = videosContent.querySelector(".videos-grid");
+  const loadMoreBtn = document.getElementById("profile-videos-load-more-btn");
+  const loadMoreStatus = document.getElementById("profile-videos-load-more-status");
+
+  const scrollState = {
+    currentTimestamp: Math.floor(Date.now() / 1000),
+    oldestTimestamp: null,
+    isLoading: false,
+    hasMoreContent: true,
+    eventsPerPage: 20,
+    loadedEventsCount: 0,
+    existingEventIds: new Set(),
+    emptyPeriodCount: 0,
+    maxEmptyPeriods: 3,
+    currentPeriodSize: 24 * 60 * 60,
+    periodSizes: [
+      1 * 24 * 60 * 60,
+      7 * 24 * 60 * 60,
+      30 * 24 * 60 * 60,
+      90 * 24 * 60 * 60,
+      180 * 24 * 60 * 60,
+      365 * 24 * 60 * 60,
+    ],
+    periodIndex: 0,
+  };
+
+  function renderEventImmediately(event) {
+    const card = createVideoCard(event);
+    grid.appendChild(card);
+    
+    card.style.opacity = '0';
+    card.style.transform = 'translateY(-10px)';
+    
+    requestAnimationFrame(() => {
+      card.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+      card.style.opacity = '1';
+      card.style.transform = 'translateY(0)';
+    });
+    
+    scrollState.loadedEventsCount++;
   }
+
+  function increasePeriodSize() {
+    if (scrollState.periodIndex < scrollState.periodSizes.length - 1) {
+      scrollState.periodIndex++;
+      scrollState.currentPeriodSize = scrollState.periodSizes[scrollState.periodIndex];
+      return true;
+    }
+    return false;
   }
+
+  async function loadEventsForPeriod(since, until, renderImmediately = false) {
+    return new Promise((resolve) => {
+      const events = [];
+      let isComplete = false;
+
+      const filter = {
+        kinds: [21, 22],
+        authors: [profile],
+        since: since,
+        until: until,
+      };
+
+      const sub = app.profileVideosPool.subscribe(
+        allRelays,
+        filter,
+        {
+          onevent(event) {
+            if (!scrollState.existingEventIds.has(event.id)) {
+              const sanitizedEvent = sanitizeNostrEvent(event);
+              if (sanitizedEvent) {
+                scrollState.existingEventIds.add(event.id);
+                events.push(sanitizedEvent);
+                
+                if (renderImmediately) {
+                  renderEventImmediately(sanitizedEvent);
+                }
+              }
+            }
+          },
+          oneose() {
+            if (!isComplete) {
+              isComplete = true;
+              sub.close();
+              resolve(events);
+            }
+          },
+          onclose() {
+            if (!isComplete) {
+              isComplete = true;
+              resolve(events);
+            }
+          },
+        }
+      );
+
+      setTimeout(() => {
+        if (!isComplete) {
+          isComplete = true;
+          sub.close();
+          resolve(events);
+        }
+      }, 5000);
+    });
+  }
+
+  async function loadMoreEvents() {
+    if (scrollState.isLoading || !scrollState.hasMoreContent) {
+      return;
+    }
+
+    scrollState.isLoading = true;
+    loadMoreBtn.style.display = 'none';
+    loadMoreStatus.textContent = 'Loading more videos...';
+    loadMoreStatus.style.display = 'block';
+
+    const startLoadedCount = scrollState.loadedEventsCount;
+    
+    let currentUntil = scrollState.oldestTimestamp || scrollState.currentTimestamp;
+    let currentSince = currentUntil - scrollState.currentPeriodSize;
+
+    while ((scrollState.loadedEventsCount - startLoadedCount) < scrollState.eventsPerPage && scrollState.hasMoreContent) {
+      const periodEvents = await loadEventsForPeriod(currentSince, currentUntil, true);
+      
+      if (periodEvents.length === 0) {
+        scrollState.emptyPeriodCount++;
+        
+        if (scrollState.emptyPeriodCount >= 2) {
+          const increased = increasePeriodSize();
+          if (increased) {
+            scrollState.emptyPeriodCount = 0;
+            currentSince = currentUntil - scrollState.currentPeriodSize;
+            continue;
+          } else {
+            if (scrollState.emptyPeriodCount >= scrollState.maxEmptyPeriods) {
+              scrollState.hasMoreContent = false;
+              break;
+            }
+          }
+        }
+        
+        currentUntil = currentSince;
+        currentSince = currentUntil - scrollState.currentPeriodSize;
+        
+        if (currentUntil < 0) {
+          scrollState.hasMoreContent = false;
+          break;
+        }
+        
+        continue;
+      }
+
+      scrollState.emptyPeriodCount = 0;
+
+      const oldestEvent = periodEvents.reduce((oldest, event) => 
+        event.created_at < oldest.created_at ? event : oldest
+      );
+      scrollState.oldestTimestamp = oldestEvent.created_at;
+      currentUntil = oldestEvent.created_at;
+      currentSince = currentUntil - scrollState.currentPeriodSize;
+      
+      if ((scrollState.loadedEventsCount - startLoadedCount) < scrollState.eventsPerPage) {
+        continue;
+      } else {
+        break;
+      }
+    }
+
+    scrollState.isLoading = false;
+    loadMoreStatus.style.display = 'none';
+
+    const loadedThisBatch = scrollState.loadedEventsCount - startLoadedCount;
+    
+    if (scrollState.hasMoreContent && loadedThisBatch > 0) {
+      loadMoreBtn.style.display = 'block';
+    } else if (!scrollState.hasMoreContent) {
+      loadMoreStatus.textContent = 'No more videos to load';
+      loadMoreStatus.style.display = 'block';
+    } else if (loadedThisBatch === 0) {
+      loadMoreStatus.textContent = 'No more videos to load';
+      loadMoreStatus.style.display = 'block';
+      scrollState.hasMoreContent = false;
+    } else {
+      loadMoreBtn.style.display = 'block';
+    }
+
+    const headerP = videosContent.querySelector("h1 + p");
+    if (headerP) {
+      headerP.textContent = `Found ${scrollState.loadedEventsCount} video${scrollState.loadedEventsCount !== 1 ? 's' : ''}`;
+    }
+  }
+
+  loadMoreBtn.addEventListener('click', () => {
+    loadMoreEvents();
+  });
+
+  await loadMoreEvents();
+
+  const headerP = videosContent.querySelector("h1 + p");
+  if (headerP) {
+    if (scrollState.loadedEventsCount === 0) {
+      headerP.textContent = 'No videos found';
+    } else {
+      headerP.textContent = `Found ${scrollState.loadedEventsCount} video${scrollState.loadedEventsCount !== 1 ? 's' : ''}`;
+    }
+  }
+
+  app.profileVideosSubscription = app.profileVideosPool.subscribe(
+    allRelays,
+    {
+      kinds: [21, 22],
+      authors: [profile],
+      since: scrollState.currentTimestamp,
+    },
+    {
+      onevent(event) {
+        if (!scrollState.existingEventIds.has(event.id)) {
+          const sanitizedEvent = sanitizeNostrEvent(event);
+          if (sanitizedEvent) {
+            scrollState.existingEventIds.add(event.id);
+            renderNewVideoAtTop(sanitizedEvent, grid);
+            scrollState.loadedEventsCount++;
+            
+            const headerP = videosContent.querySelector("h1 + p");
+            if (headerP) {
+              headerP.textContent = `Found ${scrollState.loadedEventsCount} video${scrollState.loadedEventsCount !== 1 ? 's' : ''}`;
+            }
+          }
+        }
+      },
+    }
+  );
+
+  videosContent.dataset.loaded = "true";
+}
+
+// NEW: Load profile playlists with intervals
+async function loadProfilePlaylistsWithIntervals(profile, extendedRelays) {
+  const playlistsContent = document.getElementById("channelPlaylists");
+  if (!playlistsContent) return;
+
+  // Check if already loaded
+  if (playlistsContent.dataset.loaded === "true") {
+    return;
+  }
+
+  const allRelays = [...new Set([...app.globalRelays, ...extendedRelays])];
+  
+  console.log(`Loading playlists from ${allRelays.length} relays`);
+
+  app.profilePlaylistsPool = new window.NostrTools.SimplePool();
+
+  // Register cleanup for this tab
+  const cleanup = () => {
+    console.log("Cleaning up profile playlists resources");
+    
+    if (app.profilePlaylistsSubscription) {
+      app.profilePlaylistsSubscription.close();
+      app.profilePlaylistsSubscription = null;
+    }
+    
+    if (app.profilePlaylistsPool) {
+      app.profilePlaylistsPool.close(allRelays);
+      app.profilePlaylistsPool = null;
+    }
+  };
+
+  profileTabState.cleanupFunctions.playlists = cleanup;
+  
+  // Also register global cleanup
+  registerCleanup(cleanup);
+
+  playlistsContent.innerHTML = `
+    <h1>Published Playlists</h1>
+    <p>Searching for playlists...</p>
+    <div class="playlists-grid"></div>
+    <div class="load-more-container" style="text-align: center; padding: 20px;">
+      <button id="profile-playlists-load-more-btn" class="load-more-btn" style="display: none;">Load More Playlists</button>
+      <p id="profile-playlists-load-more-status" style="display: none;"></p>
+    </div>
+  `;
+
+  const grid = playlistsContent.querySelector(".playlists-grid");
+  const loadMoreBtn = document.getElementById("profile-playlists-load-more-btn");
+  const loadMoreStatus = document.getElementById("profile-playlists-load-more-status");
+
+  const scrollState = {
+    currentTimestamp: Math.floor(Date.now() / 1000),
+    oldestTimestamp: null,
+    isLoading: false,
+    hasMoreContent: true,
+    eventsPerPage: 20,
+    loadedEventsCount: 0,
+    existingEventIds: new Set(),
+    existingDtags: new Map(), // Track d-tags for replaceable events
+    emptyPeriodCount: 0,
+    maxEmptyPeriods: 3,
+    currentPeriodSize: 24 * 60 * 60,
+    periodSizes: [
+      1 * 24 * 60 * 60,
+      7 * 24 * 60 * 60,
+      30 * 24 * 60 * 60,
+      90 * 24 * 60 * 60,
+      180 * 24 * 60 * 60,
+      365 * 24 * 60 * 60,
+    ],
+    periodIndex: 0,
+  };
+
+  function renderPlaylistImmediately(event) {
+    const card = createPlaylistCard(event);
+    grid.appendChild(card);
+    
+    card.style.opacity = '0';
+    card.style.transform = 'translateY(-10px)';
+    
+    requestAnimationFrame(() => {
+      card.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+      card.style.opacity = '1';
+      card.style.transform = 'translateY(0)';
+    });
+    
+    scrollState.loadedEventsCount++;
+  }
+
+  function increasePeriodSize() {
+    if (scrollState.periodIndex < scrollState.periodSizes.length - 1) {
+      scrollState.periodIndex++;
+      scrollState.currentPeriodSize = scrollState.periodSizes[scrollState.periodIndex];
+      return true;
+    }
+    return false;
+  }
+
+  // Get d-tag from event
+  function getDtag(event) {
+    const dTag = event.tags?.find(tag => tag[0] === 'd');
+    return dTag ? dTag[1] : null;
+  }
+
+  async function loadEventsForPeriod(since, until, renderImmediately = false) {
+    return new Promise((resolve) => {
+      const events = [];
+      let isComplete = false;
+
+      const filter = {
+        kinds: [30005], // Kind 30005 for playlists
+        authors: [profile],
+        since: since,
+        until: until,
+      };
+
+      const sub = app.profilePlaylistsPool.subscribe(
+        allRelays,
+        filter,
+        {
+          onevent(event) {
+            if (!scrollState.existingEventIds.has(event.id)) {
+              const sanitizedEvent = sanitizeNostrEvent(event);
+              if (sanitizedEvent) {
+                const dtag = getDtag(sanitizedEvent);
+                
+                // Handle replaceable events: only keep the latest version
+                if (dtag) {
+                  const existingEvent = scrollState.existingDtags.get(dtag);
+                  
+                  if (existingEvent) {
+                    // If we already have this d-tag, keep only the newer one
+                    if (sanitizedEvent.created_at > existingEvent.created_at) {
+                      // Remove old event from display
+                      const oldCard = grid.querySelector(`[data-dtag="${dtag}"]`);
+                      if (oldCard) {
+                        oldCard.remove();
+                        scrollState.loadedEventsCount--;
+                      }
+                      
+                      // Remove old event ID
+                      scrollState.existingEventIds.delete(existingEvent.id);
+                      
+                      // Add new event
+                      scrollState.existingDtags.set(dtag, sanitizedEvent);
+                      scrollState.existingEventIds.add(sanitizedEvent.id);
+                      events.push(sanitizedEvent);
+                      
+                      if (renderImmediately) {
+                        renderPlaylistImmediately(sanitizedEvent);
+                      }
+                    }
+                    // If existing is newer, skip this one
+                  } else {
+                    // First time seeing this d-tag
+                    scrollState.existingDtags.set(dtag, sanitizedEvent);
+                    scrollState.existingEventIds.add(sanitizedEvent.id);
+                    events.push(sanitizedEvent);
+                    
+                    if (renderImmediately) {
+                      renderPlaylistImmediately(sanitizedEvent);
+                    }
+                  }
+                } else {
+                  // No d-tag (shouldn't happen for 30005, but handle gracefully)
+                  scrollState.existingEventIds.add(sanitizedEvent.id);
+                  events.push(sanitizedEvent);
+                  
+                  if (renderImmediately) {
+                    renderPlaylistImmediately(sanitizedEvent);
+                  }
+                }
+              }
+            }
+          },
+          oneose() {
+            if (!isComplete) {
+              isComplete = true;
+              sub.close();
+              resolve(events);
+            }
+          },
+          onclose() {
+            if (!isComplete) {
+              isComplete = true;
+              resolve(events);
+            }
+          },
+        }
+      );
+
+      setTimeout(() => {
+        if (!isComplete) {
+          isComplete = true;
+          sub.close();
+          resolve(events);
+        }
+      }, 5000);
+    });
+  }
+
+  async function loadMoreEvents() {
+    if (scrollState.isLoading || !scrollState.hasMoreContent) {
+      return;
+    }
+
+    scrollState.isLoading = true;
+    loadMoreBtn.style.display = 'none';
+    loadMoreStatus.textContent = 'Loading more playlists...';
+    loadMoreStatus.style.display = 'block';
+
+    const startLoadedCount = scrollState.loadedEventsCount;
+    
+    let currentUntil = scrollState.oldestTimestamp || scrollState.currentTimestamp;
+    let currentSince = currentUntil - scrollState.currentPeriodSize;
+
+    while ((scrollState.loadedEventsCount - startLoadedCount) < scrollState.eventsPerPage && scrollState.hasMoreContent) {
+      const periodEvents = await loadEventsForPeriod(currentSince, currentUntil, true);
+      
+      if (periodEvents.length === 0) {
+        scrollState.emptyPeriodCount++;
+        
+        if (scrollState.emptyPeriodCount >= 2) {
+          const increased = increasePeriodSize();
+          if (increased) {
+            scrollState.emptyPeriodCount = 0;
+            currentSince = currentUntil - scrollState.currentPeriodSize;
+            continue;
+          } else {
+            if (scrollState.emptyPeriodCount >= scrollState.maxEmptyPeriods) {
+              scrollState.hasMoreContent = false;
+              break;
+            }
+          }
+        }
+        
+        currentUntil = currentSince;
+        currentSince = currentUntil - scrollState.currentPeriodSize;
+        
+        if (currentUntil < 0) {
+          scrollState.hasMoreContent = false;
+          break;
+        }
+        
+        continue;
+      }
+
+      scrollState.emptyPeriodCount = 0;
+
+      const oldestEvent = periodEvents.reduce((oldest, event) => 
+        event.created_at < oldest.created_at ? event : oldest
+      );
+      scrollState.oldestTimestamp = oldestEvent.created_at;
+      currentUntil = oldestEvent.created_at;
+      currentSince = currentUntil - scrollState.currentPeriodSize;
+      
+      if ((scrollState.loadedEventsCount - startLoadedCount) < scrollState.eventsPerPage) {
+        continue;
+      } else {
+        break;
+      }
+    }
+
+    scrollState.isLoading = false;
+    loadMoreStatus.style.display = 'none';
+
+    const loadedThisBatch = scrollState.loadedEventsCount - startLoadedCount;
+    
+    if (scrollState.hasMoreContent && loadedThisBatch > 0) {
+      loadMoreBtn.style.display = 'block';
+    } else if (!scrollState.hasMoreContent) {
+      loadMoreStatus.textContent = 'No more playlists to load';
+      loadMoreStatus.style.display = 'block';
+    } else if (loadedThisBatch === 0) {
+      loadMoreStatus.textContent = 'No more playlists to load';
+      loadMoreStatus.style.display = 'block';
+      scrollState.hasMoreContent = false;
+    } else {
+      loadMoreBtn.style.display = 'block';
+    }
+
+    const headerP = playlistsContent.querySelector("h1 + p");
+    if (headerP) {
+      headerP.textContent = `Found ${scrollState.loadedEventsCount} playlist${scrollState.loadedEventsCount !== 1 ? 's' : ''}`;
+    }
+  }
+
+  loadMoreBtn.addEventListener('click', () => {
+    loadMoreEvents();
+  });
+
+  // Setup click handler for playlists
+  grid.addEventListener("click", async (event) => {
+    let card = event.target.closest(".video-card");
+    if (card && card.dataset.playlistId) {
+      const author = card.dataset.author;
+      const dtag = card.dataset.dtag;
+      
+      // Use author parameter for profile playlists
+      const playlistUrl = `#playlist/params?author=${author}&dtag=${dtag}&author=${profile}`;
+      console.log("Navigating to playlist URL:", playlistUrl);
+      window.location.hash = playlistUrl;
+    }
+  });
+
+  await loadMoreEvents();
+
+  const headerP = playlistsContent.querySelector("h1 + p");
+  if (headerP) {
+    if (scrollState.loadedEventsCount === 0) {
+      headerP.textContent = 'No playlists found';
+    } else {
+      headerP.textContent = `Found ${scrollState.loadedEventsCount} playlist${scrollState.loadedEventsCount !== 1 ? 's' : ''}`;
+    }
+  }
+
+  // Subscribe to new playlists (real-time updates)
+  app.profilePlaylistsSubscription = app.profilePlaylistsPool.subscribe(
+    allRelays,
+    {
+      kinds: [30005],
+      authors: [profile],
+      since: scrollState.currentTimestamp,
+    },
+    {
+      onevent(event) {
+        if (!scrollState.existingEventIds.has(event.id)) {
+          const sanitizedEvent = sanitizeNostrEvent(event);
+          if (sanitizedEvent) {
+            const dtag = getDtag(sanitizedEvent);
+            
+            if (dtag) {
+              const existingEvent = scrollState.existingDtags.get(dtag);
+              
+              if (existingEvent) {
+                // Replace if newer
+                if (sanitizedEvent.created_at > existingEvent.created_at) {
+                  const oldCard = grid.querySelector(`[data-dtag="${dtag}"]`);
+                  if (oldCard) {
+                    oldCard.remove();
+                    scrollState.loadedEventsCount--;
+                  }
+                  
+                  scrollState.existingEventIds.delete(existingEvent.id);
+                  scrollState.existingDtags.set(dtag, sanitizedEvent);
+                  scrollState.existingEventIds.add(sanitizedEvent.id);
+                  
+                  renderNewPlaylistAtTopProfilePage(sanitizedEvent, grid);
+                  scrollState.loadedEventsCount++;
+                }
+              } else {
+                // New playlist
+                scrollState.existingDtags.set(dtag, sanitizedEvent);
+                scrollState.existingEventIds.add(sanitizedEvent.id);
+                renderNewPlaylistAtTopProfilePage(sanitizedEvent, grid);
+                scrollState.loadedEventsCount++;
+              }
+            } else {
+              scrollState.existingEventIds.add(sanitizedEvent.id);
+              renderNewPlaylistAtTopProfilePage(sanitizedEvent, grid);
+              scrollState.loadedEventsCount++;
+            }
+            
+            const headerP = playlistsContent.querySelector("h1 + p");
+            if (headerP) {
+              headerP.textContent = `Found ${scrollState.loadedEventsCount} playlist${scrollState.loadedEventsCount !== 1 ? 's' : ''}`;
+            }
+          }
+        }
+      },
+    }
+  );
+
+  playlistsContent.dataset.loaded = "true";
+}
+
+// Render new playlist at top (for real-time updates)
+function renderNewPlaylistAtTopProfilePage(playlist, grid) {
+  let card = createPlaylistCard(playlist);
+  
+  if (grid.firstChild) {
+    grid.insertBefore(card, grid.firstChild);
+  } else {
+    grid.appendChild(card);
+  }
+  
+  card.classList.add("new-video");
+  setTimeout(() => {
+    card.classList.remove("new-video");
+  }, 2000);
+}
+
+function renderNewVideoAtTopProfilePage(video, grid) {
+  let card = createVideoCard(video);
+  
+  if (grid.firstChild) {
+    grid.insertBefore(card, grid.firstChild);
+  } else {
+    grid.appendChild(card);
+  }
+  
+  card.classList.add("new-video");
+  setTimeout(() => {
+    card.classList.remove("new-video");
+  }, 2000);
 }
 
 async function loadProfileWithRetry(profile, attempts = 0) {
@@ -223,7 +899,7 @@ function setupAllProfileEventListeners(profile, kindZeroContent, extendedRelays)
   }
 
   // Setup tab event listeners
-  setupTabEventListeners(profile, extendedRelays);
+  setupProfileTabEventListeners(profile, extendedRelays);
 
   // Setup technical info event listeners
   setupTechnicalInfoEventListeners();
@@ -728,35 +1404,11 @@ function handleProfileClicks(event) {
   if (!card || !card.dataset.videoId) return;
 
   try {
-    // Determine active tab
-    const activeTab = document.querySelector(".profile-tab-button.active");
-    const isExtendedTab = activeTab?.dataset.tab === "extended-videos";
-
-    let watchUrl;
-
-    if (isExtendedTab) {
-      // For extended tab: use author parameter instead of discovery
-      const profileParam = window.location.hash.split("/")[1];
-      const profile = decodeProfileParam(profileParam);
-      
-      watchUrl = `#watch/params?v=${card.dataset.videoId}&author=${profile}`;
-    } else {
-      // For default tab: use discovery relays as before
-      const profileContainer = document.querySelector(".profile-container");
-      let extendedRelays = [];
-
-      if (profileContainer?.dataset.extendedRelays) {
-        try {
-          extendedRelays = JSON.parse(profileContainer.dataset.extendedRelays);
-        } catch (e) {
-          console.warn("Could not parse extended relays from DOM:", e);
-        }
-      }
-
-      const discoveryRelays = buildDiscoveryRelays(false, extendedRelays);
-      const discoveryParam = discoveryRelays.join(",");
-      watchUrl = `#watch/params?v=${card.dataset.videoId}&discovery=${discoveryParam}`;
-    }
+    const profileParam = window.location.hash.split("/")[1];
+    const profile = decodeProfileParam(profileParam);
+    
+    // Use author parameter for profile videos
+    const watchUrl = `#watch/params?v=${card.dataset.videoId}&author=${profile}`;
 
     console.log("Navigating to watch URL:", watchUrl);
     window.location.hash = watchUrl;
@@ -764,6 +1416,7 @@ function handleProfileClicks(event) {
     console.error("Error handling profile click:", error);
   }
 }
+
 
 function buildDiscoveryRelays(isExtendedTab, extendedRelays) {
   let discoveryRelays = [];
@@ -798,20 +1451,14 @@ function handleVideoLoadError() {
       <button class="retry-button">Retry</button>
     `;
 
-    // Add event listener programmatically
     const retryButton = videosContent.querySelector(".retry-button");
     if (retryButton) {
       retryButton.addEventListener("click", () => {
-        const profileParam = window.location.hash.split("/")[1];
-        const profile = decodeProfileParam(profileParam);
-        if (profile) {
-          loadProfileVideos(profile);
-        }
+        window.location.reload();
       });
     }
   }
 }
-
 
 async function loadProfileVideos(profile) {
   try {
@@ -937,14 +1584,18 @@ async function getExtendedRelaysForProfile(pk) {
   }
 }
 
-function setupTabEventListeners(profile, extendedRelays) {
-  
+function setupProfileTabEventListeners(profile, extendedRelays) {
   const tabButtons = document.querySelectorAll(".profile-tab-button");
   const tabPanels = document.querySelectorAll(".profile-tab-panel");
 
   tabButtons.forEach((button) => {
     button.addEventListener("click", async () => {
       const tabName = button.dataset.tab;
+
+      // Cleanup previous tab before switching
+      if (profileTabState.activeTab && profileTabState.activeTab !== tabName) {
+        await cleanupCurrentTab(profileTabState.activeTab);
+      }
 
       // Update active states
       tabButtons.forEach((btn) => btn.classList.remove("active"));
@@ -956,36 +1607,37 @@ function setupTabEventListeners(profile, extendedRelays) {
         targetPanel.classList.add("active");
       }
 
+      profileTabState.activeTab = tabName;
+
       // Handle tab-specific logic
       switch (tabName) {
-        case "extended-videos":
-          try {
-            await loadExtendedProfileVideos(profile, extendedRelays);
-          } catch (error) {
-            console.error("Error loading extended videos:", error);
+        case "videos":
+          console.log("Videos tab selected");
+          // Videos already loaded on page load, but can reload if needed
+          const videosContent = document.getElementById("channelVideos");
+          if (videosContent && !videosContent.dataset.loaded) {
+            await loadProfileVideosWithIntervals(profile, extendedRelays);
           }
           break;
+        
         case "playlists":
-          // Future: Load playlists
           console.log("Playlists tab selected");
+          const playlistsContent = document.getElementById("channelPlaylists");
+          if (playlistsContent && !playlistsContent.dataset.loaded) {
+            await loadProfilePlaylistsWithIntervals(profile, extendedRelays);
+          }
           break;
+        
         case "relay-sets":
-          // Future: Load relay sets
-          console.log("Relay sets tab selected");
+          console.log("Relay sets tab selected (placeholder)");
           break;
+        
         case "posts":
-          // Future: Load posts
-          console.log("Posts tab selected");
-          break;
-        case "media-servers":
-          // Future: Load media servers content
-          console.log("Media servers tab selected");
+          console.log("Posts tab selected (placeholder)");
           break;
       }
 
-
-
-      // Scroll the active button into view (useful for mobile)
+      // Scroll the active button into view
       button.scrollIntoView({
         behavior: 'smooth',
         block: 'nearest',
@@ -993,7 +1645,24 @@ function setupTabEventListeners(profile, extendedRelays) {
       });
     });
   });
+
+  // Mark videos tab as active on initial load
+  profileTabState.activeTab = "videos";
 }
+
+async function cleanupCurrentTab(tabName) {
+  console.log(`Cleaning up ${tabName} tab`);
+  
+  if (profileTabState.cleanupFunctions[tabName]) {
+    try {
+      await profileTabState.cleanupFunctions[tabName]();
+      delete profileTabState.cleanupFunctions[tabName];
+    } catch (error) {
+      console.error(`Error cleaning up ${tabName} tab:`, error);
+    }
+  }
+}
+
 
 async function loadExtendedProfileVideos(profile, extendedRelays) {
   const extendedVideosContent = document.getElementById(

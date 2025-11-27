@@ -116,7 +116,7 @@ function renderEventImmediately(event) {
       if (scrollState.periodIndex < scrollState.periodSizes.length - 1) {
         scrollState.periodIndex++;
         scrollState.currentPeriodSize = scrollState.periodSizes[scrollState.periodIndex];
-        const periodName = ['1 day', '1 week', '1 month', '3 months', '6 months', '1 year'][scrollState.periodIndex];
+      //  const periodName = ['1 day', '1 week', '1 month', '3 months', '6 months', '1 year'][scrollState.periodIndex];
       //  console.log(`Increasing search period to: ${periodName}`);
         return true;
       }
@@ -148,7 +148,7 @@ function renderEventImmediately(event) {
           }
         }
 
-        const periodName = ['1 day', '1 week', '1 month', '3 months', '6 months', '1 year'][scrollState.periodIndex];
+      //  const periodName = ['1 day', '1 week', '1 month', '3 months', '6 months', '1 year'][scrollState.periodIndex];
       //  console.log(`Loading events with ${periodName} period, filter:`, filter);
 
         const sub = app.homePool.subscribe(

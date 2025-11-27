@@ -78,47 +78,126 @@ function initNotifyMenuButton() {
 }
 ///////////////////////////
 // temporary notification
-function showTemporaryNotification(message) {
+// Container to track active notifications
+const notificationManager = {
+  notifications: [],
+  queue: [],
+  spacing: 10, // Gap between notifications
+  maxNotifications: 4, // Maximum number of visible notifications
+  
+  add(notification) {
+    this.notifications.push(notification);
+    
+    // Remove oldest if exceeding max
+    if (this.notifications.length > this.maxNotifications) {
+      const oldest = this.notifications[0];
+      this.removeNotification(oldest);
+    }
+    
+    this.updatePositions();
+  },
+  
+  remove(notification) {
+    const index = this.notifications.indexOf(notification);
+    if (index > -1) {
+      this.notifications.splice(index, 1);
+      this.updatePositions();
+      
+      // Process next in queue if available
+      this.processQueue();
+    }
+  },
+  
+  removeNotification(notification) {
+    notification.style.opacity = "0";
+    setTimeout(() => {
+      if (notification.parentNode) {
+        notification.parentNode.removeChild(notification);
+        this.remove(notification);
+      }
+    }, 300);
+  },
+  
+  enqueue(message, duration) {
+    // If at max capacity, add to queue instead
+    if (this.notifications.length >= this.maxNotifications) {
+      this.queue.push({ message, duration });
+      return null;
+    }
+    return { proceed: true };
+  },
+  
+  processQueue() {
+    if (this.queue.length > 0 && this.notifications.length < this.maxNotifications) {
+      const { message, duration } = this.queue.shift();
+      showTemporaryNotification(message, duration);
+    }
+  },
+  
+  updatePositions() {
+    let offset = 30; // Initial top position
+    this.notifications.forEach(notif => {
+      notif.style.top = `${offset}px`;
+      offset += notif.offsetHeight + this.spacing;
+    });
+  }
+};
+
+function showTemporaryNotification(message, duration = 4000) {
+  // Check if we should queue this notification
+  const result = notificationManager.enqueue(message, duration);
+  if (!result) {
+    return; // Added to queue, will be shown later
+  }
+  
+  // Get current time
+  const now = new Date();
+  const timeString = now.toLocaleTimeString('en-US', { 
+    hour: '2-digit', 
+    minute: '2-digit', 
+    second: '2-digit',
+    hour12: false 
+  });
+  
   // Create notification element
   const notification = document.createElement("div");
-  notification.textContent = message;
-  notification.style.cssText = `
-    position: fixed;
-    top: 30px;
-    left: 50%;
-    transform: translateX(-50%);
-    background-color: var(--surface);
-    color: var(--text);
-    padding: 16px 30px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    z-index: 1001;
-    font-size: 16px;
-    box-shadow: 0px 4px 8px var(--background);
-    transition: opacity 0.3s ease;
-    text-align: start;
-
-    /* styles to control size */
-    max-width: 90vw;  /* Never wider than 90% of viewport width */
-    max-height: 50vh; /* Never taller than 50% of viewport height */
-    overflow: auto;   /* Add scrollbars if content exceeds max size */
-    word-wrap: break-word; /* Ensure long words break and wrap */
-    white-space: normal;   /* Allow text to wrap */
-  `;
-
+  notification.className = "temp-notification";
+  
+  // Create time label
+  const timeLabel = document.createElement("span");
+  timeLabel.className = "temp-notification-time";
+  timeLabel.textContent = timeString;
+  
+  // Create message text
+  const messageText = document.createElement("span");
+  messageText.className = "temp-notification-message";
+  messageText.textContent = message;
+  
+  // Append elements
+  notification.appendChild(timeLabel);
+  notification.appendChild(messageText);
+  
   document.body.appendChild(notification);
+  
+  // Add to manager and trigger initial position calculation
+  notificationManager.add(notification);
+  
+  // Fade in after a brief delay (allows browser to calculate dimensions)
+  requestAnimationFrame(() => {
+    notification.style.opacity = "1";
+  });
 
-  // Remove after 3 seconds
+  // Remove after duration
   setTimeout(() => {
     notification.style.opacity = "0";
     setTimeout(() => {
       if (notification.parentNode) {
         notification.parentNode.removeChild(notification);
+        notificationManager.remove(notification);
       }
     }, 300);
-  }, 4000);
+  }, duration);
 }
-
 ///////////////////////////////
 
 function forceScrollToTop() {

@@ -2,7 +2,7 @@ async function postingPageHandler() {
   mainContent.innerHTML = `
     <div class="posting-container">
       <h1 class="posting-title">Create Video Event</h1>
-      <p class="subtitle">publish a kind-21 video event</p>
+      <p class="subtitle">publish kind-21 video event</p>
       <div class="loading-indicator">
         <p>Loading...</p>
       </div>
@@ -26,7 +26,7 @@ async function postingPageHandler() {
 function renderWizardForm() {
   mainContent.innerHTML = `
     <div class="posting-container">
-      <p class="subtitle">publish a kind:21 event</p>
+      <p class="subtitle">publish kind:21 event</p>
       
       <!-- Progress Indicator -->
       <div class="wizard-progress">

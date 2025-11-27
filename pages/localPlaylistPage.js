@@ -21,44 +21,197 @@ async function localPlaylistPageHandler() {
     await new Promise((resolve) => setTimeout(resolve, 300));
     
     const videoTags = playlist.tags.filter(tag => tag[0] === "e");
-    const videoEvents = await fetchVideoEvents(videoTags);
+    const videoIds = videoTags.map(tag => tag[1]);
     
-    // **CACHE THE VIDEO EVENTS HERE**
+    // Create placeholders
+    const placeholderEvents = videoIds.map(id => createPlaceholderVideo(id));
+    
+    // Cache with placeholders
     const isLocal = isLocalPlaylist(playlist);
     const playlistId = isLocal ? `local:${dTag}` : `${playlist.pubkey}:${dTag}`;
     app.playlistVideoCache = {
-      videos: videoEvents,
+      videos: placeholderEvents,
       playlistId: playlistId
     };
     
-    renderSinglePlaylist(playlist, dTag, videoEvents);
-    setupSinglePlaylistEventListeners(dTag, videoEvents); // Pass videoEvents
+    // Render immediately with placeholders
+    renderSinglePlaylist(playlist, dTag, placeholderEvents);
+    setupSinglePlaylistEventListeners(dTag, placeholderEvents);
     setupDragAndDrop(dTag);
+    
+    // Now fetch real video data progressively
+    await fetchVideoEventsForLocalPlaylist(videoIds, playlistId, playlist);
     
   } catch (error) {
     console.error("Error rendering playlist page:", error);
     showPlaylistError(error);
   }
 }
-async function fetchVideoEvents(videoTags) {
+
+async function fetchVideoEventsForLocalPlaylist(videoIds, playlistId, playlist) {
+  if (videoIds.length === 0) return;
+  
+  const authorPubkey = playlist.pubkey;
+  
+  // Get extended relays for the author (if not local)
+  let baseRelays;
+  if (authorPubkey && authorPubkey !== 'local') {
+    const extendedRelays = await getExtendedRelaysForProfile(authorPubkey);
+    baseRelays = [...new Set([...app.globalRelays, ...extendedRelays])];
+  } else {
+    baseRelays = app.globalRelays;
+  }
+  
+  // Extract relay hints from playlist
+  const playlistRelayHints = extractRelayHintsFromPlaylist(playlist.tags);
+  
+  // Combine all relays
+  const allRelays = [...new Set([...baseRelays, ...playlistRelayHints])];
+  
+  console.log(`Fetching ${videoIds.length} videos from ${allRelays.length} relays (${baseRelays.length} base + ${playlistRelayHints.length} from playlist)`);
+  
+  const videoMap = new Map();
+  
+  const filter = {
+    kinds: [21, 22],
+    ids: videoIds
+  };
+  
+  const pool = new window.NostrTools.SimplePool();
+  
+  // Register cleanup
+  const cleanup = () => {
+    if (pool) {
+      pool.close(allRelays);
+    }
+  };
+  registerCleanup(cleanup);
+  
+  const sub = pool.subscribeMany(
+    allRelays,
+    [filter],
+    {
+      onevent(event) {
+        const sanitizedEvent = sanitizeNostrEvent(event);
+        if (!sanitizedEvent || videoMap.has(sanitizedEvent.id)) return;
+        
+        videoMap.set(sanitizedEvent.id, sanitizedEvent);
+        
+        console.log("📹 Received video event:", sanitizedEvent.id);
+        
+        // Update cache
+        const existingCache = app.playlistVideoCache;
+        if (existingCache && existingCache.playlistId === playlistId) {
+          const videoIndex = existingCache.videos.findIndex(v => v.id === sanitizedEvent.id);
+          if (videoIndex !== -1) {
+            existingCache.videos[videoIndex] = sanitizedEvent;
+          }
+        }
+        
+        // Update UI immediately
+        updateVideoCardInLocalPlaylist(sanitizedEvent);
+      },
+      
+      oneose() {
+        console.log(`Video fetch complete: ${videoMap.size}/${videoIds.length} found`);
+      }
+    }
+  );
+  
+  // Auto-close after timeout
+  setTimeout(() => {
+    sub.close();
+    pool.close(allRelays);
+  }, 10000);
+}
+function updateVideoCardInLocalPlaylist(videoEvent) {
+  const videoCard = document.querySelector(`[data-video-id="${videoEvent.id}"]`);
+  if (!videoCard) return;
+  
+  // Store whether this card is draggable before we update it
+  const isDraggable = videoCard.hasAttribute('draggable');
+  const wasDraggable = videoCard.getAttribute('draggable') === 'true';
+  
+  // Remove placeholder class
+  videoCard.classList.remove('placeholder-video');
+  
+  // Get the index and dTag from the card
+  const index = parseInt(videoCard.dataset.index);
+  const dTag = document.querySelector('.edit-playlist-btn')?.dataset.dTag;
+  
+  // Check if this is a local playlist (has drag handle)
+  const isLocal = isDraggable && wasDraggable;
+  
+  // Recreate the entire card content
+  videoCard.innerHTML = `
+    ${isLocal ? '<div class="drag-handle">⋮⋮</div>' : ''}
+    ${renderVideoThumbnail(videoEvent)}
+    ${renderVideoDetails(videoEvent, index + 1)}
+    ${isLocal && dTag ? `
+      <div class="video-actions">
+        <button class="btn-secondary remove-video-btn" 
+                data-video-id="${escapeHtml(videoEvent.id)}" 
+                data-d-tag="${escapeHtml(dTag)}">
+          ×
+        </button>
+      </div>
+    ` : ''}
+  `;
+  
+  // Add update animation
+  videoCard.classList.add('video-updated');
+  setTimeout(() => {
+    videoCard.classList.remove('video-updated');
+  }, 1000);
+  
+  // Re-attach the remove button listener (since we recreated the button)
+  if (isLocal && dTag) {
+    const removeBtn = videoCard.querySelector('.remove-video-btn');
+    if (removeBtn) {
+      removeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const videoId = removeBtn.dataset.videoId;
+        
+        if (confirm('Remove this video from the playlist?')) {
+          const success = removeVideoFromPlaylist(dTag, videoId);
+          
+          if (success) {
+            showTemporaryNotification('Video removed from playlist');
+            removeVideoFromUI(videoId);
+            updatePlaylistVideoCount();
+          }
+        }
+      });
+    }
+  }
+  
+  // The main click listener for navigation is still attached to the card
+  // element itself, so it survives the innerHTML update
+}
+
+// Keep the old fetchVideoEvents for backwards compatibility if needed elsewhere
+async function fetchVideoEvents(videoTags, playlist = null) {
   if (videoTags.length === 0) return [];
   
-  console.log("Fetching video events for playlist...");
+  const videoIds = videoTags.map(tag => tag[1]);
   
-  // OLD: Extract video IDs and kinds from tags
-  // const videoRefs = videoTags.map(tag => {
-  //   const videoRef = tag[1]; // Format: "kind:eventId"
-  //   const [kind, id] = videoRef.split(':');
-  //   return { kind: parseInt(kind), id };
-  // });
+  // Build relay list
+  let relays = [...app.globalRelays];
   
-  // NEW: Simple extraction - just the IDs
-  const videoIds = videoTags.map(tag => tag[1]); // Just get the event IDs
+  // Add playlist relay hints if playlist is provided
+  if (playlist && playlist.tags) {
+    const playlistRelayHints = extractRelayHintsFromPlaylist(playlist.tags);
+    relays = [...new Set([...relays, ...playlistRelayHints])];
+    
+    if (playlistRelayHints.length > 0) {
+      console.log(`Using ${relays.length} relays (including ${playlistRelayHints.length} from playlist)`);
+    }
+  }
   
   try {
-    const events = await NostrClient.getEventsFromRelays(app.globalRelays, {
+    const events = await NostrClient.getEventsFromRelays(relays, {
       ids: videoIds,
-      kinds: [21, 22], // Still search both kinds
+      kinds: [21, 22],
       limit: videoIds.length,
       maxWait: 3000,
       timeout: 5000
@@ -66,29 +219,25 @@ async function fetchVideoEvents(videoTags) {
 
     console.log(`Found ${events?.length || 0} video events out of ${videoIds.length} requested`);
     
-    // Create a map for quick lookup
     const eventMap = new Map();
     if (events && events.length > 0) {
       events.forEach(event => eventMap.set(event.id, event));
     }
     
-    // Create result array with events or placeholders, preserving order
     return videoIds.map(id => {
       const event = eventMap.get(id);
       if (event) {
         return event;
       } else {
-        // Create placeholder event - kind will be determined when found
-        return createPlaceholderEvent(id);
+        return createPlaceholderVideo(id);
       }
     });
     
   } catch (error) {
     console.error("Error fetching video events:", error);
-    return videoIds.map(id => createPlaceholderEvent(id));
+    return videoIds.map(id => createPlaceholderVideo(id));
   }
 }
-
 
 function createPlaceholderEvent(videoId, kind = 21) { // kind parameter kept for backward compatibility
   return {
@@ -139,13 +288,11 @@ function renderSinglePlaylist(playlist, dTag, videoEvents = []) {
   const description = getValueFromTags(playlist, "description", "");
   const image = getValueFromTags(playlist, "image", "") || getValueFromTags(playlist, "thumb", "");
   
-  const videoTags = playlist.tags.filter(tag => {
-    if (tag[0] !== "a") return false;
-    const aTagValue = tag[1];
-    return aTagValue && (aTagValue.startsWith("21:") || aTagValue.startsWith("22:"));
-  });
+  // FIX: Use "e" tags for local playlists (same as network playlists)
+  const videoTags = playlist.tags.filter(tag => tag[0] === "e");
   
-  const validVideoCount = videoEvents.filter(event => !event.isPlaceholder).length;
+  // Use total video count from tags, not from loaded events
+  const totalVideoCount = videoTags.length;
   
   mainContent.innerHTML = `
     <div class="playlist-header">
@@ -160,14 +307,14 @@ function renderSinglePlaylist(playlist, dTag, videoEvents = []) {
           <h1 class="playlist-title">${escapeHtml(title)}</h1>
           ${description ? `<p class="playlist-description">${escapeHtml(description)}</p>` : ''}
           <div class="playlist-meta">
-            <span class="video-count">${validVideoCount} videos</span>
+            <span class="video-count">${totalVideoCount} item${totalVideoCount !== 1 ? 's' : ''}</span>
             <span class="created-date">Created ${escapeHtml(getRelativeTime(playlist.created_at))}</span>
             <span class="local-badge">💾 Local</span>
           </div>
         </div>
       </div>
       <div class="playlist-actions">
-        ${validVideoCount > 0 ? `<button class="btn-primary play-all-btn">▶ Play All</button>` : ''}
+        ${totalVideoCount > 0 ? `<button class="btn-primary play-all-btn">▶ Play All</button>` : ''}
         <button class="btn-primary share-playlist-btn" data-d-tag="${escapeHtml(dTag)}">Share to Network</button>
         <button class="btn-secondary edit-playlist-btn" data-d-tag="${escapeHtml(dTag)}">Edit Metadata</button>
         <button class="btn-danger delete-playlist-btn" data-d-tag="${escapeHtml(dTag)}">Delete Playlist</button>
@@ -386,8 +533,9 @@ if (playAllBtn) {
       }
       
       if (!videoEvents) {
-        const videoTags = playlist.tags.filter(tag => tag[0] === "e");
-        videoEvents = await fetchVideoEvents(videoTags);
+/*         const videoTags = playlist.tags.filter(tag => tag[0] === "e");
+        videoEvents = await fetchVideoEvents(videoTags); */
+        console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~play all');
       }
       
       // Check for non-whitelisted domains
@@ -406,39 +554,54 @@ if (playAllBtn) {
 
 // Make entire video item clickable WITH playlist params
 document.querySelectorAll('.playlist-video-item').forEach(item => {
-  if (!item.classList.contains('placeholder-video')) {
-    item.addEventListener('click', async (e) => {
-      if (e.target.closest('.remove-video-btn') || e.target.closest('.drag-handle')) {
-        return;
-      }
-      
-      // Use cached video events or fetch if needed
-      let videoEvents = cachedVideoEvents;
-      
-      if (!videoEvents && app.playlistVideoCache.playlistId === playlistId) {
-        videoEvents = app.playlistVideoCache.videos;
-      }
-      
-      if (!videoEvents) {
-        const videoTags = playlist.tags.filter(tag => tag[0] === "e");
-        videoEvents = await fetchVideoEvents(videoTags);
-      }
-      
-      // Check for non-whitelisted domains
-      const nonWhitelistedDomains = await checkPlaylistDomains(videoEvents);
-      
-      if (nonWhitelistedDomains.length > 0) {
-        await promptWhitelistDomains(nonWhitelistedDomains);
-      }
-      
-      const videoId = item.dataset.videoId;
-      const pubkey = isLocal ? 'local' : playlist.pubkey;
-      window.location.hash = `#watch/params?v=${videoId}&listp=${pubkey}&listd=${dTag}`;
-    });
+  item.addEventListener('click', async (e) => {
+    // Skip if placeholder
+    if (item.classList.contains('placeholder-video')) {
+      return;
+    }
     
-    item.style.cursor = 'pointer';
-  }
+    if (e.target.closest('.remove-video-btn') || e.target.closest('.drag-handle')) {
+      return;
+    }
+    
+    // Use cached video events or fetch if needed
+    let videoEvents = cachedVideoEvents;
+    
+    if (!videoEvents && app.playlistVideoCache.playlistId === playlistId) {
+      videoEvents = app.playlistVideoCache.videos;
+    }
+    
+    if (!videoEvents) {
+      const videoTags = playlist.tags.filter(tag => tag[0] === "e");
+      videoEvents = await fetchVideoEvents(videoTags, playlist);
+    }
+    
+    // Check for non-whitelisted domains
+    const nonWhitelistedDomains = await checkPlaylistDomains(videoEvents);
+    
+    if (nonWhitelistedDomains.length > 0) {
+      await promptWhitelistDomains(nonWhitelistedDomains);
+    }
+    
+    const videoId = item.dataset.videoId;
+    const pubkey = isLocal ? 'local' : playlist.pubkey;
+    
+    // Get relay hint for this specific video
+    const relayHint = getRelayHintForVideo(playlist.tags, videoId);
+    
+    // Build URL with discovery parameter if relay hint exists
+    let watchUrl = `#watch/params?v=${videoId}&listp=${pubkey}&listd=${dTag}`;
+    if (relayHint) {
+      watchUrl += `&discovery=${encodeURIComponent(relayHint)}`;
+      console.log(`Adding relay hint for video ${videoId}: ${relayHint}`);
+    }
+    
+    window.location.hash = watchUrl;
+  });
+  
+  item.style.cursor = 'pointer';
 });
+  
   
   // Remove video buttons (only for local playlists)
   if (isLocal) {

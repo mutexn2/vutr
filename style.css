@@ -9230,16 +9230,16 @@ noscript {
 
 /* Single Playlist Page */
 .placeholder-video .video-thumbnail {
-  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background: linear-gradient(90deg, var(--background) 25%, var(--surface) 50%, var(--primary) 75%);
   background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
+  animation: shimmer 2s 5;
   min-height: 120px;
 }
 
 .placeholder-video .video-title {
-  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background: linear-gradient(90deg, var(--primary) 25%, var(--surface) 50%, var(--background) 75%);
   background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
+  animation: shimmer 2s 5;
   color: transparent;
   border-radius: 4px;
 }
@@ -9255,7 +9255,7 @@ noscript {
 
 @keyframes highlightUpdate {
   0%, 100% { background-color: transparent; }
-  50% { background-color: rgba(var(--accent-rgb, 59, 130, 246), 0.1); }
+  50% { background-color: rgba(var(--accent, 59, 130, 246), 0.1); }
 }
 .video-updated {
   animation: highlightUpdate 2s ease;
@@ -9265,6 +9265,16 @@ noscript {
   0%, 100% { background-color: transparent; }
   50% { background-color: rgba(var(--accent), 0.1); }
 }
+
+.placeholder-thumbnail.not-found {
+  opacity: 0.5;
+  background: #2a2a2a;
+}
+
+.placeholder-thumbnail.not-found .placeholder-icon {
+  color: #ff6b6b;
+}
+
 .playlist-header {
   margin-bottom: 2rem;
 }

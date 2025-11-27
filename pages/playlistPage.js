@@ -206,6 +206,19 @@ async function fetchVideoEventsProgressively(videoIds, allRelays, playlistId) {
       
       oneose() {
         console.log(`Video fetch complete: ${videoMap.size}/${videoIds.length} found`);
+        
+        // Mark unfound videos as "not found"
+        const existingCache = app.playlistVideoCache;
+        if (existingCache && existingCache.playlistId === playlistId) {
+          existingCache.videos.forEach((video, index) => {
+            if (video.isPlaceholder && !video.notFound && !videoMap.has(video.id)) {
+              // This video was never found, mark it as not found
+              const notFoundVideo = createPlaceholderVideo(video.id, true);
+              existingCache.videos[index] = notFoundVideo;
+              updateVideoCardInPlaylist(notFoundVideo);
+            }
+          });
+        }
       }
     }
   );
@@ -214,7 +227,6 @@ async function fetchVideoEventsProgressively(videoIds, allRelays, playlistId) {
   app.playlistVideoSubscription = sub;
   app.playlistVideoPool = pool;
 }
-
 
 async function renderPlaylist(playlist, playlistId) {
   const videoTags = filterValidVideoTags(playlist.tags);
@@ -436,7 +448,7 @@ function updateVideoCardInPlaylist(videoEvent) {
   // The click listener is still attached to the parent card element
   // so we don't need to re-attach it - it survives the innerHTML update
 }
-function createPlaceholderVideo(videoId) {
+function createPlaceholderVideo(videoId, notFound = false) {
   return {
     id: videoId,
     kind: 21,
@@ -444,13 +456,13 @@ function createPlaceholderVideo(videoId) {
     created_at: 0,
     content: '',
     tags: [
-      ['title', 'Loading...'],
+      ['title', notFound ? 'Video not found' : 'Loading...'],
     ],
     sig: '',
-    isPlaceholder: true
+    isPlaceholder: true,
+    notFound: notFound 
   };
 }
-
 
 // Helper functions for rendering
 function createVideoThumbnailElement(event) {

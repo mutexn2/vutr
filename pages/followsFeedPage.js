@@ -2,216 +2,201 @@ async function followsFeedPageHandler() {
   // Cancel any active queries from previous page loads
   cancelActiveQueries();
   
+  // Parse URL parameters first
+  const currentHash = window.location.hash;
+  const urlParams = new URLSearchParams(currentHash.split('?')[1] || '');
+  const relaySource = urlParams.get('relays') || 'active';
+  const pubkeySource = urlParams.get('source') || 'local';
+  
+  // Active set has no shorts, Extended has shorts
+  const includeShorts = relaySource === 'extended' ? 'yes' : 'no';
+
+  // Initialize the page skeleton IMMEDIATELY - this always renders
   mainContent.innerHTML = `
-    <h1>Following Feed</h1>
-    <div class="loading-indicator">
-        <p>Loading videos from followed channels...</p>
+    <div class="follows-feed-header">
+      <div class="pubkey-source-tabs">
+        <button class="source-tab-button ${pubkeySource === 'local' ? 'active' : ''}" data-source="local">
+          Local Subscriptions
+        </button>
+        <button class="source-tab-button ${pubkeySource === 'friends' ? 'active' : ''}" data-source="friends">
+          Friends (kind-3)
+        </button>
+      </div>
+
+      <div class="follows-feed-header-header">
+        <h2 class="loading-indicator">Loading...</h2>
+      </div>
+
+      <div class="relay-tabs">
+        <button class="tab-button ${relaySource === 'active' ? 'active' : ''}" data-relay="active">
+          Active Set
+        </button>
+        <button class="tab-button ${relaySource === 'extended' ? 'active' : ''}" data-relay="extended">
+          Extended (Outbox)
+        </button>
+      </div>
     </div>
+    <div class="videos-grid"></div>
+    <div class="load-more-container" style="text-align: center; margin-top: 20px;"></div>
   `;
 
-  try {
-    // Parse URL parameters
-    const currentHash = window.location.hash;
-    const urlParams = new URLSearchParams(currentHash.split('?')[1] || '');
-    const relaySource = urlParams.get('relays') || 'active';
-    const pubkeySource = urlParams.get('source') || 'local'; // 'local' or 'friends'
-    
-    // Active set has no shorts, Extended has shorts
-    const includeShorts = relaySource === 'extended' ? 'yes' : 'no';
+  // Get references to UI elements
+  const headerElement = document.querySelector(".follows-feed-header-header");
+  const grid = document.querySelector(".videos-grid");
+  const loadMoreContainer = document.querySelector(".load-more-container");
 
+  // Setup pubkey source tab event handlers
+  const sourceTabButtons = document.querySelectorAll('.source-tab-button');
+  sourceTabButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      const newSource = button.dataset.source;
+      const baseHash = '#followsfeed';
+      
+      const params = new URLSearchParams();
+      const newShorts = relaySource === 'extended' ? 'yes' : 'no';
+      
+      if (newSource !== 'local') params.set('source', newSource);
+      if (relaySource !== 'active') params.set('relays', relaySource);
+      if (newShorts !== 'no') params.set('shorts', newShorts);
+      
+      const paramString = params.toString();
+      const newUrl = paramString ? `${baseHash}/params?${paramString}` : baseHash;
+      window.location.hash = newUrl;
+    });
+  });
+
+  // Setup relay mode tab event handlers
+  const tabButtons = document.querySelectorAll('.tab-button');
+  tabButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      const newRelaySource = button.dataset.relay;
+      const baseHash = '#followsfeed';
+      
+      const params = new URLSearchParams();
+      const newShorts = newRelaySource === 'extended' ? 'yes' : 'no';
+      
+      if (pubkeySource !== 'local') params.set('source', pubkeySource);
+      if (newRelaySource !== 'active') params.set('relays', newRelaySource);
+      if (newShorts !== 'no') params.set('shorts', newShorts);
+      
+      const paramString = params.toString();
+      const newUrl = paramString ? `${baseHash}/params?${paramString}` : baseHash;
+      window.location.hash = newUrl;
+    });
+  });
+
+  try {
     // Get pubkeys based on source
     let followedPubkeys;
     let sourceLabel;
     
-if (pubkeySource === 'friends') {
-  // Get kind-3 pubkeys with retry logic for app.myPk
-  let retries = 0;
-  const maxRetries = 3;
-  
-  const checkAndFetchKind3 = async () => {
-    if (!app.myPk) {
-      if (retries < maxRetries) {
-        retries++;
-        console.log(`app.myPk not available, retrying in 2 seconds... (attempt ${retries}/${maxRetries})`);
+    if (pubkeySource === 'friends') {
+      // Get kind-3 pubkeys with retry logic for app.myPk
+      let retries = 0;
+      const maxRetries = 3;
+      
+      const checkAndFetchKind3 = async () => {
+        if (!app.myPk) {
+          if (retries < maxRetries) {
+            retries++;
+            console.log(`app.myPk not available, retrying in 2 seconds... (attempt ${retries}/${maxRetries})`);
+            headerElement.innerHTML = `<h2>Waiting for login... (${retries}/${maxRetries})</h2>`;
+            
+            // Wait 2 seconds and try again
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            return checkAndFetchKind3();
+          } else {
+            // Max retries reached, show login message
+            headerElement.innerHTML = `
+              <h2>Login Required</h2>
+              <p>You need to be logged in to view your friends feed. Please <a href="#login">log in</a> first.</p>
+            `;
+            return null;
+          }
+        }
         
-        // Wait 2 seconds and try again
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        return checkAndFetchKind3();
-      } else {
-        // Max retries reached, show login message
-        mainContent.innerHTML = `
-          <h1>Login Required</h1>
-          <p>You need to be logged in to view your friends feed. Please <a href="#login">log in</a> first.</p>
+        // app.myPk is available, proceed with the original logic
+        headerElement.innerHTML = `<h2 class="loading-indicator">Loading kind-3 event...</h2>`;
+        
+        const kindThreeEvents = await NostrClient.getEvents({
+          kinds: [3],
+          authors: [app.myPk],
+        });
+        
+        if (!kindThreeEvents || kindThreeEvents.length === 0) {
+          headerElement.innerHTML = `
+            <h2>No Kind-3 Following List</h2>
+            <p>You don't have a kind-3 following list published. Visit the <a href="#kind1follows">Friends</a> page to see more details.</p>
+          `;
+          return null;
+        }
+        
+        const latestEvent = kindThreeEvents.reduce((latest, current) => 
+          current.created_at > latest.created_at ? current : latest
+        );
+        
+        followedPubkeys = latestEvent.tags
+          .filter(tag => tag[0] === 'p' && tag[1])
+          .map(tag => tag[1]);
+        
+        // Check if we actually have any followed pubkeys
+        if (!followedPubkeys || followedPubkeys.length === 0) {
+          headerElement.innerHTML = `
+            <h2>No Friends Followed</h2>
+            <p>Your kind-3 following list exists but doesn't contain any followed users. Visit the <a href="#kind1follows">Friends</a> page to add some friends.</p>
+          `;
+          return null;
+        }
+        
+        sourceLabel = 'Friends (kind-3)';
+        return followedPubkeys;
+      };
+      
+      // Start the retry process
+      followedPubkeys = await checkAndFetchKind3();
+      
+    } else {
+      // Get local follows
+      followedPubkeys = getFollowedPubkeys();
+      
+      // Check if we have any local follows
+      if (!followedPubkeys || followedPubkeys.length === 0) {
+        headerElement.innerHTML = `
+          <h2>No Local Subscriptions</h2>
+          <p>You haven't subscribed to any users locally. Browse around and click the follow button on users to add them to your subscriptions.</p>
         `;
-        return null;
+        return;
       }
+      
+      sourceLabel = 'Subscriptions (local)';
     }
-    
-    // app.myPk is available, proceed with the original logic
-    mainContent.innerHTML = `
-      <h1>Following Feed</h1>
-      <div class="loading-indicator">
-          <p>Loading kind-3 event...</p>
-      </div>
-    `;
-    
-    const kindThreeEvents = await NostrClient.getEvents({
-      kinds: [3],
-      authors: [app.myPk],
-    });
-    
-    if (!kindThreeEvents || kindThreeEvents.length === 0) {
-      mainContent.innerHTML = `
-        <h1>No Kind-3 Following List</h1>
-        <p>You don't have a kind-3 following list published. Visit the <a href="#kind1follows">Friends</a> page to see more details.</p>
-      `;
-      return null;
-    }
-    
-    const latestEvent = kindThreeEvents.reduce((latest, current) => 
-      current.created_at > latest.created_at ? current : latest
-    );
-    
-    followedPubkeys = latestEvent.tags
-      .filter(tag => tag[0] === 'p' && tag[1])
-      .map(tag => tag[1]);
-    
-    // Check if we actually have any followed pubkeys
-    if (!followedPubkeys || followedPubkeys.length === 0) {
-      mainContent.innerHTML = `
-        <h1>No Friends Followed</h1>
-        <p>Your kind-3 following list exists but doesn't contain any followed users. Visit the <a href="#kind1follows">Friends</a> page to add some friends.</p>
-      `;
-      return null;
-    }
-    
-    sourceLabel = 'Friends (kind-3)';
-    return followedPubkeys;
-  };
-  
-  // Start the retry process
-  await checkAndFetchKind3();
-  
-} else {
-  // Get local follows
-  followedPubkeys = getFollowedPubkeys();
-  
-  // Check if we have any local follows
-  if (!followedPubkeys || followedPubkeys.length === 0) {
-    mainContent.innerHTML = `
-      <h1>No Local Subscriptions</h1>
-      <p>You haven't subscribed to any users locally. Browse around and click the follow button on users to add them to your subscriptions.</p>
-    `;
-    return;
-  }
-  
-  sourceLabel = 'Subscriptions (local)';
-}
 
+    // Final check if we have pubkeys
     if (!followedPubkeys || followedPubkeys.length === 0) {
-
-         const linkTarget = pubkeySource === 'friends' ? '#kind1follows' : '#follows';
+      const linkTarget = pubkeySource === 'friends' ? '#kind1follows' : '#follows';
       const linkText = pubkeySource === 'friends' ? 'Friends' : 'Following';
-      mainContent.innerHTML = `
-        <h1>No Followed Channels</h1>
+      headerElement.innerHTML = `
+        <h2>No Followed Channels</h2>
         <p>You haven't followed any channels yet. Visit the <a href="${linkTarget}">${linkText}</a> page to start following channels!</p>
       `;
       console.log('No followed pubkeys available');
       return;   
-}
-
+    }
 
     console.log(`🎯 Starting subscription feed for ${followedPubkeys.length} followed channels from ${sourceLabel}`);
-
-    // Initialize UI immediately
-    mainContent.innerHTML = `
-      <div class="follows-feed-header">
-        <div class="pubkey-source-tabs">
-          <button class="source-tab-button ${pubkeySource === 'local' ? 'active' : ''}" data-source="local">
-            Local Subscriptions
-          </button>
-          <button class="source-tab-button ${pubkeySource === 'friends' ? 'active' : ''}" data-source="friends">
-            Friends (kind-3)
-          </button>
-        </div>
-
-        <div class="follows-feed-header-header">
-          <h2 class="loading-indicator">Loading</h2>
-        </div>
-
-        <div class="relay-tabs">
-          <button class="tab-button ${relaySource === 'active' ? 'active' : ''}" data-relay="active">
-            Active Set
-          </button>
-          <button class="tab-button ${relaySource === 'extended' ? 'active' : ''}" data-relay="extended">
-            Extended (Outbox)
-          </button>
-        </div>
-      </div>
-      <div class="videos-grid"></div>
-      <div class="load-more-container" style="text-align: center; margin-top: 20px;"></div>
-    `;
-
-    // Setup pubkey source tab event handlers
-    const sourceTabButtons = document.querySelectorAll('.source-tab-button');
-    sourceTabButtons.forEach(button => {
-      button.addEventListener('click', () => {
-        const newSource = button.dataset.source;
-        const baseHash = '#followsfeed';
-        
-        const params = new URLSearchParams();
-        const newShorts = relaySource === 'extended' ? 'yes' : 'no';
-        
-        if (newSource !== 'local') params.set('source', newSource);
-        if (relaySource !== 'active') params.set('relays', relaySource);
-        if (newShorts !== 'no') params.set('shorts', newShorts);
-        
-        const paramString = params.toString();
-        const newUrl = paramString ? `${baseHash}/params?${paramString}` : baseHash;
-        window.location.hash = newUrl;
-      });
-    });
-
-    // Setup relay mode tab event handlers
-    const tabButtons = document.querySelectorAll('.tab-button');
-    tabButtons.forEach(button => {
-      button.addEventListener('click', () => {
-        const newRelaySource = button.dataset.relay;
-        const baseHash = '#followsfeed';
-        
-        const params = new URLSearchParams();
-        const newShorts = newRelaySource === 'extended' ? 'yes' : 'no';
-        
-        if (pubkeySource !== 'local') params.set('source', pubkeySource);
-        if (newRelaySource !== 'active') params.set('relays', newRelaySource);
-        if (newShorts !== 'no') params.set('shorts', newShorts);
-        
-        const paramString = params.toString();
-        const newUrl = paramString ? `${baseHash}/params?${paramString}` : baseHash;
-        window.location.hash = newUrl;
-      });
-    });
-
-    const grid = document.querySelector(".videos-grid");
-    const loadMoreContainer = document.querySelector(".load-more-container");
-    const headerElement = document.querySelector(".follows-feed-header-header");
 
     // Start progressive feed loading
     await loadProgressiveFeed(followedPubkeys, relaySource, includeShorts, grid, headerElement);
 
   } catch (error) {
     console.error("❌ Error rendering follows feed page:", error);
-/*     let errorDiv = document.createElement("div");
-    errorDiv.innerHTML = `
-      <h1>Error</h1>
-      <div class="loading-indicator">
-        <p>Error rendering follows feed page: ${error.message}</p>
-      </div>
-    `; */
-    showError(`Error rendering follows feed page:  ${formatErrorForDisplay(error)}`);
-    mainContent.replaceChildren(errorDiv);
+    headerElement.innerHTML = `
+      <h2>Error</h2>
+      <p>Error loading feed: ${formatErrorForDisplay(error)}</p>
+    `;
   }
 }
+
 async function loadProgressiveFeed(followedPubkeys, relaySource, includeShorts, grid, headerElement) {
   const MAX_EVENTS = 100;
   const EVENTS_PER_PAGE = 20;

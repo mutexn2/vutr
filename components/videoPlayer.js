@@ -566,8 +566,9 @@ function updatePlaylistInfo() {
 
 function playNextInPlaylist() {
   if (!app.currentPlaylist) return;
-  
+
   const videoTags = app.currentPlaylist.tags.filter(tag => tag[0] === "e");
+
   if (app.currentPlaylistIndex >= videoTags.length - 1) {
     console.log("Already at last video");
     return;
@@ -576,14 +577,25 @@ function playNextInPlaylist() {
   app.currentPlaylistIndex++;
   const nextVideoTag = videoTags[app.currentPlaylistIndex];
   const videoId = nextVideoTag[1];
+  const relayHint = nextVideoTag[2]; // Extract relay hint (third element)
   const dTag = getValueFromTags(app.currentPlaylist, "d", "");
   const pubkey = app.currentPlaylist.pubkey;
 
-  window.location.hash = `#watch/params?v=${videoId}&listp=${pubkey}&listd=${dTag}`;
+  // Construct URL with optional discover parameter
+  let url = `#watch/params?v=${videoId}&listp=${pubkey}&listd=${dTag}`;
+  if (relayHint) {
+    const cleanRelay = cleanRelayUrl(relayHint);
+    if (cleanRelay) {
+      url += `&discovery=${cleanRelay}`;
+    }
+  }
+  
+  window.location.hash = url;
 }
 
 function playPreviousInPlaylist() {
   if (!app.currentPlaylist) return;
+
   if (app.currentPlaylistIndex <= 0) {
     console.log("Already at first video");
     return;
@@ -593,12 +605,21 @@ function playPreviousInPlaylist() {
   const videoTags = app.currentPlaylist.tags.filter(tag => tag[0] === "e");
   const prevVideoTag = videoTags[app.currentPlaylistIndex];
   const videoId = prevVideoTag[1];
+  const relayHint = prevVideoTag[2]; // Extract relay hint (third element)
   const dTag = getValueFromTags(app.currentPlaylist, "d", "");
   const pubkey = app.currentPlaylist.pubkey;
 
-  window.location.hash = `#watch/params?v=${videoId}&listp=${pubkey}&listd=${dTag}`;
+  // Construct URL with optional discover parameter
+  let url = `#watch/params?v=${videoId}&listp=${pubkey}&listd=${dTag}`;
+  if (relayHint) {
+    const cleanRelay = cleanRelayUrl(relayHint);
+    if (cleanRelay) {
+      url += `&discovery=${cleanRelay}`;
+    }
+  }
+  
+  window.location.hash = url;
 }
-
 
 ///////
 

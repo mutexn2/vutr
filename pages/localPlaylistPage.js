@@ -114,11 +114,22 @@ async function fetchVideoEventsForLocalPlaylist(videoIds, playlistId, playlist) 
       
       oneose() {
         console.log(`Video fetch complete: ${videoMap.size}/${videoIds.length} found`);
+        
+        // NEW: Mark unfound videos as "not found"
+        const existingCache = app.playlistVideoCache;
+        if (existingCache && existingCache.playlistId === playlistId) {
+          existingCache.videos.forEach((video, index) => {
+            if (video.isPlaceholder && !video.notFound && !videoMap.has(video.id)) {
+              const notFoundVideo = createPlaceholderVideo(video.id, true);
+              existingCache.videos[index] = notFoundVideo;
+              updateVideoCardInLocalPlaylist(notFoundVideo);
+            }
+          });
+        }
       }
     }
   );
   
-  // Auto-close after timeout
   setTimeout(() => {
     sub.close();
     pool.close(allRelays);
@@ -408,8 +419,8 @@ function renderPlaylistVideos(videoEvents, dTag, isLocal) {
 function renderVideoThumbnail(event) {
   if (event.isPlaceholder) {
     return `
-      <div class="video-thumbnail placeholder-thumbnail">
-        <div class="placeholder-icon">📹</div>
+      <div class="video-thumbnail placeholder-thumbnail ${event.notFound ? 'not-found' : ''}">
+        <div class="placeholder-icon">${event.notFound ? '❌' : '📹'}</div>
       </div>
     `;
   }

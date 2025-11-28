@@ -99,8 +99,6 @@ let app = {
   subscriptions: new Map(), // Key: subscriptionId, Value: subscription object
   subscriptionEvents: new Map(), // Key: subscriptionId, Value: array of events
   
-  // Global pool for connection reuse
-  pool: new window.NostrTools.SimplePool(),  
 
   // ========== NOSTR ==========
   relayLists:
@@ -138,7 +136,7 @@ let app = {
   },
 
 
-chatRelays: ["wss://nos.lol", "wss://nostr.mom"],
+chatRelays: ["wss://nos.lol", "wss://relay.damus.io"],
   
   // ========== CLEANUP MANAGEMENT ==========
   cleanupHandlers: [], // Array of cleanup functions to call on route change

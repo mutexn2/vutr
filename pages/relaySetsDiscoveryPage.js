@@ -77,10 +77,7 @@ async function relaySetsDiscoveryPageHandler() {
   if (pubkeySource === 'local') {
     followedPubkeys = getFollowedPubkeys();
     if (!followedPubkeys || followedPubkeys.length === 0) {
-      mainContent.innerHTML = `
-        <h1>No Local Subscriptions</h1>
-        <p>You haven't subscribed to any users locally. Browse around and click the follow button on users to add them to your subscriptions.</p>
-      `;
+      showTabContentMessage('No Local Subscriptions', 'You haven\'t subscribed to any users locally. Browse around and click the follow button on users to add them to your subscriptions.');
       return;
     }
     sourceLabel = 'Subscriptions';
@@ -96,14 +93,14 @@ async function relaySetsDiscoveryPageHandler() {
     }
     
     if (!app.myPk) {
-      mainContent.innerHTML = `
-        <h1>Login Required</h1>
-        <p>You need to be logged in to view your friends' relay sets. Please <a href="#login">log in</a> first.</p>
-      `;
+      showTabContentMessage('Login Required', 'You need to be logged in to view your friends\' relay sets. Please <a href="#login">log in</a> first.');
       return;
     }
 
-    mainContent.querySelector('.loading-indicator').innerHTML = '<p>Loading kind-3 event...</p>';
+    const loadingIndicator = document.querySelector('.loading-indicator');
+    if (loadingIndicator) {
+      loadingIndicator.innerHTML = '<p>Loading kind-3 event...</p>';
+    }
     
     const kindThreeEvents = await NostrClient.getEvents({
       kinds: [3],
@@ -111,10 +108,7 @@ async function relaySetsDiscoveryPageHandler() {
     });
     
     if (!kindThreeEvents || kindThreeEvents.length === 0) {
-      mainContent.innerHTML = `
-        <h1>No Kind-3 Following List</h1>
-        <p>You don't have a kind-3 following list published. Visit the <a href="#kind1follows">Friends</a> page to see more details.</p>
-      `;
+      showTabContentMessage('No Kind-3 Following List', 'You don\'t have a kind-3 following list published. Visit the <a href="#kind1follows">Friends</a> page to see more details.');
       return;
     }
     
@@ -127,10 +121,7 @@ async function relaySetsDiscoveryPageHandler() {
       .map(tag => tag[1]);
     
     if (!followedPubkeys || followedPubkeys.length === 0) {
-      mainContent.innerHTML = `
-        <h1>No Friends Followed</h1>
-        <p>Your kind-3 following list exists but doesn't contain any followed users. Visit the <a href="#kind1follows">Friends</a> page to add some friends.</p>
-      `;
+      showTabContentMessage('No Friends Followed', 'Your kind-3 following list exists but doesn\'t contain any followed users. Visit the <a href="#kind1follows">Friends</a> page to add some friends.');
       return;
     }
     
@@ -179,10 +170,7 @@ async function relaySetsDiscoveryPageHandler() {
     relaysToUse = Array.from(relaysToUse);
     
     if (relaysToUse.length === 0) {
-      mainContent.innerHTML = `
-        <h1>No Relays Configured</h1>
-        <p>Please configure relays in network settings first.</p>
-      `;
+      showTabContentMessage('No Relays Configured', 'Please configure relays in network settings first.');
       return;
     }
 
@@ -217,10 +205,8 @@ async function relaySetsDiscoveryPageHandler() {
       [filter],
       {
         onevent: (event) => {
-        //  console.log('Received event:', event.id, 'from pubkey:', event.pubkey);
           const card = handleNewRelaySetEvent(event, receivedEvents, rSets);
           if (card) {
-          //  console.log('Created card for event:', event.id);
             pendingCards.push(card);
             
             if (pendingCards.length >= BATCH_SIZE) {
@@ -265,17 +251,25 @@ async function relaySetsDiscoveryPageHandler() {
 
   } catch (error) {
     console.error("Error setting up relay sets discovery:", error);
-    let errorDiv = document.createElement("div");
-    errorDiv.innerHTML = safeHtml`
-      <h1>Error</h1>
-      <div class="loading-indicator">
-        <p>Error discovering relay sets: ${formatErrorForDisplay(error)}</p>
-      </div>
-    `;
-    mainContent.replaceChildren(errorDiv);
+    showTabContentMessage('Error', `Error discovering relay sets: ${formatErrorForDisplay(error)}`);
   }
 
   setupDiscoveryTabs();
+}
+
+// New helper function to show messages only in tab-content
+function showTabContentMessage(title, message) {
+  const tabContent = document.querySelector('.tab-content');
+  if (!tabContent) return;
+  
+  tabContent.innerHTML = `
+    <div class="tab-pane active" id="sets-tab">
+      <div class="loading-indicator">
+        <h2>${escapeHtml(title)}</h2>
+        <p>${message}</p>
+      </div>
+    </div>
+  `;
 }
 
 

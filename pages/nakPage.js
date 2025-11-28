@@ -53,8 +53,8 @@ function _startNostrSubscription(subscription) {
   subscription.relays.forEach((relayUrl) => {
     try {
       const relayState = subscription.relayStates.get(relayUrl);
-
-      const sub = app.pool.subscribeMany(
+      let pool = new window.NostrTools.SimplePool();
+      const sub = pool.subscribeMany(
         [relayUrl],
         [subscription.filter],
         {

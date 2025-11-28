@@ -524,14 +524,14 @@ async function publishEvent(event, relays = null, options = {}) {
     errorMessage = "Failed to publish event"
   } = options;
 
+  let publishResults = [];
+
   try {
     const targetRelays = relays || app.relays;
     
     if (!targetRelays || targetRelays.length === 0) {
       throw new Error("No relays configured");
     }
-
-    let publishResults;
     
     if (typeof pool !== "undefined") {
       publishResults = await Promise.allSettled(pool.publish(targetRelays, event));
@@ -542,6 +542,13 @@ async function publishEvent(event, relays = null, options = {}) {
 
     const successfulPublishes = publishResults.filter(result => result.status === 'fulfilled');
     const failedPublishes = publishResults.filter(result => result.status === 'rejected');
+
+/*     if (failedPublishes.length > 0) {
+      console.error("Detailed publish failures:");
+      failedPublishes.forEach((failure, index) => {
+        console.error(`Relay ${index}:`, failure.reason);
+      });
+    } */
 
     if (successfulPublishes.length > 0) {
       console.log(`${successMessage} to ${successfulPublishes.length}/${targetRelays.length} relays`);
@@ -565,11 +572,10 @@ async function publishEvent(event, relays = null, options = {}) {
     console.error(`Error publishing event:`, error);
     
     if (!requireAllSuccess) {
-      // Don't throw if partial success is acceptable
       return {
         success: false,
         error: error.message,
-        results: publishResults || []
+        results: publishResults
       };
     }
     

@@ -59,40 +59,46 @@ let replyState = {
 const messageReactions = {
   reactions: new Map(), // eventId -> { likeCount: number, userLiked: boolean }
 
-  async fetchReactionsForMessage(eventId) {
-    if (!app.chatPool || !app.chatRelays) return;
+async fetchReactionsForMessages(eventIds) {
+  if (!app.chatPool || !app.chatRelays || eventIds.length === 0) return new Map();
 
-    return new Promise((resolve) => {
-      const reactions = [];
-      let queryComplete = false;
+  return new Promise((resolve) => {
+    const reactionsByEvent = new Map();
+    let queryComplete = false;
 
-      const timeout = setTimeout(() => {
-        if (!queryComplete) {
-          sub.close();
-          resolve(reactions);
-        }
-      }, 2000);
+    const timeout = setTimeout(() => {
+      if (!queryComplete) {
+        sub.close();
+        resolve(reactionsByEvent);
+      }
+    }, 3000);
 
-      const sub = app.chatPool.subscribe(
-        app.chatRelays,
-        {
-          kinds: [7],
-          "#e": [eventId],
+    const sub = app.chatPool.subscribe(
+      app.chatRelays,
+      {
+        kinds: [7],
+        "#e": Array.from(eventIds),
+      },
+      {
+        onevent(event) {
+          const referencedEvent = event.tags.find(tag => tag[0] === 'e')?.[1];
+          if (referencedEvent) {
+            if (!reactionsByEvent.has(referencedEvent)) {
+              reactionsByEvent.set(referencedEvent, []);
+            }
+            reactionsByEvent.get(referencedEvent).push(event);
+          }
         },
-        {
-          onevent(event) {
-            reactions.push(event);
-          },
-          oneose() {
-            queryComplete = true;
-            clearTimeout(timeout);
-            sub.close();
-            resolve(reactions);
-          },
-        }
-      );
-    });
-  },
+        oneose() {
+          queryComplete = true;
+          clearTimeout(timeout);
+          sub.close();
+          resolve(reactionsByEvent);
+        },
+      }
+    );
+  });
+},
 
   processReactions(eventId, reactions) {
     // Count likes (content === "+")
@@ -372,7 +378,7 @@ const eventManager = {
 
 
 // PoW Configuration (hardcoded by developer)
-const POW_DIFFICULTY = 0; // Set your desired difficulty here
+const POW_DIFFICULTY = 7;
 
 // Helper function to get PoW from event
 function getEventPow(event) {
@@ -560,24 +566,23 @@ try {
         }
       },
 
-      oneose() {
-        console.log("End of stored events reached, got", initialLoadCount, "events");
-        isInitialLoad = false;
-        
-        // Only hide loading if we didn't have cache (otherwise already hidden)
-        if (cachedMessages.length === 0) {
-          hideLoadingIndicator();
-          setTimeout(() => scrollToBottom(false), 100);
-        }
+oneose() {
+  console.log("End of stored events reached, got", initialLoadCount, "events");
+  isInitialLoad = false;
+  
+  if (cachedMessages.length === 0) {
+    hideLoadingIndicator();
+    setTimeout(() => scrollToBottom(false), 100);
+  }
 
-        // Save current messages to localStorage
-        chatStorage.saveMessages(eventManager.allEvents);
+  chatStorage.saveMessages(eventManager.allEvents);
 
-        setTimeout(() => {
-          autoFetchMissingReferences();
-          setTimeout(() => scrollToBottom(false), 300);
-        }, 500);
-      },
+  setTimeout(() => {
+    autoFetchMissingReferences();
+    loadAllVisibleReactions(); // Add this line
+    setTimeout(() => scrollToBottom(false), 300);
+  }, 500);
+},
 
       onclose() {
         console.log("Chat subscription closed");
@@ -1024,8 +1029,7 @@ function createMessageFooter(event) {
 
   const likeCountSpan = likeButton.querySelector(".like-count");
 
-  // Fetch and display reactions
-  loadReactionsForButton(event.id, likeButton, likeCountSpan);
+
 
   likeButton.addEventListener("click", () =>
     handleLikeWithUI(event, likeButton, likeCountSpan)
@@ -1071,37 +1075,41 @@ function createMessageFooter(event) {
   return footerDiv;
 }
 
-async function loadReactionsForButton(eventId, likeButton, likeCountSpan) {
-  try {
-    // Check if we already have cached data
-    let reactionData = messageReactions.getReactionData(eventId);
+async function loadAllVisibleReactions() {
+  const messagesContainer = document.getElementById("messages-container");
+  if (!messagesContainer) return;
 
-    // If not cached or is initial load, fetch from relays
-    if (
-      reactionData.likeCount === 0 &&
-      !messageReactions.reactions.has(eventId)
-    ) {
-      const reactions = await messageReactions.fetchReactionsForMessage(
-        eventId
-      );
-      reactionData = messageReactions.processReactions(eventId, reactions);
-    }
+  const messages = Array.from(messagesContainer.querySelectorAll('[data-event-id]'));
+  const eventIds = messages.map(msg => msg.dataset.eventId);
 
-    // Update UI - only show count if > 0
-    if (reactionData.likeCount > 0) {
-      likeCountSpan.textContent = reactionData.likeCount;
-    } else {
-      likeCountSpan.textContent = ""; // Hide when zero
-    }
+  if (eventIds.length === 0) return;
 
-    if (reactionData.userLiked) {
-      // Update to liked state
-      likeButton.classList.add("liked");
-      likeButton.disabled = true;
-      //  likeButton.innerHTML = likeButton.innerHTML.replace('Like', 'Liked');
-    }
-  } catch (error) {
-    console.error("Error loading reactions:", error);
+  const reactionsByEvent = await messageReactions.fetchReactionsForMessages(eventIds);
+
+  reactionsByEvent.forEach((reactions, eventId) => {
+    const reactionData = messageReactions.processReactions(eventId, reactions);
+    updateReactionUI(eventId, reactionData);
+  });
+}
+
+function updateReactionUI(eventId, reactionData) {
+  const footer = document.querySelector(`[data-event-id="${eventId}"]`);
+  if (!footer) return;
+
+  const likeButton = footer.querySelector(`[data-like-btn="${eventId}"]`);
+  const likeCountSpan = footer.querySelector(`[data-like-count="${eventId}"]`);
+
+  if (!likeButton || !likeCountSpan) return;
+
+  if (reactionData.likeCount > 0) {
+    likeCountSpan.textContent = reactionData.likeCount;
+  } else {
+    likeCountSpan.textContent = "";
+  }
+
+  if (reactionData.userLiked) {
+    likeButton.classList.add("liked");
+    likeButton.disabled = true;
   }
 }
 ////////////
@@ -1378,35 +1386,32 @@ function copyToClipboard(text, buttonElement) {
 }
 
 async function sendChatMessage(content) {
-  // Check if user is logged in
   if (!app.isLoggedIn || (!app.myPk && !app.guestSk)) {
     showTemporaryNotification("❌ Please log in to send messages");
     return;
   }
 
   const sendButton = document.getElementById("send-button");
-  const messageInput = document.getElementById("message-input");
 
   try {
-    // Disable button to prevent double-sending
     sendButton.disabled = true;
     sendButton.textContent = "Sending...";
 
-    const chatRoomId =
-      "39c44dcdd67271483f1c5217bcfd214c8c34980fa55f0f6b834a3e253e296c15";
+    const chatRoomId = "39c44dcdd67271483f1c5217bcfd214c8c34980fa55f0f6b834a3e253e296c15";
+    const relayHint = app.chatRelays && app.chatRelays.length > 0 ? app.chatRelays[0] : "";
 
-    const relayHint =
-      app.chatRelays && app.chatRelays.length > 0 ? app.chatRelays[0] : "";
-
-    // Create the base message event (WITHOUT pubkey for extension method)
+    // Create the base message event
     const messageEvent = {
       kind: 42,
       created_at: Math.floor(Date.now() / 1000),
       content: content,
       tags: [],
+      pubkey: app.loginMethod === 'guest' 
+        ? window.NostrTools.getPublicKey(app.guestSk) 
+        : app.myPk
     };
 
-    // Check if this is a reply
+    // Add tags
     if (replyState.isReplying && replyState.replyToEvent) {
       messageEvent.tags = [
         ["e", chatRoomId, relayHint, "root"],
@@ -1417,86 +1422,77 @@ async function sendChatMessage(content) {
       messageEvent.tags = [["e", chatRoomId, relayHint, "root"]];
     }
 
-    let eventToSign;
+    // ALWAYS mine PoW (relay requires nonce tag even for difficulty 0)
+    console.log(`Mining PoW ${POW_DIFFICULTY}...`);
+    const eventToSign = window.NostrTools.nip13.minePow(messageEvent, POW_DIFFICULTY);
+    const minedPow = window.NostrTools.nip13.getPow(eventToSign.id);
+    console.log(`PoW mined: ${minedPow}`);
+    console.log("Event with nonce:", eventToSign);
 
-    // Handle PoW mining based on login method
+    // Sign the mined event
+    let signedMessageEvent;
     if (app.loginMethod === 'guest') {
-      // For guest: we can mine directly because we have the secret key
-      console.log(`Mining PoW ${POW_DIFFICULTY} for message (guest)...`);
-      
-      // Add pubkey for guest mining
-      messageEvent.pubkey = window.NostrTools.getPublicKey(app.guestSk);
-      
-      // Mine PoW
-      const minedEvent = window.NostrTools.nip13.minePow(
-        messageEvent,
-        POW_DIFFICULTY
-      );
-      console.log(`PoW mined: ${window.NostrTools.nip13.getPow(minedEvent.id)}`);
-      
-      eventToSign = minedEvent;
-      
+      signedMessageEvent = window.NostrTools.finalizeEvent(eventToSign, app.guestSk);
     } else if (app.loginMethod === 'extension') {
-      // For extension: we need to mine with the pubkey from extension
-      console.log(`Mining PoW ${POW_DIFFICULTY} for message (extension)...`);
+      signedMessageEvent = await window.nostr.signEvent(eventToSign);
       
-      // Add pubkey for extension mining
-      messageEvent.pubkey = app.myPk;
-      
-      // Mine PoW
-      const minedEvent = window.NostrTools.nip13.minePow(
-        messageEvent,
-        POW_DIFFICULTY
-      );
-      console.log(`PoW mined: ${window.NostrTools.nip13.getPow(minedEvent.id)}`);
-      
-      eventToSign = minedEvent;
-      
-    } else {
-      throw new Error('No login method available');
-    }
-
-    // Sign the mined event (this will work correctly for both methods now)
-    const signedMessageEvent = await handleEventSigning(eventToSign);
-
-    console.log("Message event signed successfully:", signedMessageEvent);
-
-    // Publish to chat relays
-    if (app.chatRelays && app.chatRelays.length > 0) {
-      try {
-        const result = await publishEvent(signedMessageEvent, app.chatRelays, {
-          successMessage: "Message published successfully",
-          errorMessage: "Failed to publish message",
-        });
-
-        if (result.success) {
-          showTemporaryNotification("✓ Message sent!");
-          clearReplyState();
-          sendButton.disabled = false;
-          sendButton.textContent = "Send";
-        } else {
-          throw new Error(result.error);
-        }
-      } catch (publishError) {
-        console.error("Error publishing message event:", publishError);
-        showTemporaryNotification("❌ Failed to send message");
-        sendButton.disabled = false;
-        sendButton.textContent = "Send";
+      // Verify extension didn't recalculate the ID
+      if (signedMessageEvent.id !== eventToSign.id) {
+        console.warn("Extension recalculated event ID, PoW was lost!");
+        showTemporaryNotification("⚠️ Your extension doesn't preserve PoW. Try guest mode.");
+        throw new Error("Extension doesn't support PoW mining");
       }
     } else {
-      console.warn("No chat relays configured, message not published");
-      showTemporaryNotification("❌ No relays configured");
-      sendButton.disabled = false;
-      sendButton.textContent = "Send";
+      throw new Error('Unknown login method');
     }
+
+    console.log("Final signed event:", signedMessageEvent);
+    
+    // Verify nonce tag exists
+    const hasNonce = signedMessageEvent.tags.some(t => t[0] === 'nonce');
+    console.log("Has nonce tag:", hasNonce);
+    
+    if (!hasNonce) {
+      throw new Error("Event missing nonce tag!");
+    }
+
+    // Publish
+    if (!app.chatRelays || app.chatRelays.length === 0) {
+      throw new Error("No chat relays configured");
+    }
+// Add this validation right before publishing
+console.log("Validating event before publish...");
+
+// Verify the event ID is correctly calculated
+const calculatedId = window.NostrTools.getEventHash(signedMessageEvent);
+console.log("Calculated ID:", calculatedId);
+console.log("Event ID:", signedMessageEvent.id);
+console.log("IDs match:", calculatedId === signedMessageEvent.id);
+
+// Verify the signature
+const isValidSig = window.NostrTools.verifyEvent(signedMessageEvent);
+console.log("Signature valid:", isValidSig);
+    const result = await publishEvent(signedMessageEvent, app.chatRelays, {
+      successMessage: "Message published successfully",
+      errorMessage: "Failed to publish message",
+      requireAllSuccess: false
+    });
+
+    if (result.success) {
+      showTemporaryNotification("✓ Message sent!");
+      clearReplyState();
+    } else {
+      throw new Error(result.error || "Failed to publish");
+    }
+    
   } catch (error) {
-    console.error("Error creating message event:", error);
-    showTemporaryNotification("❌ Failed to send message: " + error.message);
+    console.error("Error sending message:", error);
+    showTemporaryNotification("❌ Failed to send: " + error.message);
+  } finally {
     sendButton.disabled = false;
     sendButton.textContent = "Send";
   }
 }
-
 function setReplyState(event) {
   replyState.isReplying = true;
   replyState.replyToEvent = event;

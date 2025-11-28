@@ -16,7 +16,7 @@ async function homePageHandler() {
 
     pageContainer.innerHTML = `
 <button id="shorts-btn" class="shorts-button">
-  <svg viewBox="0 24 24" class="shorts-icon">
+  <svg class="shorts-icon">
     <rect x="8" y="4" width="8" height="16" rx="2" fill="currentColor"/>
     <polygon points="10,9 10,15 14,12" fill="white"/>
   </svg>

@@ -66,22 +66,10 @@ let config = {
       ["d", "vutr-bookmarks"],
       ["title", "My Bookmarks"],
       ["description", "local video bookmarks."],
-      [
-        "e",
-        "9d9a4e19e0299bf3569b1b976f86aaf39192b4bd82a509a18c92b945e9da7437",
-      ],
-      [
-        "e",
-        "217f66a167ecbbebde0d8163ff0e81741740345e7fef89c92748f5e404d64fec",
-      ],
-      [
-        "e",
-        "571165e21999d9770ea00916c572e6ab077ec45194e1050c8ca8ec406fc12f94",
-      ],
-      [
-        "e",
-        "ec9c975bc63c965900e0a37ae4bc9bce404e6bb4a5dce3f53c4f77e3a707a486",
-      ],
+      ["e", "7f1aa7aeb30712939decd176a49e96f3aae7e9659c3957f0b8b0a88cac0c20a0"],
+      ["e", "217f66a167ecbbebde0d8163ff0e81741740345e7fef89c92748f5e404d64fec"],
+      ["e", "d50341d5dd971951debf20675330b980aedc13b4939fdd33fc854a95002a205f"],
+      ["e", "ec9c975bc63c965900e0a37ae4bc9bce404e6bb4a5dce3f53c4f77e3a707a486"],
     ],
     content: "",
     sig: "local",
@@ -141,7 +129,7 @@ let config = {
         ],
         [
           "e",
-          "571165e21999d9770ea00916c572e6ab077ec45194e1050c8ca8ec406fc12f94",
+          "e908e425bf20120926184595aee8fce32be9b834dad3f438b074adefc55d763a",
         ],
         [
           "e",
@@ -149,11 +137,11 @@ let config = {
         ],
         [
           "e",
-          "1ff44f579ee779a8267577743c1d4b6745c5b448f5674e6d3b75fd926350b5a5",
-        ],
+          "29066c66ae1178b0b2a8a3f61b287256f92ec2974aa4f8551349013b50cfcee5",
+        ],        
         [
           "e",
-          "61ee0eff2d3cbaa05b0faa477960b909dd58a8a5a668328a1bcd6ed3a085578a",
+          "1ff44f579ee779a8267577743c1d4b6745c5b448f5674e6d3b75fd926350b5a5",
         ],
       ],
       content: "",
@@ -172,15 +160,13 @@ let config = {
           "https://nostpic.com/media/df17934d47fbf9b26c360708f6413204e2a68bd9cc4057fc8c12eccfc59d7313/a82cbba16d74b6b64ff24c675abebed834b912e5e2b102ff2bf585c239482a78.webp",
         ],
         ["description", "some videos."],
-
       ],
       content: "",
       sig: "local",
-    },    
+    },
   ],
 
   defaultBookmarkedPlaylists: [],
-
 
   defaultFollowSet: {
     id: "local",
@@ -219,11 +205,10 @@ let config = {
         "image",
         "https://cdn.britannica.com/40/188540-050-9AC748DE/Yak-Himalayas-Nepal.jpg",
       ],
-
     ],
     content: "",
     sig: "local",
-  },  
+  },
   favoriteChannels: {
     id: "local-favorites",
     pubkey: "local",
@@ -251,10 +236,10 @@ let config = {
     {
       title: "App",
       items: [
-     //   { name: "queue", displayName: "Queue", icon: "⚙️" },
+        //   { name: "queue", displayName: "Queue", icon: "⚙️" },
         { name: "settings", displayName: "Settings", icon: "⚙️" },
         { name: "localmuted", displayName: "Muted", icon: "⚙️" },
-        { name: "historyplaylists", displayName: "Playlists history", icon: "📒" },
+        { name: "historyplaylists", displayName: "Playlist history", icon: "📒" },
         { name: "shorts", displayName: "Shorts", icon: "⚙️" },
         { name: "relaysetsdiscover", displayName: "Relay Sets", icon: "⚙️" },
         { name: "list", displayName: "listview", icon: "📒" },
@@ -263,6 +248,7 @@ let config = {
         { name: "contact", displayName: "contact", icon: "💬" },
         { name: "nak", displayName: "nak", icon: "🚨" },
         { name: "blob", displayName: "blob", icon: "⚗️" },
+        { name: "tag", displayName: "tags", icon: "ℹ️" },
         { name: "offline", displayName: "offline", icon: "ℹ️" },
         { name: "nak2", displayName: "nak2", icon: "🔒" },
         { name: "about", displayName: "About", icon: "📄" },

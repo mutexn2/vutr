@@ -108,6 +108,37 @@ async function settingsPageHandler() {
   </div>
 </div>
 
+<!-- Tags Management Section -->
+<div class="settings-section">
+  <h2>Tags Management</h2>
+  <div class="settings-group">
+    <div class="tags-management-section">
+      <div class="setting-info">
+        <label>Manage Content Tags</label>
+        <span class="setting-description">Add, remove, and organize tags used throughout the app</span>
+      </div>
+      
+      <!-- Tags Grid -->
+      <div class="tags-grid" id="settings-tags-grid">
+        <!-- Tags will be rendered here -->
+      </div>
+      
+      <!-- Add Tag Form -->
+      <div class="add-tag-controls">
+        <input
+          type="text"
+          id="settings-tag-input"
+          placeholder="Add new tag..."
+          class="settings-input"
+        />
+        <button type="button" id="settings-add-tag-btn" class="settings-btn primary">
+          Add Tag
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
         <!-- Network Section -->
         <div class="settings-section">
           <h2>Network & Relays</h2>
@@ -249,6 +280,9 @@ async function settingsPageHandler() {
       </div>
     `;
 
+    // Setup collapsible sections
+    setupCollapsibleSections();
+
     // Setup media whitelist
     const mediaSection = mainContent.querySelector(".media-whitelist-section");
     setupMediaWhitelistSettings(mediaSection);
@@ -257,141 +291,190 @@ async function settingsPageHandler() {
     const searchSection = mainContent.querySelector(".search-relay-section");
     setupSearchRelaySettings(searchSection);
 
+    // Setup tags management
+    setupTagsManagement();
+
     // Load saved settings
     loadSettings();
 
-  // Navigation buttons
-  document.getElementById("networkButton").addEventListener("click", () => {
-    window.location.hash = "#network";
-  });
+    // Navigation buttons
+    document.getElementById("networkButton").addEventListener("click", () => {
+      window.location.hash = "#network";
+    });
 
-  document.getElementById("websocketsButton").addEventListener("click", () => {
-    window.location.hash = "#websockets";
-  });
+    document
+      .getElementById("websocketsButton")
+      .addEventListener("click", () => {
+        window.location.hash = "#websockets";
+      });
 
+    // Video quality
+    document.getElementById("video-quality").addEventListener("change", (e) => {
+      localStorage.setItem("preferQuality", e.target.value);
+      app.preferQuality = e.target.value;
+      showTemporaryNotification("Video quality preference saved");
+    });
 
-// Video quality
-document.getElementById("video-quality").addEventListener("change", (e) => {
-  localStorage.setItem("preferQuality", e.target.value);
-  app.preferQuality = e.target.value;
-  showTemporaryNotification("Video quality preference saved");
-});
+    // Playback speed
+    document
+      .getElementById("playback-speed")
+      .addEventListener("change", (e) => {
+        localStorage.setItem("playbackSpeed", e.target.value);
+        showTemporaryNotification("Playback speed preference saved");
+      });
 
-  // Playback speed
-  document.getElementById("playback-speed").addEventListener("change", (e) => {
-    localStorage.setItem("playbackSpeed", e.target.value);
-    showTemporaryNotification("Playback speed preference saved");
-  });
+    // Toggles
+    document
+      .getElementById("autoplay-toggle")
+      .addEventListener("change", (e) => {
+        localStorage.setItem("autoplay", e.target.checked);
+        showTemporaryNotification(
+          `Autoplay ${e.target.checked ? "enabled" : "disabled"}`
+        );
+      });
 
-  // Toggles
-  document.getElementById("autoplay-toggle").addEventListener("change", (e) => {
-    localStorage.setItem("autoplay", e.target.checked);
-    showTemporaryNotification(`Autoplay ${e.target.checked ? "enabled" : "disabled"}`);
-  });
+    document
+      .getElementById("muted-autoplay")
+      .addEventListener("change", (e) => {
+        localStorage.setItem("mutedAutoplay", e.target.checked);
+        showTemporaryNotification(
+          `Muted autoplay ${e.target.checked ? "enabled" : "disabled"}`
+        );
+      });
 
-  document.getElementById("muted-autoplay").addEventListener("change", (e) => {
-    localStorage.setItem("mutedAutoplay", e.target.checked);
-    showTemporaryNotification(`Muted autoplay ${e.target.checked ? "enabled" : "disabled"}`);
-  });
+    // Content warning toggles
+    document
+      .getElementById("show-content-warning-toggle")
+      .addEventListener("change", (e) => {
+        localStorage.setItem("showContentWarning", e.target.checked);
+        showTemporaryNotification(
+          `Content warnings ${e.target.checked ? "shown" : "hidden"}`
+        );
+      });
 
-// Content warning toggles
-document.getElementById("show-content-warning-toggle").addEventListener("change", (e) => {
-  localStorage.setItem("showContentWarning", e.target.checked);
-  showTemporaryNotification(`Content warnings ${e.target.checked ? "shown" : "hidden"}`);
-});
+    document
+      .getElementById("replace-thumbnail-toggle")
+      .addEventListener("change", (e) => {
+        localStorage.setItem("replaceThumbnail", e.target.checked);
+        showTemporaryNotification(
+          `Thumbnail replacement ${e.target.checked ? "enabled" : "disabled"}`
+        );
+      });
 
-document.getElementById("replace-thumbnail-toggle").addEventListener("change", (e) => {
-  localStorage.setItem("replaceThumbnail", e.target.checked);
-  showTemporaryNotification(`Thumbnail replacement ${e.target.checked ? "enabled" : "disabled"}`);
-});
+    document
+      .getElementById("notifications-enabled")
+      .addEventListener("change", (e) => {
+        localStorage.setItem("notifications", e.target.checked);
+        showTemporaryNotification(
+          `Notifications ${e.target.checked ? "enabled" : "disabled"}`
+        );
+      });
 
-  document.getElementById("notifications-enabled").addEventListener("change", (e) => {
-    localStorage.setItem("notifications", e.target.checked);
-    showTemporaryNotification(`Notifications ${e.target.checked ? "enabled" : "disabled"}`);
-  });
+    document
+      .getElementById("desktop-notifications")
+      .addEventListener("change", (e) => {
+        localStorage.setItem("desktopNotifications", e.target.checked);
+        if (e.target.checked && "Notification" in window) {
+          Notification.requestPermission();
+        }
+        showTemporaryNotification(
+          `Desktop notifications ${e.target.checked ? "enabled" : "disabled"}`
+        );
+      });
 
-  document.getElementById("desktop-notifications").addEventListener("change", (e) => {
-    localStorage.setItem("desktopNotifications", e.target.checked);
-    if (e.target.checked && "Notification" in window) {
-      Notification.requestPermission();
-    }
-    showTemporaryNotification(`Desktop notifications ${e.target.checked ? "enabled" : "disabled"}`);
-  });
+    // Clear cache buttons
+    document
+      .getElementById("clearMediaCacheBtn")
+      .addEventListener("click", async () => {
+        try {
+          if ("caches" in window) {
+            const cacheNames = await caches.keys();
+            let deletedCount = 0;
 
-  // Clear cache buttons
-  document.getElementById("clearMediaCacheBtn").addEventListener("click", async () => {
-    try {
-      if ("caches" in window) {
-        const cacheNames = await caches.keys();
-        let deletedCount = 0;
+            for (const cacheName of cacheNames) {
+              if (!cacheName.startsWith("vutr-v")) {
+                await caches.delete(cacheName);
+                deletedCount++;
+              }
+            }
 
-        for (const cacheName of cacheNames) {
-          if (!cacheName.startsWith("vutr-v")) {
-            await caches.delete(cacheName);
-            deletedCount++;
+            showTemporaryNotification(`Cleared ${deletedCount} media cache(s)`);
+          }
+        } catch (error) {
+          console.error("Error clearing media cache:", error);
+          showTemporaryNotification("Error clearing media cache");
+        }
+      });
+
+    document
+      .getElementById("clearLocalStorageBtn")
+      .addEventListener("click", () => {
+        if (
+          confirm(
+            "This will clear all local data including guest key. Continue?"
+          )
+        ) {
+          try {
+            const itemCount = localStorage.length;
+            localStorage.clear();
+            sessionStorage.clear();
+
+            showTemporaryNotification(
+              `Cleared ${itemCount} items from local storage`
+            );
+            setTimeout(() => {
+              window.location.reload(true);
+            }, 1500);
+          } catch (error) {
+            console.error("Error clearing local storage:", error);
+            showTemporaryNotification("Error clearing local storage");
           }
         }
+      });
 
-        showTemporaryNotification(`Cleared ${deletedCount} media cache(s)`);
-      }
-    } catch (error) {
-      console.error("Error clearing media cache:", error);
-      showTemporaryNotification("Error clearing media cache");
-    }
-  });
+    document
+      .getElementById("clearEverythingBtn")
+      .addEventListener("click", async () => {
+        if (
+          confirm(
+            "WARNING: This will completely reset the app. All local data including guest keys will be deleted. A new guest key will be generated after reloading. Are you sure you want to continue?"
+          )
+        ) {
+          try {
+            if ("caches" in window) {
+              const cacheNames = await caches.keys();
+              for (const cacheName of cacheNames) {
+                await caches.delete(cacheName);
+              }
+            }
 
-  document.getElementById("clearLocalStorageBtn").addEventListener("click", () => {
-    if (confirm("This will clear all local data including guest key. Continue?")) {
-      try {
-        const itemCount = localStorage.length;
-        localStorage.clear();
-        sessionStorage.clear();
+            localStorage.clear();
+            sessionStorage.clear();
 
-        showTemporaryNotification(`Cleared ${itemCount} items from local storage`);
-        setTimeout(() => {
-          window.location.reload(true);
-        }, 1500);
-      } catch (error) {
-        console.error("Error clearing local storage:", error);
-        showTemporaryNotification("Error clearing local storage");
-      }
-    }
-  });
+            if ("serviceWorker" in navigator) {
+              const registrations =
+                await navigator.serviceWorker.getRegistrations();
+              for (const registration of registrations) {
+                await registration.unregister();
+              }
+            }
 
-  document.getElementById("clearEverythingBtn").addEventListener("click", async () => {
-    if (confirm("WARNING: This will completely reset the app. All local data including guest keys will be deleted. A new guest key will be generated after reloading. Are you sure you want to continue?")) {
-      try {
-        if ("caches" in window) {
-          const cacheNames = await caches.keys();
-          for (const cacheName of cacheNames) {
-            await caches.delete(cacheName);
+            showTemporaryNotification("All data cleared. Reloading...");
+
+            setTimeout(() => {
+              window.location.reload(true);
+            }, 1500);
+          } catch (error) {
+            console.error("Error clearing everything:", error);
+            showTemporaryNotification(
+              "Error during cleanup. Reloading anyway..."
+            );
+            setTimeout(() => {
+              window.location.reload(true);
+            }, 1500);
           }
         }
-
-        localStorage.clear();
-        sessionStorage.clear();
-
-        if ("serviceWorker" in navigator) {
-          const registrations = await navigator.serviceWorker.getRegistrations();
-          for (const registration of registrations) {
-            await registration.unregister();
-          }
-        }
-
-        showTemporaryNotification("All data cleared. Reloading...");
-
-        setTimeout(() => {
-          window.location.reload(true);
-        }, 1500);
-      } catch (error) {
-        console.error("Error clearing everything:", error);
-        showTemporaryNotification("Error during cleanup. Reloading anyway...");
-        setTimeout(() => {
-          window.location.reload(true);
-        }, 1500);
-      }
-    }
-  });
+      });
   } catch (error) {
     console.error("Error rendering settings page:", error);
     mainContent.innerHTML = `
@@ -404,10 +487,6 @@ document.getElementById("replace-thumbnail-toggle").addEventListener("change", (
 }
 
 function loadSettings() {
-
-
-
-
   // Load video quality
   const savedQuality = localStorage.getItem("preferQuality") || "lowest";
   document.getElementById("video-quality").value = savedQuality;
@@ -417,27 +496,136 @@ function loadSettings() {
   document.getElementById("playback-speed").value = savedSpeed;
 
   // Load toggles
-  document.getElementById("autoplay-toggle").checked = 
+  document.getElementById("autoplay-toggle").checked =
     localStorage.getItem("autoplay") === "true";
-  document.getElementById("muted-autoplay").checked = 
+  document.getElementById("muted-autoplay").checked =
     localStorage.getItem("mutedAutoplay") === "true";
-  document.getElementById("notifications-enabled").checked = 
+  document.getElementById("notifications-enabled").checked =
     localStorage.getItem("notifications") === "true";
-  document.getElementById("desktop-notifications").checked = 
+  document.getElementById("desktop-notifications").checked =
     localStorage.getItem("desktopNotifications") === "true";
 
-// Load content warning settings
-document.getElementById("show-content-warning-toggle").checked = 
-  localStorage.getItem("showContentWarning") !== "false"; // Default true
+  // Load content warning settings
+  document.getElementById("show-content-warning-toggle").checked =
+    localStorage.getItem("showContentWarning") !== "false"; // Default true
 
-document.getElementById("replace-thumbnail-toggle").checked = 
-  localStorage.getItem("replaceThumbnail") !== "false"; // Default true
-      
+  document.getElementById("replace-thumbnail-toggle").checked =
+    localStorage.getItem("replaceThumbnail") !== "false"; // Default true
 }
 
+function getAllTags() {
+  try {
+    const allTags = localStorage.getItem("allTags");
+    return allTags ? JSON.parse(allTags) : [];
+  } catch (error) {
+    console.error("Error loading tags:", error);
+    return [];
+  }
+}
 
+function saveAllTags(tags) {
+  try {
+    localStorage.setItem("allTags", JSON.stringify(tags));
+    // Update drawer if you have that function
+    if (typeof updateDrawerContent === "function") {
+      updateDrawerContent();
+    }
+  } catch (error) {
+    console.error("Error saving tags:", error);
+  }
+}
 
+function setupTagsManagement() {
+  const tagsGrid = document.getElementById("settings-tags-grid");
+  const tagInput = document.getElementById("settings-tag-input");
+  const addTagBtn = document.getElementById("settings-add-tag-btn");
 
+  // Render existing tags
+  renderSettingsTags();
+
+  // Handle add tag
+  const handleAddTag = () => {
+    const tagValue = tagInput.value.trim().toLowerCase();
+    if (!tagValue) return;
+
+    const allTags = getAllTags();
+
+    // Check if tag already exists
+    if (allTags.some((tag) => tag.value === tagValue)) {
+      showTemporaryNotification("Tag already exists!");
+      tagInput.value = "";
+      return;
+    }
+
+    // Add new tag
+    const newTag = {
+      value: tagValue,
+      displayName: tagValue.charAt(0).toUpperCase() + tagValue.slice(1),
+      isStatic: false,
+    };
+
+    const updatedTags = [...allTags, newTag];
+    saveAllTags(updatedTags);
+    renderSettingsTags();
+    tagInput.value = "";
+    showTemporaryNotification(`Tag "${newTag.displayName}" added`);
+  };
+
+  addTagBtn.addEventListener("click", handleAddTag);
+
+  tagInput.addEventListener("keypress", (e) => {
+    if (e.key === "Enter") {
+      handleAddTag();
+    }
+  });
+}
+
+function renderSettingsTags() {
+  const tagsGrid = document.getElementById("settings-tags-grid");
+  const allTags = getAllTags();
+
+  if (allTags.length === 0) {
+    tagsGrid.innerHTML =
+      '<div class="empty-tags">No tags added yet. Add your first tag above.</div>';
+    return;
+  }
+
+  tagsGrid.innerHTML = allTags
+    .map((tag) => {
+      const value = escapeHtml(tag.value);
+      const displayName = escapeHtml(tag.displayName);
+
+      return `
+        <div class="settings-tag-item" data-value="${value}">
+          <span class="tag-name">${displayName}</span>
+          <button class="remove-tag-btn" data-value="${value}" title="Remove tag">×</button>
+        </div>
+      `;
+    })
+    .join("");
+
+  // Add remove event listeners
+  tagsGrid.querySelectorAll(".remove-tag-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      const tagValue = e.target.dataset.value;
+      removeTag(tagValue);
+    });
+  });
+}
+
+function removeTag(tagValue) {
+  const allTags = getAllTags();
+  const tag = allTags.find((t) => t.value === tagValue);
+
+  if (confirm(`Remove tag "${tag ? tag.displayName : tagValue}"?`)) {
+    const filteredTags = allTags.filter((tag) => tag.value !== tagValue);
+    saveAllTags(filteredTags);
+    renderSettingsTags();
+    showTemporaryNotification(
+      `Tag "${tag ? tag.displayName : tagValue}" removed`
+    );
+  }
+}
 
 function setupMediaWhitelistSettings(container) {
   // Render the domains list
@@ -546,11 +734,10 @@ function removeDomainFromWhitelist(domain) {
   }
 }
 
-
 //////////////////
 function setupSearchRelaySettings(container) {
   renderSearchRelaySettings(container);
-  
+
   const relaySelect = container.querySelector("#active-relay-select");
   const addRelayBtn = container.querySelector(".add-relay-btn");
   const addRelayForm = container.querySelector(".add-relay-form");
@@ -600,15 +787,15 @@ function setupSearchRelaySettings(container) {
 function renderSearchRelaySettings(container) {
   const relaySelect = container.querySelector("#active-relay-select");
   const relayListContainer = container.querySelector(".relay-list");
-  
+
   const searchRelays = getSearchRelays();
   const activeRelay = getActiveSearchRelay();
-  
+
   // Update the select dropdown
   relaySelect.innerHTML = '<option value="">Select a relay...</option>';
-  
-  searchRelays.forEach(relay => {
-    const option = document.createElement('option');
+
+  searchRelays.forEach((relay) => {
+    const option = document.createElement("option");
     option.value = relay;
     option.textContent = relay;
     option.selected = relay === activeRelay;
@@ -617,7 +804,8 @@ function renderSearchRelaySettings(container) {
 
   // Render the relay list for management
   if (searchRelays.length === 0) {
-    relayListContainer.innerHTML = '<div class="empty-relays">No search relays added yet. Add one to get started.</div>';
+    relayListContainer.innerHTML =
+      '<div class="empty-relays">No search relays added yet. Add one to get started.</div>';
     return;
   }
 
@@ -625,23 +813,35 @@ function renderSearchRelaySettings(container) {
     <div class="relay-list-header">
       <span>Saved Relays:</span>
     </div>
-    ${searchRelays.map(relay => `
-      <div class="relay-item ${relay === activeRelay ? 'active' : ''}" data-relay="${escapeHtml(relay)}">
-        <span class="relay-url" title="${escapeHtml(relay)}">${escapeHtml(relay)}</span>
+    ${searchRelays
+      .map(
+        (relay) => `
+      <div class="relay-item ${
+        relay === activeRelay ? "active" : ""
+      }" data-relay="${escapeHtml(relay)}">
+        <span class="relay-url" title="${escapeHtml(relay)}">${escapeHtml(
+          relay
+        )}</span>
         <div class="relay-actions">
-          ${relay === activeRelay ? '<span class="active-indicator">●</span>' : ''}
+          ${
+            relay === activeRelay
+              ? '<span class="active-indicator">●</span>'
+              : ""
+          }
           <button class="remove-relay-btn" title="Remove relay">×</button>
         </div>
       </div>
-    `).join('')}
+    `
+      )
+      .join("")}
   `;
 
   // Add remove event listeners
-  relayListContainer.querySelectorAll(".remove-relay-btn").forEach(btn => {
+  relayListContainer.querySelectorAll(".remove-relay-btn").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       const relayItem = e.target.closest(".relay-item");
       const relayUrl = relayItem.dataset.relay;
-      
+
       if (confirm(`Remove relay "${relayUrl}"?`)) {
         removeSearchRelay(relayUrl);
         renderSearchRelaySettings(container);
@@ -655,27 +855,28 @@ function renderSearchRelaySettings(container) {
 function getSearchRelays() {
   const relays = localStorage.getItem("searchRelays");
   const defaultRelays = ["wss://relay.nostr.band"]; // Default relay
-  
+
   if (!relays) {
     // Initialize with default relay if none exist
     localStorage.setItem("searchRelays", JSON.stringify(defaultRelays));
     return defaultRelays;
   }
-  
+
   return JSON.parse(relays);
 }
 
 function getActiveSearchRelay() {
   const activeRelay = localStorage.getItem("activeSearchRelay");
-  
+
   // If no active relay is set, use the first available relay or default
   if (!activeRelay) {
     const relays = getSearchRelays();
-    const defaultRelay = relays.length > 0 ? relays[0] : "wss://relay.nostr.band";
+    const defaultRelay =
+      relays.length > 0 ? relays[0] : "wss://relay.nostr.band";
     setActiveSearchRelay(defaultRelay);
     return defaultRelay;
   }
-  
+
   return activeRelay;
 }
 
@@ -692,7 +893,9 @@ function addSearchRelay(relayUrl) {
   }
 
   if (!isValidRelayUrl(relayUrl)) {
-    alert("Please enter a valid WebSocket URL (must start with ws:// or wss://)");
+    alert(
+      "Please enter a valid WebSocket URL (must start with ws:// or wss://)"
+    );
     return false;
   }
 
@@ -704,7 +907,7 @@ function addSearchRelay(relayUrl) {
 
   searchRelays.push(relayUrl);
   localStorage.setItem("searchRelays", JSON.stringify(searchRelays));
-  
+
   console.log(`Added search relay: ${relayUrl}`);
   return true;
 }
@@ -712,11 +915,11 @@ function addSearchRelay(relayUrl) {
 function removeSearchRelay(relayUrl) {
   const searchRelays = getSearchRelays();
   const index = searchRelays.indexOf(relayUrl);
-  
+
   if (index > -1) {
     searchRelays.splice(index, 1);
     localStorage.setItem("searchRelays", JSON.stringify(searchRelays));
-    
+
     // If we removed the active relay, set a new one
     const activeRelay = getActiveSearchRelay();
     if (activeRelay === relayUrl) {
@@ -730,7 +933,7 @@ function removeSearchRelay(relayUrl) {
         setActiveSearchRelay(defaultRelay);
       }
     }
-    
+
     console.log(`Removed search relay: ${relayUrl}`);
   }
 }
@@ -738,8 +941,50 @@ function removeSearchRelay(relayUrl) {
 function isValidRelayUrl(url) {
   try {
     const urlObj = new URL(url);
-    return urlObj.protocol === 'ws:' || urlObj.protocol === 'wss:';
+    return urlObj.protocol === "ws:" || urlObj.protocol === "wss:";
   } catch {
     return false;
   }
+}
+
+function setupCollapsibleSections() {
+  const sections = document.querySelectorAll(".settings-section");
+
+  sections.forEach((section) => {
+    const header = section.querySelector("h2");
+    const content = section.querySelector(
+      ".settings-group, .tags-management-section, .search-relay-section, .media-whitelist-section"
+    );
+
+    // Make header clickable
+    header.style.cursor = "pointer";
+    header.style.userSelect = "none";
+
+    // Add collapse indicator
+    const indicator = document.createElement("span");
+    indicator.className = "collapse-indicator";
+    indicator.textContent = "▼";
+    header.appendChild(indicator);
+
+    // Start collapsed
+    if (content) {
+      content.style.display = "none";
+      section.classList.add("collapsed");
+    }
+
+    // Toggle on click
+    header.addEventListener("click", () => {
+      if (content) {
+        const isCollapsed = section.classList.contains("collapsed");
+
+        if (isCollapsed) {
+          content.style.display = "block";
+          section.classList.remove("collapsed");
+        } else {
+          content.style.display = "none";
+          section.classList.add("collapsed");
+        }
+      }
+    });
+  });
 }

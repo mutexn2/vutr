@@ -514,23 +514,22 @@ function updatePlaylist(dTag, title, description, image) {
   return true;
 }
 
-function addVideoToPlaylist(dTag, videoId, kind = 21) { // kind parameter no longer needed
+function addVideoToPlaylist(dTag, videoId, relayUrl = null) {
   const playlist = app.playlists.find(p => getValueFromTags(p, "d", "") === dTag);
   if (!playlist) return false;
   
-  // OLD: const videoRef = `${kind}:${videoId}`;
-  // OLD: const existingVideoTag = playlist.tags.find(tag => tag[0] === "a" && tag[1] === videoRef);
-  
-  // NEW: Simple e tag approach
   const existingVideoTag = playlist.tags.find(tag => tag[0] === "e" && tag[1] === videoId);
   if (existingVideoTag) {
     showTemporaryNotification("Video already in this playlist");
     return false;
   }
-  
-  // OLD: playlist.tags.push(["a", videoRef]);
-  // NEW:
-  playlist.tags.push(["e", videoId]);
+
+  // Add video with relay URL if provided
+  if (relayUrl) {
+    playlist.tags.push(["e", videoId, relayUrl]);
+  } else {
+    playlist.tags.push(["e", videoId]);
+  }
   
   playlist.created_at = Math.floor(Date.now() / 1000);
   playlist.id = generateId();
@@ -543,10 +542,6 @@ function removeVideoFromPlaylist(dTag, videoId, kind = 21) { // kind parameter n
   const playlist = app.playlists.find(p => getValueFromTags(p, "d", "") === dTag);
   if (!playlist) return false;
   
-  // OLD: const videoRef = `${kind}:${videoId}`;
-  // OLD: playlist.tags = playlist.tags.filter(tag => !(tag[0] === "a" && tag[1] === videoRef));
-  
-  // NEW:
   playlist.tags = playlist.tags.filter(tag => !(tag[0] === "e" && tag[1] === videoId));
   
   playlist.created_at = Math.floor(Date.now() / 1000);

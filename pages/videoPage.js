@@ -1375,7 +1375,7 @@ function isVideoBookmarked(videoId) {
   );
 }
 
-function showPlaylistSelector(video, videoId, additionalData) {
+function showPlaylistSelector(video, videoId, additionalData, relayUrl = null) {
   const playlists = app.playlists || [];
 
   const content = `
@@ -1394,15 +1394,9 @@ function showPlaylistSelector(video, videoId, additionalData) {
                   "title",
                   "Untitled Playlist"
                 );
-                // OLD: const videoCount = playlist.tags.filter((tag) => tag[0] === "a").length;
-                // NEW:
+
                 const videoCount = playlist.tags.filter((tag) => tag[0] === "e").length;
 
-                // OLD: const hasVideo = playlist.tags.some(
-                //   (tag) => tag[0] === "a" && tag[1] === `21:${videoId}`
-                // );
-                
-                // NEW:
                 const hasVideo = playlist.tags.some(
                   (tag) => tag[0] === "e" && tag[1] === videoId
                 );
@@ -1445,22 +1439,22 @@ function showPlaylistSelector(video, videoId, additionalData) {
   const createBtn = modal.querySelector(".create-playlist-btn");
   const playlistItems = modal.querySelectorAll(".playlist-item:not(.already-added)"); // Exclude already-added items
 
-  createBtn.addEventListener("click", () => {
-    const name = nameInput.value.trim();
-    if (!name) {
-      nameInput.focus();
-      return;
-    }
+createBtn.addEventListener("click", () => {
+  const name = nameInput.value.trim();
+  if (!name) {
+    nameInput.focus();
+    return;
+  }
 
-    const playlist = createPlaylist(name);
-    const dTag = getValueFromTags(playlist, "d", "");
-    const success = addVideoToPlaylist(dTag, videoId);
+  const playlist = createPlaylist(name);
+  const dTag = getValueFromTags(playlist, "d", "");
+  const success = addVideoToPlaylist(dTag, videoId, relayUrl); // Pass relayUrl
 
-    if (success) {
-      showTemporaryNotification(`Video added to "${name}"`);
-      closeModal();
-    }
-  });
+  if (success) {
+    showTemporaryNotification(`Video added to "${name}"`);
+    closeModal();
+  }
+});
 
   nameInput.addEventListener("keypress", (e) => {
     if (e.key === "Enter") {
@@ -1468,22 +1462,20 @@ function showPlaylistSelector(video, videoId, additionalData) {
     }
   });
 
-  playlistItems.forEach((item) => {
-    item.addEventListener("click", () => {
-      const dTag = item.dataset.dTag;
-      const playlistName = item.querySelector(".playlist-name").textContent;
+playlistItems.forEach((item) => {
+  item.addEventListener("click", () => {
+    const dTag = item.dataset.dTag;
+    const playlistName = item.querySelector(".playlist-name").textContent;
 
-      const success = addVideoToPlaylist(dTag, videoId);
+    const success = addVideoToPlaylist(dTag, videoId, relayUrl); // Pass relayUrl
 
-      if (success) {
-        showTemporaryNotification(`Video added to "${playlistName}"`);
-        closeModal();
-      }
-    });
+    if (success) {
+      showTemporaryNotification(`Video added to "${playlistName}"`);
+      closeModal();
+    }
   });
+});
 
-  // Focus the input when modal opens
-  //  nameInput?.focus();
 }
 
 async function checkIfVideoLiked(videoId, videoPubkey) {

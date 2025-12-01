@@ -574,7 +574,7 @@ h1 {
 }
 
 /*************************************/
-/*settings*/
+/*settings page*/
 
 .settings-container {
   display: flex;
@@ -596,17 +596,44 @@ h1 {
   align-items: flex-start;
   margin-bottom: 16px;
   width: 100%;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px;
 }
 
 .settings-section h2 {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--text);
-  margin-bottom: 16px;
-  padding-bottom: 8px;
-  border-bottom: 2px solid var(--border);
+  font-size: 22px;
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: color 0.2s;
   width: inherit;
-  max-width: 600px;
+  margin: 4px;
+  padding: 4px;
+}
+
+.settings-section h2:hover {
+  color: var(--primary);
+}
+
+.settings-section .collapse-indicator {
+  font-size: 14px;
+  transition: transform 0.3s ease;
+  margin-left: 8px;
+}
+
+.settings-section.collapsed .collapse-indicator {
+  transform: rotate(-90deg);
+}
+
+.settings-section .settings-group,
+.settings-section .tags-management-section,
+.settings-section .search-relay-section,
+.settings-section .media-whitelist-section {
+  transition: all 0.3s ease;
+  overflow: hidden;
 }
 
 .strikethrough {
@@ -617,7 +644,6 @@ h1 {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
-  overflow: hidden;
   width: 100%;
   max-width: 600px;
 }
@@ -668,6 +694,9 @@ h1 {
   text-decoration: none;
   display: inline-block;
   white-space: nowrap;
+  width: 25%;
+  min-width: 171px;
+  max-width: 173px;
 }
 
 .settings-btn:hover {
@@ -676,14 +705,14 @@ h1 {
 }
 
 .settings-btn.primary {
-  background: #0066cc;
-  color: white;
-  border-color: #0066cc;
+  background: var(--background);
+  color: var(--text);
+  border-color: var(--border);
 }
 
 .settings-btn.primary:hover {
-  background: #0052a3;
-  border-color: #0052a3;
+  background: var(--surface);
+  border-color: var(--primary);
 }
 
 .settings-btn.secondary {
@@ -724,7 +753,7 @@ h1 {
 
 .settings-select:focus {
   outline: none;
-  border-color: #0066cc;
+  border-color: var(--primary);
 }
 
 /* Toggle Switch */
@@ -820,9 +849,86 @@ h1 {
 .settings-container .relay-input:focus,
 .settings-container .domain-input:focus {
   outline: none;
-  border-color: #0066cc;
+  border-color: var(--primary);
+}
+/* Tags Management Section */
+.settings-container .tags-management-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
+.settings-container .tags-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 1rem;
+  background: var(--surface);
+  border-radius: 8px;
+  min-height: 60px;
+}
+
+.settings-container .settings-tag-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  font-size: 0.9rem;
+}
+
+.settings-container .settings-tag-item .tag-name {
+  font-weight: 500;
+}
+
+.settings-container .remove-tag-btn {
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s;
+}
+
+.settings-container .remove-tag-btn:hover {
+  color: #e74c3c;
+}
+
+.settings-container .add-tag-controls {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.settings-container .settings-input {
+  flex: 1;
+  padding: 0.75rem;
+  background-color: var(--background);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 1rem;
+}
+
+.settings-container .settings-input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.settings-container .empty-tags {
+  color: var(--text-secondary);
+  font-style: italic;
+  padding: 1rem;
+  text-align: center;
+}
 /* Relay List */
 .settings-container .relay-management {
   padding: 16px 20px;
@@ -953,7 +1059,7 @@ h1 {
 
 /* Debug Section */
 .settings-container .debug {
-  display: block;
+  display: none;
 }
 
 /* Responsive */
@@ -969,10 +1075,6 @@ h1 {
   }
 
   .settings-select {
-    width: 100%;
-  }
-
-  .settings-btn {
     width: 100%;
   }
 }
@@ -1386,7 +1488,7 @@ main {
 }
 
 .shorts-button {
-  display: none; 
+  display: none;
   align-items: center;
   gap: 8px;
   padding: 8px;
@@ -2059,13 +2161,9 @@ main {
   opacity: 1;
 }
 
-.videos-listview .creator {
-  width: 30%;
-}
-
 .videos-listview .video-card {
   display: flex;
-  flex-direction: column;
+  flex-direction: row-reverse;
   align-items: center;
   justify-content: center;
   padding: 10px 0;
@@ -2074,17 +2172,10 @@ main {
   background-color: var(--surface);
   color: var(--secondary);
   width: 95%;
-  max-width: 600px;
+  max-width: 645px;
   height: auto;
   flex-wrap: nowrap;
   overflow-y: visible;
-}
-
-.videos-listview .video-card > * {
-  margin-right: 10px;
-  flex-direction: row;
-  justify-content: space-between;
-  align-items: center;
 }
 
 .videos-listview .video-info {
@@ -2095,6 +2186,22 @@ main {
   background-color: var(--surface);
   border: none;
   text-overflow: ellipsis;
+  width: inherit;
+}
+
+.videos-listview .metadata {
+  width: auto;
+  margin-top: auto;
+  background-color: var(--background);
+  border-radius: 4px;
+  text-wrap: nowrap;
+}
+
+.videos-listview .creator {
+  margin: 0;
+  padding: 0;
+  margin-right: auto;
+  width: inherit;
 }
 
 .video-card .description,
@@ -2160,10 +2267,6 @@ main {
   -ms-overflow-style: none; /* IE and Edge */
 }
 @media (max-width: 769px) {
-  .videos-listview .video-info {
-    justify-content: center;
-  }
-
   .videos-listview .title {
     font-size: 16px;
   }
@@ -2568,32 +2671,29 @@ main {
   flex-wrap: wrap;
 }
 @media (max-width: 768px) {
+  .whitelist-prompt {
+    padding: 8px;
+  }
 
+  .whitelist-icon {
+    width: 32px;
+    height: 32px;
+    margin: 4px;
+  }
 
-.whitelist-prompt {
-  padding: 8px;
-}
+  .whitelist-prompt h3 {
+    padding: 0;
+    font-size: 16px;
+    margin-bottom: 4px;
+  }
 
+  .whitelist-prompt p {
+    margin-bottom: 4px;
+  }
 
-.whitelist-icon {
-  width: 32px;
-  height: 32px;
-  margin: 4px;
-}
-
-.whitelist-prompt h3 {
-  padding: 0;
-  font-size: 16px;
-  margin-bottom: 4px;
-}
-
-.whitelist-prompt p {
-  margin-bottom: 4px;
-}
-
-.whitelist-prompt-actions {
-  gap: 4px;
-}
+  .whitelist-prompt-actions {
+    gap: 4px;
+  }
 }
 
 /* @media (max-width: 480px) {
@@ -2700,7 +2800,6 @@ main {
     height: 50px;
   }
 }
-
 
 .video-action-tab-button.saved svg {
   fill: var(--primary);
@@ -3685,10 +3784,6 @@ main {
 /******************PostingPage******************/
 /************************************************/
 
-
-
-
-
 /* Wizard Progress Indicator */
 .wizard-progress {
   display: flex;
@@ -3931,7 +4026,7 @@ main {
   padding: 0;
   padding-top: 2.5rem;
   color: var(--text);
-  font-family: 'Courier New', monospace;
+  font-family: "Courier New", monospace;
   font-size: 0.9rem;
   white-space: pre-wrap;
   word-wrap: break-word;
@@ -4130,7 +4225,7 @@ main {
 .posting-container .upload-area {
   text-align: center;
   padding: 2rem;
-  border:2px dashed var(--border);
+  border: 2px dashed var(--border);
   border-radius: 12px;
   background-color: var(--background);
 }
@@ -4522,8 +4617,14 @@ main {
   cursor: pointer;
 }
 
-.posting-container .relay-set-checkbox input[type="checkbox"]:checked ~ .relay-set-name,
-.posting-container .relay-set-checkbox input[type="checkbox"]:checked ~ .relay-set-count {
+.posting-container
+  .relay-set-checkbox
+  input[type="checkbox"]:checked
+  ~ .relay-set-name,
+.posting-container
+  .relay-set-checkbox
+  input[type="checkbox"]:checked
+  ~ .relay-set-count {
   color: var(--primary);
 }
 
@@ -4871,8 +4972,6 @@ main {
   .step-label {
     font-size: 0.7rem;
   }
-
-
 }
 
 #video-url {
@@ -4883,12 +4982,6 @@ main {
   border-bottom: 3px solid var(--primary);
   border-radius: 4px;
 }
-
-
-
-
-
-
 
 /*******************************************************************/
 /************************************************/
@@ -7423,7 +7516,6 @@ noscript {
   transition: background-color 0.2s;
 }
 
-
 .follows-feed-header .tab-button:hover {
   border: 1px solid var(--primary);
 }
@@ -9230,14 +9322,24 @@ noscript {
 
 /* Single Playlist Page */
 .placeholder-video .video-thumbnail {
-  background: linear-gradient(90deg, var(--background) 25%, var(--surface) 50%, var(--primary) 75%);
+  background: linear-gradient(
+    90deg,
+    var(--background) 25%,
+    var(--surface) 50%,
+    var(--primary) 75%
+  );
   background-size: 200% 100%;
   animation: shimmer 2s 5;
   min-height: 120px;
 }
 
 .placeholder-video .video-title {
-  background: linear-gradient(90deg, var(--primary) 25%, var(--surface) 50%, var(--background) 75%);
+  background: linear-gradient(
+    90deg,
+    var(--primary) 25%,
+    var(--surface) 50%,
+    var(--background) 75%
+  );
   background-size: 200% 100%;
   animation: shimmer 2s 5;
   color: transparent;
@@ -9245,8 +9347,12 @@ noscript {
 }
 
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 .video-updated {
@@ -9254,16 +9360,26 @@ noscript {
 }
 
 @keyframes highlightUpdate {
-  0%, 100% { background-color: transparent; }
-  50% { background-color: rgba(var(--accent, 59, 130, 246), 0.1); }
+  0%,
+  100% {
+    background-color: transparent;
+  }
+  50% {
+    background-color: rgba(var(--accent, 59, 130, 246), 0.1);
+  }
 }
 .video-updated {
   animation: highlightUpdate 2s ease;
 }
 
 @keyframes highlightUpdate {
-  0%, 100% { background-color: transparent; }
-  50% { background-color: rgba(var(--accent), 0.1); }
+  0%,
+  100% {
+    background-color: transparent;
+  }
+  50% {
+    background-color: rgba(var(--accent), 0.1);
+  }
 }
 
 .placeholder-thumbnail.not-found {
@@ -13015,7 +13131,7 @@ input[type="number"] {
   background: var(--surface);
 }
 
-.zap-detail-item>div {
+.zap-detail-item > div {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -13113,8 +13229,6 @@ input[type="number"] {
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
-
-
   .zap-detail-header {
     flex-direction: column;
     align-items: flex-start;

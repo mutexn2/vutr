@@ -378,7 +378,7 @@ const eventManager = {
 
 
 // PoW Configuration (hardcoded by developer)
-const POW_DIFFICULTY = 7;
+const POW_DIFFICULTY = 1;
 
 // Helper function to get PoW from event
 function getEventPow(event) {

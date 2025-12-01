@@ -326,9 +326,9 @@ function renderSinglePlaylist(playlist, dTag, videoEvents = []) {
       </div>
       <div class="playlist-actions">
         ${totalVideoCount > 0 ? `<button class="btn-primary play-all-btn">▶ Play All</button>` : ''}
-        <button class="btn-primary share-playlist-btn" data-d-tag="${escapeHtml(dTag)}">Share to Network</button>
+        <button class="btn-primary share-playlist-btn" data-d-tag="${escapeHtml(dTag)}">Share</button>
         <button class="btn-secondary edit-playlist-btn" data-d-tag="${escapeHtml(dTag)}">Edit Metadata</button>
-        <button class="btn-danger delete-playlist-btn" data-d-tag="${escapeHtml(dTag)}">Delete Playlist</button>
+        <button class="btn-danger delete-playlist-btn" data-d-tag="${escapeHtml(dTag)}">Delete</button>
       </div>
     </div>
     

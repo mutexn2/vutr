@@ -445,14 +445,19 @@ function setupVideoCardMenuEvents(menuElement, video) {
     let relativeTime = getRelativeTime(video.created_at);
     let pubkey = video.pubkey;
     
-    showPlaylistSelector(video, video.id, {
-      title: title,
-      url: url,
-      mimeType: mimeType,
-      content: content,
-      relativeTime: relativeTime,
-      pubkey: pubkey,
-    });
+// Pick a random relay from app.relays
+const randomRelay = app.relays && app.relays.length > 0 
+  ? app.relays[Math.floor(Math.random() * app.relays.length)] 
+  : null;
+
+showPlaylistSelector(video, video.id, {
+  title: title,
+  url: url,
+  mimeType: mimeType,
+  content: content,
+  relativeTime: relativeTime,
+  pubkey: pubkey,
+}, randomRelay);
     
     videoCardMenuControls?.close();
   });

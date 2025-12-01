@@ -20,25 +20,28 @@ let app = {
   theme: localStorage.getItem("theme") || config.defaultTheme,
   primaryColor: localStorage.getItem("primaryColor") || "#9200C7",
 
-
   overlayControls: {
     drawer: null,
     settings: null,
-    notifications: null
-  },  
+    notifications: null,
+  },
   // ========== VIDEO & PLAYBACK ==========
-  bookmarkedVideos: JSON.parse(localStorage.getItem("bookmarkedVideos") || "[]"),
+  bookmarkedVideos: JSON.parse(
+    localStorage.getItem("bookmarkedVideos") || "[]"
+  ),
   playlists: JSON.parse(localStorage.getItem("playlists") || "[]"), // own local
-  bookmarkedPlaylists: JSON.parse(localStorage.getItem("bookmarkedPlaylists") || "[]"),
+  bookmarkedPlaylists: JSON.parse(
+    localStorage.getItem("bookmarkedPlaylists") || "[]"
+  ),
   playlistHistory: JSON.parse(localStorage.getItem("playlistHistory") || "[]"),
-  
+
   mediaServerWhitelist: JSON.parse(
     localStorage.getItem("mediaServerWhitelist") || "[]"
   ),
   // for playlist page items
   playlistVideoCache: {
     videos: null,
-    playlistId: null
+    playlistId: null,
   },
 
   preferQuality: localStorage.getItem("preferQuality") || "lowest",
@@ -54,7 +57,7 @@ let app = {
   favoriteChannels: JSON.parse(
     localStorage.getItem("favoriteChannels") ||
       JSON.stringify(config.favoriteChannels)
-  ),  
+  ),
 
   muteSet: JSON.parse(
     localStorage.getItem("muteSet") || JSON.stringify(config.defaultMuteSet)
@@ -62,16 +65,15 @@ let app = {
 
   // home sub
   homeSubscription: null,
-  homePool: null,  
+  homePool: null,
   // comments sub
   commentSubscription: null,
-  commentPool: null,  
+  commentPool: null,
   // ========== CHAT ==========
   chatSubscription: null,
   chatPool: null,
 
-
-    activeQuery: null, // Will store the current query controller
+  activeQuery: null, // Will store the current query controller
   isQuerying: false,
   // ========== MODAL ==========
   modal: null,
@@ -90,7 +92,7 @@ let app = {
   //    lastChecked: null,
   //  },
 
-/*   // ========== SUBSCRIPTION MANAGEMENT ==========
+  /*   // ========== SUBSCRIPTION MANAGEMENT ==========
   // Single subscription at a time - no need for Map with IDs
   currentSubscription: null,
   subscriptionEvents: [], // Simple array of deduplicated events */
@@ -98,7 +100,6 @@ let app = {
   // ========== SUBSCRIPTION MANAGEMENT ==========
   subscriptions: new Map(), // Key: subscriptionId, Value: subscription object
   subscriptionEvents: new Map(), // Key: subscriptionId, Value: array of events
-  
 
   // ========== NOSTR ==========
   relayLists:
@@ -110,34 +111,32 @@ let app = {
     if (isGlobalSet(this.activeRelayList)) {
       // Return all unique relays from all sets
       const allRelays = new Set();
-      Object.values(this.relayLists).forEach(setData => {
+      Object.values(this.relayLists).forEach((setData) => {
         setData.tags
-          .filter(tag => tag[0] === "relay")
-          .forEach(tag => allRelays.add(tag[1]));
+          .filter((tag) => tag[0] === "relay")
+          .forEach((tag) => allRelays.add(tag[1]));
       });
       return Array.from(allRelays);
     }
-    
+
     let activeList = this.relayLists[this.activeRelayList];
     return activeList.tags
       .filter((tag) => tag[0] === "relay")
       .map((tag) => tag[1]);
   },
-    
 
   get globalRelays() {
     const allRelays = new Set();
-    Object.values(this.relayLists).forEach(setData => {
+    Object.values(this.relayLists).forEach((setData) => {
       setData.tags
-        .filter(tag => tag[0] === "relay")
-        .forEach(tag => allRelays.add(tag[1]));
+        .filter((tag) => tag[0] === "relay")
+        .forEach((tag) => allRelays.add(tag[1]));
     });
     return Array.from(allRelays);
   },
 
+  chatRelays: ["wss://nos.lol", "wss://relay.damus.io"],
 
-chatRelays: ["wss://nos.lol", "wss://relay.damus.io"],
-  
   // ========== CLEANUP MANAGEMENT ==========
   cleanupHandlers: [], // Array of cleanup functions to call on route change
 
@@ -146,10 +145,9 @@ chatRelays: ["wss://nos.lol", "wss://relay.damus.io"],
   currentPageCleanupKey: null,
 };
 
-
 let routes = {
   "#home": homePageHandler,
-//  "#newhome": newHomePageHandler,
+  //  "#newhome": newHomePageHandler,
   "#shorts": shortsPageHandler,
   "#list": listPageHandler,
   "#liked": likedPageHandler,
@@ -168,7 +166,7 @@ let routes = {
   "#localplaylists": localPlaylistsPageHandler,
   "#playlist": playlistPageHandler,
   "#playlists": playlistsPageHandler,
-  //"#queue": queueHistoryPageHandler, 
+  //"#queue": queueHistoryPageHandler,
   "#post": postingPageHandler,
   "#singlerelay": singleRelayPageHandler,
   "#contact": contactPageHandler,
@@ -190,7 +188,7 @@ let routes = {
   },
   "#": () => {
     window.location.hash = "#home";
-  },  
+  },
 };
 
 let mainContent = document.querySelector("#main");
@@ -252,7 +250,7 @@ function initializeApp() {
 
   ////////////////////////////////////////////////
   // Initialize VideoPlayer module
-  VideoPlayer.init();  
+  VideoPlayer.init();
   ////////////////////////////////////////////////
   initializeSidebar();
   setupSidebarToggle();
@@ -262,9 +260,7 @@ function initializeApp() {
   updateSidebar();
   updateDrawerContent();
 
-
-//initSubscriptionsManager();
-
+  //initSubscriptionsManager();
 
   handleRoute();
 
@@ -274,16 +270,16 @@ function initializeApp() {
 
 function handleRoute() {
   const newHash = window.location.hash || "#";
-  
+
   // FIRST: Handle video player route change (miniplayer logic)
   VideoPlayer.handleRouteChange(newHash);
-  
+
   // THEN: Run normal cleanup
   runCleanup();
   cleanupChatResources();
   cancelActiveQueries();
   stopAllSubscriptions();
-  
+
   let baseHash = newHash.split("/")[0];
   console.log("Route:", baseHash);
 
@@ -297,7 +293,7 @@ function handleRoute() {
   updateSidebar();
   updateDrawerContent();
   forceGarbageCollection();
-  
+
   handler();
 
   forceScrollToTop();
@@ -308,7 +304,6 @@ function handleRoute() {
     forceScrollToTop();
   }, 300);
 }
-
 
 function updateApp(newState) {
   Object.assign(app, newState);
@@ -339,7 +334,7 @@ function initializeFirstVisit() {
         "bookmarkedPlaylists",
         JSON.stringify(config.defaultBookmarkedPlaylists)
       );
-    }    
+    }
 
     if (!localStorage.getItem("followSet")) {
       localStorage.setItem(
@@ -349,12 +344,8 @@ function initializeFirstVisit() {
     }
 
     if (!localStorage.getItem("muteSet")) {
-      localStorage.setItem(
-        "muteSet",
-        JSON.stringify(config.defaultMuteSet)
-      );
+      localStorage.setItem("muteSet", JSON.stringify(config.defaultMuteSet));
     }
-
 
     if (!localStorage.getItem("favoriteChannels")) {
       localStorage.setItem(
@@ -411,12 +402,12 @@ document.getElementById("create-button").addEventListener("click", function () {
 
 async function handleNostrLogin() {
   // Check if user has a saved preference
-  const savedLoginMethod = localStorage.getItem('preferredLoginMethod');
-  
-  if (savedLoginMethod === 'extension') {
+  const savedLoginMethod = localStorage.getItem("preferredLoginMethod");
+
+  if (savedLoginMethod === "extension") {
     // User previously chose extension, try to use it
     await attemptExtensionLogin();
-  } else if (savedLoginMethod === 'guest') {
+  } else if (savedLoginMethod === "guest") {
     // User previously chose guest, use guest login
     await handleGuestLogin();
   } else {
@@ -430,16 +421,16 @@ async function attemptExtensionLogin() {
     try {
       const pk = await window.nostr.getPublicKey();
       const myNpub = window.NostrTools.nip19.npubEncode(pk);
-      
+
       updateApp({
         isLoggedIn: true,
         myPk: pk,
         myNpub: myNpub,
         isGuest: false,
         guestSk: null,
-        loginMethod: 'extension'
+        loginMethod: "extension",
       });
-      
+
       console.log("Logged in with extension:", myNpub);
       renderNavLinks();
       updateSidebar();
@@ -447,20 +438,21 @@ async function attemptExtensionLogin() {
     } catch (err) {
       console.error("Extension login failed:", err);
       // Extension failed, clear preference and show prompt
-      localStorage.removeItem('preferredLoginMethod');
+      localStorage.removeItem("preferredLoginMethod");
       await showLoginPrompt();
     }
   } else {
     // Extension not available, clear preference and show prompt
-    localStorage.removeItem('preferredLoginMethod');
+    localStorage.removeItem("preferredLoginMethod");
     await showLoginPrompt();
   }
 }
 
 async function showLoginPrompt() {
   return new Promise((resolve) => {
-    const hasExtension = typeof window.nostr !== "undefined" && window.nostr !== null;
-    
+    const hasExtension =
+      typeof window.nostr !== "undefined" && window.nostr !== null;
+
     if (hasExtension) {
       // Show modal asking if user wants to use extension
       showLoginChoiceModal(resolve);
@@ -472,8 +464,8 @@ async function showLoginPrompt() {
 }
 
 function showLoginChoiceModal(resolve) {
-  const modal = document.createElement('div');
-  modal.className = 'login-modal-overlay';
+  const modal = document.createElement("div");
+  modal.className = "login-modal-overlay";
   modal.innerHTML = `
     <div class="login-modal">
       <h3>Choose Login Method</h3>
@@ -488,27 +480,31 @@ function showLoginChoiceModal(resolve) {
       </div>
     </div>
   `;
-  
+
   document.body.appendChild(modal);
-  
-  document.getElementById('use-extension-btn').addEventListener('click', async () => {
-    modal.remove();
-    localStorage.setItem('preferredLoginMethod', 'extension');
-    await attemptExtensionLogin();
-    resolve();
-  });
-  
-  document.getElementById('use-guest-btn').addEventListener('click', async () => {
-    modal.remove();
-    localStorage.setItem('preferredLoginMethod', 'guest');
-    await handleGuestLogin();
-    resolve();
-  });
+
+  document
+    .getElementById("use-extension-btn")
+    .addEventListener("click", async () => {
+      modal.remove();
+      localStorage.setItem("preferredLoginMethod", "extension");
+      await attemptExtensionLogin();
+      resolve();
+    });
+
+  document
+    .getElementById("use-guest-btn")
+    .addEventListener("click", async () => {
+      modal.remove();
+      localStorage.setItem("preferredLoginMethod", "guest");
+      await handleGuestLogin();
+      resolve();
+    });
 }
 
 function showGuestInfoModal(resolve) {
-  const modal = document.createElement('div');
-  modal.className = 'login-modal-overlay';
+  const modal = document.createElement("div");
+  modal.className = "login-modal-overlay";
   modal.innerHTML = `
     <div class="login-modal">
       <h3>Guest Login</h3>
@@ -520,15 +516,17 @@ function showGuestInfoModal(resolve) {
       </div>
     </div>
   `;
-  
+
   document.body.appendChild(modal);
-  
-  document.getElementById('continue-guest-btn').addEventListener('click', async () => {
-    modal.remove();
-    localStorage.setItem('preferredLoginMethod', 'guest');
-    await handleGuestLogin();
-    resolve();
-  });
+
+  document
+    .getElementById("continue-guest-btn")
+    .addEventListener("click", async () => {
+      modal.remove();
+      localStorage.setItem("preferredLoginMethod", "guest");
+      await handleGuestLogin();
+      resolve();
+    });
 }
 
 async function handleGuestLogin() {
@@ -554,7 +552,10 @@ async function handleGuestLogin() {
       guestSk = new Uint8Array(decryptedData.sk);
       console.log("Using existing guest account");
     } catch (error) {
-      console.error("Error decrypting guest data, creating new account:", error);
+      console.error(
+        "Error decrypting guest data, creating new account:",
+        error
+      );
       guestSk = window.NostrTools.generateSecretKey();
       isNewAccount = true;
       const guestData = {
@@ -575,7 +576,7 @@ async function handleGuestLogin() {
     myNpub: myNpub,
     isGuest: true,
     guestSk: guestSk,
-    loginMethod: 'guest'
+    loginMethod: "guest",
   });
 
   console.log("Logged in as guest:", myNpub);
@@ -607,15 +608,17 @@ async function publishGuestProfile(secretKey, publicKey) {
       content: JSON.stringify(profileData),
     };
 
-    const signedEvent = window.NostrTools.finalizeEvent(profileEvent, secretKey);
+    const signedEvent = window.NostrTools.finalizeEvent(
+      profileEvent,
+      secretKey
+    );
 
     console.log("Publishing guest profile:", profileData);
 
     await publishEvent(signedEvent, null, {
       successMessage: "Guest profile published successfully",
-      errorMessage: "Failed to publish guest profile"
+      errorMessage: "Failed to publish guest profile",
     });
-
   } catch (error) {
     console.error("Error publishing guest profile:", error);
     // Don't throw error - login should still work even if profile publishing fails
@@ -623,23 +626,27 @@ async function publishGuestProfile(secretKey, publicKey) {
 }
 
 async function handleEventSigning(eventTemplate) {
-  if (app.loginMethod === 'extension') {
+  if (app.loginMethod === "extension") {
     return await signEventWithExtension(eventTemplate);
-  } else if (app.loginMethod === 'guest') {
+  } else if (app.loginMethod === "guest") {
     return signEventAsGuest(eventTemplate);
   } else {
-    throw new Error('No login method available');
+    throw new Error("No login method available");
   }
 }
 
 async function signEventWithExtension(eventTemplate) {
   if (typeof window.nostr === "undefined" || !app.myNpub) {
-    throw new Error('Extension not available');
+    throw new Error("Extension not available");
   }
-  
+
   try {
     const signedEvent = await window.nostr.signEvent(eventTemplate);
-    console.log("%c Signed Event with Extension", "font-weight: bold; color: green;", JSON.stringify(signedEvent, null, 2));
+    console.log(
+      "%c Signed Event with Extension",
+      "font-weight: bold; color: green;",
+      JSON.stringify(signedEvent, null, 2)
+    );
     return signedEvent;
   } catch (error) {
     console.error("Extension signing failed:", error);
@@ -649,49 +656,23 @@ async function signEventWithExtension(eventTemplate) {
 
 function signEventAsGuest(eventTemplate) {
   if (!app.isGuest || !app.guestSk) {
-    throw new Error('Guest login not available');
+    throw new Error("Guest login not available");
   }
-  
-  // If event already has an id (from mining), just sign it
-  const signedEvent = window.NostrTools.finalizeEvent(eventTemplate, app.guestSk);
-  console.log("%c Signed Event as Guest", "font-weight: bold; color: blue;", JSON.stringify(signedEvent, null, 2));
-  return signedEvent;
-}
 
-/* async function handleEventSigning(eventTemplate) {
-  if (app.loginMethod === 'extension') {
-    return await signEventWithExtension(eventTemplate);
-  } else if (app.loginMethod === 'guest') {
-    return signEventAsGuest(eventTemplate);
-  } else {
-    throw new Error('No login method available');
-  }
-}
-
-async function signEventWithExtension(eventTemplate) {
-  if (typeof window.nostr === "undefined" || !app.myNpub) {
-    throw new Error('Extension not available');
-  }
-  
-  try {
-    const signedEvent = await window.nostr.signEvent(eventTemplate);
-    console.log("%c Signed Event with Extension", "font-weight: bold; color: green;", JSON.stringify(signedEvent, null, 2));
+  if (confirm("Sign event with guest key?")) {
+    // If event already has an id (from mining), just sign it
+    const signedEvent = window.NostrTools.finalizeEvent(
+      eventTemplate,
+      app.guestSk
+    );
+    console.log(
+      "%c Signed Event as Guest",
+      "font-weight: bold; color: blue;",
+      JSON.stringify(signedEvent, null, 2)
+    );
     return signedEvent;
-  } catch (error) {
-    console.error("Extension signing failed:", error);
-    throw error;
   }
 }
-
-function signEventAsGuest(eventTemplate) {
-  if (!app.isGuest || !app.guestSk) {
-    throw new Error('Guest login not available');
-  }
-  
-  const signedEvent = window.NostrTools.finalizeEvent(eventTemplate, app.guestSk);
-  console.log("%c Signed Event as Guest", "font-weight: bold; color: blue;", JSON.stringify(signedEvent, null, 2));
-  return signedEvent;
-} */
 
 // Usage
 async function someEventHandler() {
@@ -706,7 +687,6 @@ async function someEventHandler() {
     // Handle signing failure (e.g., show error to user)
   }
 }
-
 
 function clearGuestAccount() {
   localStorage.removeItem("nostr_guest_data");
@@ -781,20 +761,19 @@ colorPickerButton.addEventListener("click", () => {
   });
 });
 
-
 ////////////////////////////////////
 // Global PWA Install Prompt Handler
 window.deferredPrompt = null;
 
 // Listen for the beforeinstallprompt event
-window.addEventListener('beforeinstallprompt', (e) => {
-  console.log('Install prompt available');
+window.addEventListener("beforeinstallprompt", (e) => {
+  console.log("Install prompt available");
   e.preventDefault(); // Prevent the mini-infobar
   window.deferredPrompt = e;
 });
 
 // Hide install option if app gets installed
-window.addEventListener('appinstalled', () => {
-  console.log('PWA was installed');
+window.addEventListener("appinstalled", () => {
+  console.log("PWA was installed");
   window.deferredPrompt = null;
 });

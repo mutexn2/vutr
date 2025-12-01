@@ -2,6 +2,7 @@ async function websocketsPageHandler() {
   mainContent.innerHTML = `
     <div id="websocketsPage-container">
       <h1>WebSocket Connection Manager</h1>
+      <p>Connections initiated during app navigation. Refreshing will clear all.</p>
       <div id="stats-info"></div>
       <div id="controls">
         <button id="refresh-btn">↻</button>

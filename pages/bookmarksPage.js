@@ -1,59 +1,52 @@
 async function bookmarksPageHandler() {
-    mainContent.innerHTML = `
-     <div id="bookmarksPage-container">
+  mainContent.innerHTML = `
+    <div id="bookmarksPage-container">
       <h1>My Bookmarks</h1>
-      <div class="loading-indicator">
-        <p>Loading your saved videos...</p>
-      </div>
-      </div>
+    </div>
   `;
 
-   let pageContainer = document.getElementById("bookmarksPage-container");
+  let pageContainer = document.getElementById("bookmarksPage-container");
 
   try {
     // Get bookmark playlist
     const bookmarkedVideos = app.bookmarkedVideos;
     
     if (!bookmarkedVideos) {
-        pageContainer.innerHTML = `
-      <div class="empty-state">
-        <h1>No Bookmarks Found</h1>
-        <p>You haven't saved any videos yet. Start watching videos and click the save button to bookmark them!</p>
-        <a href="#home" class="nav-link">Browse Videos</a>
-      </div>
-  `;
+      pageContainer.innerHTML = `
+        <div class="empty-state">
+          <h1>No Bookmarks Found</h1>
+          <p>You haven't saved any videos yet. Start watching videos and click the save button to bookmark them!</p>
+          <a href="#home" class="nav-link">Browse Videos</a>
+        </div>
+      `;
       return;
     }
 
     // Get video references from the playlist
-    // OLD: const videoTags = bookmarkedVideos.tags.filter(tag => tag[0] === "a");
-    // NEW:
     const videoTags = bookmarkedVideos.tags.filter(tag => tag[0] === "e");
     
     if (videoTags.length === 0) {
-       pageContainer.innerHTML = `
-      <div class="empty-state">
-        <h1>No Bookmarks Found</h1>
-        <p>You haven't saved any videos yet. Start watching videos and click the save button to bookmark them!</p>
-        <a href="#home" class="nav-link">Browse Videos</a>
-      </div>
-  `;
+      pageContainer.innerHTML = `
+        <div class="empty-state">
+          <h1>No Bookmarks Found</h1>
+          <p>You haven't saved any videos yet. Start watching videos and click the save button to bookmark them!</p>
+          <a href="#home" class="nav-link">Browse Videos</a>
+        </div>
+      `;
       return;
     }
 
     console.log("Loaded bookmark playlist:", bookmarkedVideos);
 
-    // Delay to show loading state
-    await new Promise((resolve) => setTimeout(resolve, 300));
-
-    // Fetch video events (reuse the same function from playlists)
-    const videoEvents = await fetchVideoEvents(videoTags);
+    // Create placeholders for immediate rendering
+    const videoIds = videoTags.map(tag => tag[1]);
+    const placeholderEvents = videoIds.map(id => createPlaceholderVideo(id));
     
-      const title = getValueFromTags(bookmarkedVideos, "title", "My Bookmarks");
-  const description = getValueFromTags(bookmarkedVideos, "description", "Your saved videos");
-  
-  
-  pageContainer.innerHTML = `
+    const title = getValueFromTags(bookmarkedVideos, "title", "My Bookmarks");
+    const description = getValueFromTags(bookmarkedVideos, "description", "Your saved videos");
+    
+    // Render immediately with placeholders (NO SPINNER, NO DELAY)
+    pageContainer.innerHTML = `
       <div class="playlist-header bookmarks-header">
         <div class="playlist-info">
           <div class="playlist-thumbnail">
@@ -73,32 +66,151 @@ async function bookmarksPageHandler() {
             <button class="btn-primary sync-bookmarks-btn">🔄 Sync</button>
             <button class="btn-secondary share-bookmarks-btn">📤 Share</button>
           ` : ''}
-          
         </div>
       </div>
       
       <div class="playlist-content">
         <div class="playlist-videos" id="bookmark-videos">
-          ${renderBookmarkVideos(videoEvents)}
+          ${renderBookmarkVideos(placeholderEvents)}
         </div>
       </div>
-  `;
+    `;
+    
     setupBookmarksEventListeners();
     setupBookmarksDragAndDrop();
     
+    // Now fetch real video data progressively (like playlist page)
+    await fetchVideoEventsForBookmarks(videoIds, bookmarkedVideos);
+    
   } catch (error) {
     console.error("Error rendering bookmarks page:", error);
-      pageContainer.innerHTML = `
+    pageContainer.innerHTML = `
       <h1>Error</h1>
       <div class="error-message">
         <p>Error loading bookmarks: ${formatErrorForDisplay(error)}</p>
       </div>
-  `;
+    `;
   }
 }
 
+async function fetchVideoEventsForBookmarks(videoIds, bookmarkedVideos) {
+  if (videoIds.length === 0) return;
+  
+  const videoMap = new Map();
+  
+  const filter = {
+    kinds: [21, 22],
+    ids: videoIds
+  };
+  
+  const pool = new window.NostrTools.SimplePool();
+  
+  // Register cleanup
+  const cleanup = () => {
+    if (pool) {
+      pool.close(app.globalRelays);
+    }
+  };
+  registerCleanup(cleanup);
+  
+  const sub = pool.subscribeMany(
+    app.globalRelays,
+    [filter],
+    {
+      onevent(event) {
+        const sanitizedEvent = sanitizeNostrEvent(event);
+        if (!sanitizedEvent || videoMap.has(sanitizedEvent.id)) return;
+        
+        videoMap.set(sanitizedEvent.id, sanitizedEvent);
+        
+        console.log("📹 Received bookmark video event:", sanitizedEvent.id);
+        
+        // Update UI immediately as each video arrives
+        updateBookmarkVideoCard(sanitizedEvent);
+      },
+      
+      oneose() {
+        console.log(`Bookmark video fetch complete: ${videoMap.size}/${videoIds.length} found`);
+        
+        // Mark unfound videos as "not found"
+        const bookmarkVideos = document.getElementById('bookmark-videos');
+        if (bookmarkVideos) {
+          videoIds.forEach((videoId) => {
+            if (!videoMap.has(videoId)) {
+              const notFoundVideo = createPlaceholderVideo(videoId, true);
+              updateBookmarkVideoCard(notFoundVideo);
+            }
+          });
+        }
+      }
+    }
+  );
+  
+  setTimeout(() => {
+    sub.close();
+    pool.close(app.globalRelays);
+  }, 10000);
+}
 
-
+function updateBookmarkVideoCard(videoEvent) {
+  const videoCard = document.querySelector(`#bookmark-videos [data-video-id="${videoEvent.id}"]`);
+  if (!videoCard) return;
+  
+  // Store the index before we update
+  const index = parseInt(videoCard.dataset.index);
+  
+  // Remove placeholder class
+  videoCard.classList.remove('placeholder-video');
+  
+  // Recreate the card content
+  videoCard.innerHTML = `
+    <div class="drag-handle">⋮⋮</div>
+    ${renderVideoThumbnail(videoEvent)}
+    ${renderVideoDetails(videoEvent, index + 1)}
+    <div class="video-actions">
+      <button class="btn-secondary remove-bookmark-btn" 
+              data-video-id="${escapeHtml(videoEvent.id)}">
+        ×
+      </button>
+    </div>
+  `;
+  
+  // Add update animation
+  videoCard.classList.add('video-updated');
+  setTimeout(() => {
+    videoCard.classList.remove('video-updated');
+  }, 1000);
+  
+  // Re-attach the remove button listener
+  const removeBtn = videoCard.querySelector('.remove-bookmark-btn');
+  if (removeBtn) {
+    removeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const videoId = removeBtn.dataset.videoId;
+      
+      if (confirm('Remove this video from your bookmarks?')) {
+        const success = removeVideoFromBookmarks(videoId);
+        
+        if (success) {
+          showTemporaryNotification('Bookmark removed');
+          removeBookmarkFromUI(videoId);
+          updateBookmarksVideoCount();
+        }
+      }
+    });
+  }
+  
+  // Re-attach click listener for navigation
+  if (!videoEvent.isPlaceholder && !videoEvent.notFound) {
+    videoCard.addEventListener('click', (e) => {
+      if (e.target.closest('.remove-bookmark-btn') || e.target.closest('.drag-handle')) {
+        return;
+      }
+      window.location.hash = `#watch/${videoEvent.id}`;
+    });
+    videoCard.style.cursor = 'pointer';
+  }
+}
 
 
 

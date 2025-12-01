@@ -432,7 +432,7 @@ function getSectionTwoItems() {
     { id: "liked", icon: "👍", text: "liked" },
     { id: "kind1follows", icon: "🫂", text: "friends" },
     { id: "singlerelay", icon: "🔭", text: "Relay" },    
-    { id: "tag", icon: "🧩", text: "tags" },
+  //  { id: "tag", icon: "🧩", text: "tags" },
   //  { id: "contact", icon: "💬", text: "Help" },
   ];
 }

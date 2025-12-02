@@ -63,7 +63,7 @@ let config = {
     created_at: Math.floor(Date.now() / 1000),
     kind: 30005,
     tags: [
-      ["d", "vutr-bookmarks"],
+      ["d", "my-video-bookmarks"],
       ["title", "My Bookmarks"],
       ["description", "local video bookmarks."],
       ["e", "7f1aa7aeb30712939decd176a49e96f3aae7e9659c3957f0b8b0a88cac0c20a0"],
@@ -82,7 +82,7 @@ let config = {
       created_at: 1695327657,
       kind: 30005,
       tags: [
-        ["d", "vutr-7ae757fa4606"],
+        ["d", "7ae757fa4606"],
         ["title", "nostr tutorial"],
         [
           "image",
@@ -111,11 +111,11 @@ let config = {
       created_at: 1695329657,
       kind: 30005,
       tags: [
-        ["d", "vutr-567b41fc9060"],
+        ["d", "567b41fc9060"],
         ["title", "curated content"],
         [
           "image",
-          "https://nostpic.com/media/df17934d47fbf9b26c360708f6413204e2a68bd9cc4057fc8c12eccfc59d7313/a82cbba16d74b6b64ff24c675abebed834b912e5e2b102ff2bf585c239482a78.webp",
+          "https://cdn.britannica.com/40/188540-050-9AC748DE/Yak-Himalayas-Nepal.jpg",
         ],
         ["description", "some curated videos."],
 
@@ -153,11 +153,11 @@ let config = {
       created_at: 1695329657,
       kind: 30005,
       tags: [
-        ["d", "vutr-watch-later"],
+        ["d", "my-watch-later"],
         ["title", "Watch later"],
         [
           "image",
-          "https://nostpic.com/media/df17934d47fbf9b26c360708f6413204e2a68bd9cc4057fc8c12eccfc59d7313/a82cbba16d74b6b64ff24c675abebed834b912e5e2b102ff2bf585c239482a78.webp",
+          "https://cdn.britannica.com/40/188540-050-9AC748DE/Yak-Himalayas-Nepal.jpg",
         ],
         ["description", "some videos."],
       ],

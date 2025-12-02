@@ -1,24 +1,28 @@
 async function followsFeedPageHandler() {
   // Cancel any active queries from previous page loads
   cancelActiveQueries();
-  
+
   // Parse URL parameters first
   const currentHash = window.location.hash;
-  const urlParams = new URLSearchParams(currentHash.split('?')[1] || '');
-  const relaySource = urlParams.get('relays') || 'active';
-  const pubkeySource = urlParams.get('source') || 'local';
-  
+  const urlParams = new URLSearchParams(currentHash.split("?")[1] || "");
+  const relaySource = urlParams.get("relays") || "active";
+  const pubkeySource = urlParams.get("source") || "local";
+
   // Active set has no shorts, Extended has shorts
-  const includeShorts = relaySource === 'extended' ? 'yes' : 'no';
+  const includeShorts = relaySource === "extended" ? "yes" : "no";
 
   // Initialize the page skeleton IMMEDIATELY - this always renders
   mainContent.innerHTML = `
     <div class="follows-feed-header">
       <div class="pubkey-source-tabs">
-        <button class="source-tab-button ${pubkeySource === 'local' ? 'active' : ''}" data-source="local">
+        <button class="source-tab-button ${
+          pubkeySource === "local" ? "active" : ""
+        }" data-source="local">
           Local Subscriptions
         </button>
-        <button class="source-tab-button ${pubkeySource === 'friends' ? 'active' : ''}" data-source="friends">
+        <button class="source-tab-button ${
+          pubkeySource === "friends" ? "active" : ""
+        }" data-source="friends">
           Friends (kind-3)
         </button>
       </div>
@@ -28,10 +32,14 @@ async function followsFeedPageHandler() {
       </div>
 
       <div class="relay-tabs">
-        <button class="tab-button ${relaySource === 'active' ? 'active' : ''}" data-relay="active">
+        <button class="tab-button ${
+          relaySource === "active" ? "active" : ""
+        }" data-relay="active">
           Active Set
         </button>
-        <button class="tab-button ${relaySource === 'extended' ? 'active' : ''}" data-relay="extended">
+        <button class="tab-button ${
+          relaySource === "extended" ? "active" : ""
+        }" data-relay="extended">
           Extended (Outbox)
         </button>
       </div>
@@ -46,41 +54,45 @@ async function followsFeedPageHandler() {
   const loadMoreContainer = document.querySelector(".load-more-container");
 
   // Setup pubkey source tab event handlers
-  const sourceTabButtons = document.querySelectorAll('.source-tab-button');
-  sourceTabButtons.forEach(button => {
-    button.addEventListener('click', () => {
+  const sourceTabButtons = document.querySelectorAll(".source-tab-button");
+  sourceTabButtons.forEach((button) => {
+    button.addEventListener("click", () => {
       const newSource = button.dataset.source;
-      const baseHash = '#followsfeed';
-      
+      const baseHash = "#followsfeed";
+
       const params = new URLSearchParams();
-      const newShorts = relaySource === 'extended' ? 'yes' : 'no';
-      
-      if (newSource !== 'local') params.set('source', newSource);
-      if (relaySource !== 'active') params.set('relays', relaySource);
-      if (newShorts !== 'no') params.set('shorts', newShorts);
-      
+      const newShorts = relaySource === "extended" ? "yes" : "no";
+
+      if (newSource !== "local") params.set("source", newSource);
+      if (relaySource !== "active") params.set("relays", relaySource);
+      if (newShorts !== "no") params.set("shorts", newShorts);
+
       const paramString = params.toString();
-      const newUrl = paramString ? `${baseHash}/params?${paramString}` : baseHash;
+      const newUrl = paramString
+        ? `${baseHash}/params?${paramString}`
+        : baseHash;
       window.location.hash = newUrl;
     });
   });
 
   // Setup relay mode tab event handlers
-  const tabButtons = document.querySelectorAll('.tab-button');
-  tabButtons.forEach(button => {
-    button.addEventListener('click', () => {
+  const tabButtons = document.querySelectorAll(".tab-button");
+  tabButtons.forEach((button) => {
+    button.addEventListener("click", () => {
       const newRelaySource = button.dataset.relay;
-      const baseHash = '#followsfeed';
-      
+      const baseHash = "#followsfeed";
+
       const params = new URLSearchParams();
-      const newShorts = newRelaySource === 'extended' ? 'yes' : 'no';
-      
-      if (pubkeySource !== 'local') params.set('source', pubkeySource);
-      if (newRelaySource !== 'active') params.set('relays', newRelaySource);
-      if (newShorts !== 'no') params.set('shorts', newShorts);
-      
+      const newShorts = newRelaySource === "extended" ? "yes" : "no";
+
+      if (pubkeySource !== "local") params.set("source", pubkeySource);
+      if (newRelaySource !== "active") params.set("relays", newRelaySource);
+      if (newShorts !== "no") params.set("shorts", newShorts);
+
       const paramString = params.toString();
-      const newUrl = paramString ? `${baseHash}/params?${paramString}` : baseHash;
+      const newUrl = paramString
+        ? `${baseHash}/params?${paramString}`
+        : baseHash;
       window.location.hash = newUrl;
     });
   });
@@ -89,76 +101,71 @@ async function followsFeedPageHandler() {
     // Get pubkeys based on source
     let followedPubkeys;
     let sourceLabel;
-    
-    if (pubkeySource === 'friends') {
+
+    if (pubkeySource === "friends") {
       // Get kind-3 pubkeys with retry logic for app.myPk
       let retries = 0;
       const maxRetries = 3;
-      
+
+      // Replace this section in the checkAndFetchKind3 function:
       const checkAndFetchKind3 = async () => {
         if (!app.myPk) {
           if (retries < maxRetries) {
             retries++;
-            console.log(`app.myPk not available, retrying in 2 seconds... (attempt ${retries}/${maxRetries})`);
+            console.log(
+              `app.myPk not available, retrying in 2 seconds... (attempt ${retries}/${maxRetries})`
+            );
             headerElement.innerHTML = `<h2>Waiting for login... (${retries}/${maxRetries})</h2>`;
-            
-            // Wait 2 seconds and try again
-            await new Promise(resolve => setTimeout(resolve, 2000));
+
+            await new Promise((resolve) => setTimeout(resolve, 2000));
             return checkAndFetchKind3();
           } else {
-            // Max retries reached, show login message
             headerElement.innerHTML = `
-              <h2>Login Required</h2>
-              <p>You need to be logged in to view your friends feed. Please <a href="#login">log in</a> first.</p>
-            `;
+        <h2>Login Required</h2>
+        <p>You need to be logged in to view your friends feed. Please <a href="#login">log in</a> first.</p>
+      `;
             return null;
           }
         }
-        
-        // app.myPk is available, proceed with the original logic
+
         headerElement.innerHTML = `<h2 class="loading-indicator">Loading kind-3 event...</h2>`;
-        
-        const kindThreeEvents = await NostrClient.getEvents({
-          kinds: [3],
-          authors: [app.myPk],
-        });
-        
+
+        // Replace NostrClient with direct nostr-tools usage
+        const kindThreeEvents = await getKind3Events(app.myPk);
+
         if (!kindThreeEvents || kindThreeEvents.length === 0) {
           headerElement.innerHTML = `
-            <h2>No Kind-3 Following List</h2>
-            <p>You don't have a kind-3 following list published. Visit the <a href="#kind1follows">Friends</a> page to see more details.</p>
-          `;
+      <h2>No Kind-3 Following List</h2>
+      <p>You don't have a kind-3 following list published. Visit the <a href="#kind1follows">Friends</a> page to see more details.</p>
+    `;
           return null;
         }
-        
-        const latestEvent = kindThreeEvents.reduce((latest, current) => 
+
+        const latestEvent = kindThreeEvents.reduce((latest, current) =>
           current.created_at > latest.created_at ? current : latest
         );
-        
+
         followedPubkeys = latestEvent.tags
-          .filter(tag => tag[0] === 'p' && tag[1])
-          .map(tag => tag[1]);
-        
-        // Check if we actually have any followed pubkeys
+          .filter((tag) => tag[0] === "p" && tag[1])
+          .map((tag) => tag[1]);
+
         if (!followedPubkeys || followedPubkeys.length === 0) {
           headerElement.innerHTML = `
-            <h2>No Friends Followed</h2>
-            <p>Your kind-3 following list exists but doesn't contain any followed users. Visit the <a href="#kind1follows">Friends</a> page to add some friends.</p>
-          `;
+      <h2>No Friends Followed</h2>
+      <p>Your kind-3 following list exists but doesn't contain any followed users. Visit the <a href="#kind1follows">Friends</a> page to add some friends.</p>
+    `;
           return null;
         }
-        
-        sourceLabel = 'Friends (kind-3)';
+
+        sourceLabel = "Friends (kind-3)";
         return followedPubkeys;
       };
-      
       // Start the retry process
       followedPubkeys = await checkAndFetchKind3();
-      
     } else {
       // Get local follows
       followedPubkeys = getFollowedPubkeys();
-      
+
       // Check if we have any local follows
       if (!followedPubkeys || followedPubkeys.length === 0) {
         headerElement.innerHTML = `
@@ -167,27 +174,35 @@ async function followsFeedPageHandler() {
         `;
         return;
       }
-      
-      sourceLabel = 'Subscriptions (local)';
+
+      sourceLabel = "Subscriptions (local)";
     }
 
     // Final check if we have pubkeys
     if (!followedPubkeys || followedPubkeys.length === 0) {
-      const linkTarget = pubkeySource === 'friends' ? '#kind1follows' : '#follows';
-      const linkText = pubkeySource === 'friends' ? 'Friends' : 'Following';
+      const linkTarget =
+        pubkeySource === "friends" ? "#kind1follows" : "#follows";
+      const linkText = pubkeySource === "friends" ? "Friends" : "Following";
       headerElement.innerHTML = `
         <h2>No Followed Channels</h2>
         <p>You haven't followed any channels yet. Visit the <a href="${linkTarget}">${linkText}</a> page to start following channels!</p>
       `;
-      console.log('No followed pubkeys available');
-      return;   
+      console.log("No followed pubkeys available");
+      return;
     }
 
-    console.log(`🎯 Starting subscription feed for ${followedPubkeys.length} followed channels from ${sourceLabel}`);
+    console.log(
+      `🎯 Starting subscription feed for ${followedPubkeys.length} followed channels from ${sourceLabel}`
+    );
 
     // Start progressive feed loading
-    await loadProgressiveFeed(followedPubkeys, relaySource, includeShorts, grid, headerElement);
-
+    await loadProgressiveFeed(
+      followedPubkeys,
+      relaySource,
+      includeShorts,
+      grid,
+      headerElement
+    );
   } catch (error) {
     console.error("❌ Error rendering follows feed page:", error);
     headerElement.innerHTML = `
@@ -197,20 +212,26 @@ async function followsFeedPageHandler() {
   }
 }
 
-async function loadProgressiveFeed(followedPubkeys, relaySource, includeShorts, grid, headerElement) {
+async function loadProgressiveFeed(
+  followedPubkeys,
+  relaySource,
+  includeShorts,
+  grid,
+  headerElement
+) {
   const MAX_EVENTS = 100;
   const EVENTS_PER_PAGE = 20;
   const MAX_PUBKEYS_FOR_EXTENDED_RELAYS = 50;
   const MAX_RELAYS_TO_USE = 100;
   const RELAY_BATCH_SIZE = 10;
-  
+
   let allEvents = new Map();
   let renderedEventIds = new Set();
   let usedRelays = new Set();
   let currentPage = 0;
   let queryCompleted = false;
   let shouldStopQuerying = false;
-  
+
   // Create cancellation controller
   const queryController = {
     cancelled: false,
@@ -218,81 +239,97 @@ async function loadProgressiveFeed(followedPubkeys, relaySource, includeShorts, 
       queryController.cancelled = true;
       shouldStopQuerying = true;
       queryCompleted = true;
-      console.log('🛑 Query cancelled by navigation or user action');
-    }
+      console.log("🛑 Query cancelled by navigation or user action");
+    },
   };
-  
+
   // Register this query as active
   app.activeQuery = queryController;
   app.isQuerying = true;
-  
-  const kinds = includeShorts === 'yes' ? [21, 22] : [21];
+
+  const kinds = includeShorts === "yes" ? [21, 22] : [21];
   const queryOptions = {
     kinds: kinds,
     limit: MAX_EVENTS,
-    authors: followedPubkeys
+    authors: followedPubkeys,
   };
 
   // Function to check if we should continue
-  const shouldContinue = () => !queryController.cancelled && !shouldStopQuerying;
+  const shouldContinue = () =>
+    !queryController.cancelled && !shouldStopQuerying;
 
   // Function to update header with current stats and stop button
-const updateHeader = (eventCount, relayCount, isExtended, isCompleted = false) => {
-  if (queryController.cancelled) return;
-  
-  const status = isCompleted || shouldStopQuerying ? '' : '<span class="loading-indicator">searching for more</span>';
-  const relayInfo = isExtended ? `${relayCount} relays` : 'active set';
-  
-  const stopButton = (!isCompleted && !shouldStopQuerying && isExtended) 
-    ? '<button id="stop-query-btn">Stop</button>'
-    : '';
-  
-  // Check if we're in loading state (status or stopButton present)
-  const isLoading = status || stopButton;
-  
-  if (isLoading) {
-    // Column layout for loading state
-    headerElement.innerHTML = `
-      <div>${eventCount} videos • ${followedPubkeys.length} pubkeys • ${relayInfo}</div>
-      ${status ? `<div>${status}</div>` : ''}
-      ${stopButton ? `<div>${stopButton}</div>` : ''}
+  const updateHeader = (
+    eventCount,
+    relayCount,
+    isExtended,
+    isCompleted = false
+  ) => {
+    if (queryController.cancelled) return;
+
+    const status =
+      isCompleted || shouldStopQuerying
+        ? ""
+        : '<span class="loading-indicator">searching for more</span>';
+    const relayInfo = isExtended ? `${relayCount} relays` : "active set";
+
+    const stopButton =
+      !isCompleted && !shouldStopQuerying && isExtended
+        ? '<button id="stop-query-btn">Stop</button>'
+        : "";
+
+    // Check if we're in loading state (status or stopButton present)
+    const isLoading = status || stopButton;
+
+    if (isLoading) {
+      // Column layout for loading state
+      headerElement.innerHTML = `
+      <div>${eventCount} videos • ${
+        followedPubkeys.length
+      } pubkeys • ${relayInfo}</div>
+      ${status ? `<div>${status}</div>` : ""}
+      ${stopButton ? `<div>${stopButton}</div>` : ""}
     `;
-  } else {
-    // Single h2 for static states
-    headerElement.innerHTML = `<h2>${eventCount} videos • ${followedPubkeys.length} pubkeys • ${relayInfo}</h2>`;
-  }
-  
-  // Add stop button functionality
-  const stopBtn = document.getElementById('stop-query-btn');
-  if (stopBtn) {
-    stopBtn.addEventListener('click', () => {
-      shouldStopQuerying = true;
-      queryCompleted = true;
-      updateHeader(allEvents.size, usedRelays.size, relaySource === 'extended', true);
-      updatePaginationButtons();
-      console.log('🛑 User stopped querying, keeping current events');
-    });
-  }
-};
+    } else {
+      // Single h2 for static states
+      headerElement.innerHTML = `<h2>${eventCount} videos • ${followedPubkeys.length} pubkeys • ${relayInfo}</h2>`;
+    }
+
+    // Add stop button functionality
+    const stopBtn = document.getElementById("stop-query-btn");
+    if (stopBtn) {
+      stopBtn.addEventListener("click", () => {
+        shouldStopQuerying = true;
+        queryCompleted = true;
+        updateHeader(
+          allEvents.size,
+          usedRelays.size,
+          relaySource === "extended",
+          true
+        );
+        updatePaginationButtons();
+        console.log("🛑 User stopped querying, keeping current events");
+      });
+    }
+  };
 
   // Function to render events for current page
   const renderCurrentPage = () => {
     if (queryController.cancelled) return;
-    
+
     const sortedEvents = Array.from(allEvents.values());
     // Always sort by newest
-    const finalSorted = applySorting(sortedEvents, 'newest');
+    const finalSorted = applySorting(sortedEvents, "newest");
 
-    
     const startIndex = 0;
     const endIndex = (currentPage + 1) * EVENTS_PER_PAGE;
     const eventsToShow = finalSorted.slice(startIndex, endIndex);
-    
+
     // Clear grid and render all events up to current page
-    grid.innerHTML = '';
+    grid.innerHTML = "";
     renderedEventIds.clear();
-    
-    eventsToShow.forEach(video => {
+
+    eventsToShow.forEach((video) => {
       if (!renderedEventIds.has(video.id)) {
         try {
           const sanitized = sanitizeNostrEvent(video);
@@ -313,19 +350,21 @@ const updateHeader = (eventCount, relayCount, isExtended, isCompleted = false) =
   // Function to handle new events from relay queries
   const handleNewEvents = (newEvents, relayInfo) => {
     if (queryController.cancelled) return;
-    
+
     let addedCount = 0;
-    
-    newEvents.forEach(event => {
+
+    newEvents.forEach((event) => {
       if (event && event.id && !allEvents.has(event.id)) {
         allEvents.set(event.id, event);
         addedCount++;
       }
     });
-    
+
     if (addedCount > 0) {
-      console.log(`📥 Added ${addedCount} new events from ${relayInfo}, total: ${allEvents.size}`);
-      updateHeader(allEvents.size, usedRelays.size, relaySource === 'extended');
+      console.log(
+        `📥 Added ${addedCount} new events from ${relayInfo}, total: ${allEvents.size}`
+      );
+      updateHeader(allEvents.size, usedRelays.size, relaySource === "extended");
       renderCurrentPage();
     }
   };
@@ -333,168 +372,197 @@ const updateHeader = (eventCount, relayCount, isExtended, isCompleted = false) =
   // Function to update pagination buttons
   const updatePaginationButtons = () => {
     if (queryController.cancelled) return;
-    
+
     const loadMoreContainer = document.querySelector(".load-more-container");
     if (!loadMoreContainer) return;
 
     const sortedEvents = Array.from(allEvents.values());
-    const finalSorted = applySorting(sortedEvents, 'newest');
+    const finalSorted = applySorting(sortedEvents, "newest");
     const totalEvents = finalSorted.length;
     const eventsShown = (currentPage + 1) * EVENTS_PER_PAGE;
-    
+
     // Show load more button if there are more events to show
     if (eventsShown < totalEvents) {
       const remainingEvents = totalEvents - eventsShown;
       const nextPageEvents = Math.min(remainingEvents, EVENTS_PER_PAGE);
-      
-      const button = document.createElement('button');
+
+      const button = document.createElement("button");
       button.textContent = `Show More (${nextPageEvents} more)`;
-      button.className = 'load-more-btn';
-      button.style.cssText = 'padding: 10px 20px; font-size: 16px; cursor: pointer; margin: 20px 0;';
-      
-      button.addEventListener('click', () => {
+      button.className = "load-more-btn";
+      button.style.cssText =
+        "padding: 10px 20px; font-size: 16px; cursor: pointer; margin: 20px 0;";
+
+      button.addEventListener("click", () => {
         currentPage++;
         renderCurrentPage();
       });
-      
-      loadMoreContainer.innerHTML = '';
+
+      loadMoreContainer.innerHTML = "";
       loadMoreContainer.appendChild(button);
     } else {
-      loadMoreContainer.innerHTML = '';
+      loadMoreContainer.innerHTML = "";
     }
   };
 
-// Function to query a batch of relays
-const queryRelayBatch = async (relayBatch) => {
-  if (relayBatch.length === 0 || !shouldContinue()) return;
-  
-  try {
-    console.log(`📡 Querying batch of ${relayBatch.length} relays...`);
-    
-    // Update header to show we're about to query this batch
-    updateHeader(allEvents.size, usedRelays.size, relaySource === 'extended');
-    
-    const batchEvents = await getFeedFromRelays(relayBatch, queryOptions);
-    
-    if (shouldContinue()) {
-      handleNewEvents(batchEvents, `batch of ${relayBatch.length} relays`);
-      // Update header again after the batch is complete (this will show updated relay count)
-      updateHeader(allEvents.size, usedRelays.size, relaySource === 'extended');
-    }
-  } catch (error) {
-    console.warn(`⚠️ Failed to query relay batch:`, error.message);
-    // Even on error, update header to reflect that we tried these relays
-    if (shouldContinue()) {
-      updateHeader(allEvents.size, usedRelays.size, relaySource === 'extended');
-    }
-  }
-};
+  // Function to query a batch of relays
+  const queryRelayBatch = async (relayBatch) => {
+    if (relayBatch.length === 0 || !shouldContinue()) return;
 
-// Start with active relays immediately (for both modes)
-console.log(`📡 Starting with active relay set (${app.relays.length} relays)`);
+    try {
+      console.log(`📡 Querying batch of ${relayBatch.length} relays...`);
 
-try {
-  const normalizedActiveRelays = app.relays.map(relay => relay.toLowerCase().replace(/\/+$/, ""));
-  const initialEvents = await getFeedFromRelays(app.relays, queryOptions);
-  if (shouldContinue()) {
-    normalizedActiveRelays.forEach(relay => usedRelays.add(relay));
-    handleNewEvents(initialEvents, 'active relays');
-  }
-} catch (error) {
-  console.warn("⚠️ Failed to query active relays:", error.message);
-}
+      // Update header to show we're about to query this batch
+      updateHeader(allEvents.size, usedRelays.size, relaySource === "extended");
 
-// If extended mode, query global relays next
-if (relaySource === 'extended' && shouldContinue()) {
-  console.log(`📡 Querying global relay set (${app.globalRelays.length} relays)`);
-  
-  try {
-    // Filter out relays we've already used
-    const newGlobalRelays = app.globalRelays.filter(relay => {
-      const normalized = relay.toLowerCase().replace(/\/+$/, "");
-      return !usedRelays.has(normalized);
-    });
-    
-    if (newGlobalRelays.length > 0) {
-      const normalizedGlobalRelays = newGlobalRelays.map(relay => relay.toLowerCase().replace(/\/+$/, ""));
-      const globalEvents = await getFeedFromRelays(newGlobalRelays, queryOptions);
+      const batchEvents = await getFeedFromRelays(relayBatch, queryOptions);
+
       if (shouldContinue()) {
-        normalizedGlobalRelays.forEach(relay => usedRelays.add(relay));
-        handleNewEvents(globalEvents, 'global relays');
+        handleNewEvents(batchEvents, `batch of ${relayBatch.length} relays`);
+        // Update header again after the batch is complete (this will show updated relay count)
+        updateHeader(
+          allEvents.size,
+          usedRelays.size,
+          relaySource === "extended"
+        );
+      }
+    } catch (error) {
+      console.warn(`⚠️ Failed to query relay batch:`, error.message);
+      // Even on error, update header to reflect that we tried these relays
+      if (shouldContinue()) {
+        updateHeader(
+          allEvents.size,
+          usedRelays.size,
+          relaySource === "extended"
+        );
       }
     }
+  };
+
+  // Start with active relays immediately (for both modes)
+  console.log(
+    `📡 Starting with active relay set (${app.relays.length} relays)`
+  );
+
+  try {
+    const normalizedActiveRelays = app.relays.map((relay) =>
+      relay.toLowerCase().replace(/\/+$/, "")
+    );
+    const initialEvents = await getFeedFromRelays(app.relays, queryOptions);
+    if (shouldContinue()) {
+      normalizedActiveRelays.forEach((relay) => usedRelays.add(relay));
+      handleNewEvents(initialEvents, "active relays");
+    }
   } catch (error) {
-    console.warn("⚠️ Failed to query global relays:", error.message);
+    console.warn("⚠️ Failed to query active relays:", error.message);
   }
-}
 
-// If extended mode, progressively discover and query relays in batches
-if (relaySource === 'extended' && shouldContinue()) {
-  const pubkeysForRelaySearch = followedPubkeys.length > MAX_PUBKEYS_FOR_EXTENDED_RELAYS 
-    ? followedPubkeys.slice(0, MAX_PUBKEYS_FOR_EXTENDED_RELAYS)
-    : followedPubkeys;
+  // If extended mode, query global relays next
+  if (relaySource === "extended" && shouldContinue()) {
+    console.log(
+      `📡 Querying global relay set (${app.globalRelays.length} relays)`
+    );
 
-  console.log(`🔍 Starting extended relay discovery for ${pubkeysForRelaySearch.length} pubkeys...`);
-  
+    try {
+      // Filter out relays we've already used
+      const newGlobalRelays = app.globalRelays.filter((relay) => {
+        const normalized = relay.toLowerCase().replace(/\/+$/, "");
+        return !usedRelays.has(normalized);
+      });
+
+      if (newGlobalRelays.length > 0) {
+        const normalizedGlobalRelays = newGlobalRelays.map((relay) =>
+          relay.toLowerCase().replace(/\/+$/, "")
+        );
+        const globalEvents = await getFeedFromRelays(
+          newGlobalRelays,
+          queryOptions
+        );
+        if (shouldContinue()) {
+          normalizedGlobalRelays.forEach((relay) => usedRelays.add(relay));
+          handleNewEvents(globalEvents, "global relays");
+        }
+      }
+    } catch (error) {
+      console.warn("⚠️ Failed to query global relays:", error.message);
+    }
+  }
+
+  // If extended mode, progressively discover and query relays in batches
+  if (relaySource === "extended" && shouldContinue()) {
+    const pubkeysForRelaySearch =
+      followedPubkeys.length > MAX_PUBKEYS_FOR_EXTENDED_RELAYS
+        ? followedPubkeys.slice(0, MAX_PUBKEYS_FOR_EXTENDED_RELAYS)
+        : followedPubkeys;
+
+    console.log(
+      `🔍 Starting extended relay discovery for ${pubkeysForRelaySearch.length} pubkeys...`
+    );
+
     let newRelaysBatch = [];
-    
+
     // Process pubkeys and collect relays in batches
     for (const pubkey of pubkeysForRelaySearch) {
       if (!shouldContinue()) break;
-      
+
       try {
         const pubkeyRelays = await getExtendedRelaysForProfile(pubkey);
-        
+
         if (pubkeyRelays && pubkeyRelays.length > 0 && shouldContinue()) {
           // Filter out already used relays and validate
           const validNewRelays = pubkeyRelays
-            .filter(relay => {
+            .filter((relay) => {
               try {
-                if (!relay || typeof relay !== 'string') return false;
-                if (!relay.startsWith('wss://') && !relay.startsWith('ws://')) return false;
+                if (!relay || typeof relay !== "string") return false;
+                if (!relay.startsWith("wss://") && !relay.startsWith("ws://"))
+                  return false;
                 const normalized = relay.toLowerCase().replace(/\/+$/, "");
                 return !usedRelays.has(normalized);
               } catch (error) {
                 return false;
               }
             })
-            .map(relay => relay.toLowerCase().replace(/\/+$/, ""));
+            .map((relay) => relay.toLowerCase().replace(/\/+$/, ""));
 
           // Add new relays to our batch
-validNewRelays.forEach(relay => {
-  if (usedRelays.size < MAX_RELAYS_TO_USE && !usedRelays.has(relay)) {
-    newRelaysBatch.push(relay);
-    // Don't add to usedRelays yet - wait until we actually query them
-  }
-});
+          validNewRelays.forEach((relay) => {
+            if (usedRelays.size < MAX_RELAYS_TO_USE && !usedRelays.has(relay)) {
+              newRelaysBatch.push(relay);
+              // Don't add to usedRelays yet - wait until we actually query them
+            }
+          });
 
-// If we have a full batch, query it immediately
-if (newRelaysBatch.length >= RELAY_BATCH_SIZE && shouldContinue()) {
-  const batchToQuery = newRelaysBatch.splice(0, RELAY_BATCH_SIZE);
-  
-  // Add these relays to usedRelays just before querying
-  batchToQuery.forEach(relay => usedRelays.add(relay));
-  
-  await queryRelayBatch(batchToQuery);
-}
+          // If we have a full batch, query it immediately
+          if (newRelaysBatch.length >= RELAY_BATCH_SIZE && shouldContinue()) {
+            const batchToQuery = newRelaysBatch.splice(0, RELAY_BATCH_SIZE);
+
+            // Add these relays to usedRelays just before querying
+            batchToQuery.forEach((relay) => usedRelays.add(relay));
+
+            await queryRelayBatch(batchToQuery);
+          }
 
           // Stop if we've reached the relay limit
           if (usedRelays.size >= MAX_RELAYS_TO_USE) {
-            console.log(`📊 Reached relay limit of ${MAX_RELAYS_TO_USE}, stopping discovery`);
+            console.log(
+              `📊 Reached relay limit of ${MAX_RELAYS_TO_USE}, stopping discovery`
+            );
             break;
           }
         }
       } catch (error) {
-        console.warn(`⚠️ Failed to get relays for pubkey ${pubkey.slice(0, 8)}...`, error.message);
+        console.warn(
+          `⚠️ Failed to get relays for pubkey ${pubkey.slice(0, 8)}...`,
+          error.message
+        );
       }
     }
 
-// Query any remaining relays in the final batch
-if (newRelaysBatch.length > 0 && shouldContinue()) {
-  // Add remaining relays to usedRelays
-  newRelaysBatch.forEach(relay => usedRelays.add(relay));
-  await queryRelayBatch(newRelaysBatch);
-}
+    // Query any remaining relays in the final batch
+    if (newRelaysBatch.length > 0 && shouldContinue()) {
+      // Add remaining relays to usedRelays
+      newRelaysBatch.forEach((relay) => usedRelays.add(relay));
+      await queryRelayBatch(newRelaysBatch);
+    }
   }
 
   // Mark query as completed
@@ -502,7 +570,12 @@ if (newRelaysBatch.length > 0 && shouldContinue()) {
     queryCompleted = true;
     app.isQuerying = false;
     app.activeQuery = null;
-    updateHeader(allEvents.size, usedRelays.size, relaySource === 'extended', true);
+    updateHeader(
+      allEvents.size,
+      usedRelays.size,
+      relaySource === "extended",
+      true
+    );
     updatePaginationButtons();
   }
 
@@ -516,7 +589,10 @@ if (newRelaysBatch.length > 0 && shouldContinue()) {
         const watchUrl = `#watch/params?v=${card.dataset.videoId}&discovery=${discoveryParam}`;
         window.location.hash = watchUrl;
       } catch (error) {
-        console.warn("⚠️ Failed to create watch URL, using fallback:", error.message);
+        console.warn(
+          "⚠️ Failed to create watch URL, using fallback:",
+          error.message
+        );
         window.location.hash = `#watch/params?v=${card.dataset.videoId}`;
       }
     }
@@ -539,11 +615,12 @@ async function getFeedFromRelays(relays, options = {}) {
   try {
     // Validate and clean relays
     const cleanRelays = relays
-      .filter(relay => {
+      .filter((relay) => {
         try {
           // Basic URL validation
-          if (!relay || typeof relay !== 'string') return false;
-          if (!relay.startsWith('wss://') && !relay.startsWith('ws://')) return false;
+          if (!relay || typeof relay !== "string") return false;
+          if (!relay.startsWith("wss://") && !relay.startsWith("ws://"))
+            return false;
           new URL(relay); // This will throw if invalid
           return true;
         } catch (error) {
@@ -551,7 +628,7 @@ async function getFeedFromRelays(relays, options = {}) {
           return false;
         }
       })
-      .map(relay => relay.toLowerCase().replace(/\/+$/, ""));
+      .map((relay) => relay.toLowerCase().replace(/\/+$/, ""));
 
     if (cleanRelays.length === 0) {
       console.warn("❌ No valid relays provided to getFeedFromRelays");
@@ -561,7 +638,7 @@ async function getFeedFromRelays(relays, options = {}) {
     console.log(`📡 Querying ${cleanRelays.length} relays for feed events`);
 
     const pool = new window.NostrTools.SimplePool();
-    
+
     let filter = { kinds, limit };
     if (authors && authors.length > 0) {
       filter.authors = authors;
@@ -574,7 +651,7 @@ async function getFeedFromRelays(relays, options = {}) {
       let timeoutId;
       let startTime = Date.now();
       let sub;
-      
+
       const handleCompletion = () => {
         if (timeoutId) clearTimeout(timeoutId);
         if (sub) {
@@ -585,21 +662,25 @@ async function getFeedFromRelays(relays, options = {}) {
             console.warn("⚠️ Error closing subscription:", error.message);
           }
         }
-        
+
         // Clean up the pool
         try {
           pool.close(cleanRelays);
         } catch (error) {
           console.warn("⚠️ Error closing pool:", error.message);
         }
-        
+
         let duration = Date.now() - startTime;
-        console.log(`✅ Feed query completed in ${duration}ms with ${events.length} events from ${cleanRelays.length} relays`);
+        console.log(
+          `✅ Feed query completed in ${duration}ms with ${events.length} events from ${cleanRelays.length} relays`
+        );
         resolve(events);
       };
 
       timeoutId = setTimeout(() => {
-        console.warn(`⏰ Feed query timeout reached after ${timeout}ms, returning ${events.length} events`);
+        console.warn(
+          `⏰ Feed query timeout reached after ${timeout}ms, returning ${events.length} events`
+        );
         handleCompletion();
       }, timeout);
 
@@ -630,18 +711,101 @@ async function getFeedFromRelays(relays, options = {}) {
         handleCompletion();
       }
     });
-
   } catch (error) {
     console.error("❌ Error in getFeedFromRelays:", error);
     return [];
   }
 }
 
+// Helper function to get kind-3 events using nostr-tools directly
+async function getKind3Events(pubkey) {
+  try {
+    // Use your active relays for the query
+    const relaysToUse =
+      app.relays && app.relays.length > 0
+        ? app.relays
+        : ["wss://relay.damus.io", "wss://nos.lol"]; // fallback relays
+
+    const cleanRelays = relaysToUse
+      .filter((relay) => relay && typeof relay === "string")
+      .map((relay) => relay.toLowerCase().replace(/\/+$/, ""));
+
+    console.log(`📡 Querying ${cleanRelays.length} relays for kind-3 event`);
+
+    const pool = new window.NostrTools.SimplePool();
+
+    const filter = {
+      kinds: [3],
+      authors: [pubkey],
+      limit: 10, // Get last 10 to find the most recent
+    };
+
+    return new Promise((resolve) => {
+      let events = [];
+      let timeoutId;
+      let sub;
+
+      const handleCompletion = () => {
+        if (timeoutId) clearTimeout(timeoutId);
+        if (sub) {
+          try {
+            sub.close();
+          } catch (error) {
+            console.warn("⚠️ Error closing subscription:", error.message);
+          }
+        }
+
+        try {
+          pool.close(cleanRelays);
+        } catch (error) {
+          console.warn("⚠️ Error closing pool:", error.message);
+        }
+
+        console.log(`✅ Kind-3 query completed with ${events.length} events`);
+        resolve(events);
+      };
+
+      timeoutId = setTimeout(() => {
+        console.warn(
+          `⏰ Kind-3 query timeout reached, returning ${events.length} events`
+        );
+        handleCompletion();
+      }, 5000);
+
+      try {
+        sub = pool.subscribeManyEose(cleanRelays, [filter], {
+          onevent: (event) => {
+            try {
+              if (event && event.kind === 3 && event.pubkey) {
+                events.push(event);
+              }
+            } catch (error) {
+              console.warn("⚠️ Invalid event received:", error.message);
+            }
+          },
+          onclose: () => {
+            handleCompletion();
+          },
+          oneose: () => {
+            handleCompletion();
+          },
+          maxWait: 3000,
+        });
+      } catch (error) {
+        console.error("❌ Kind-3 subscription error:", error);
+        handleCompletion();
+      }
+    });
+  } catch (error) {
+    console.error("❌ Error in getKind3Events:", error);
+    return [];
+  }
+}
 
 // Function to cancel any active queries
 function cancelActiveQueries() {
   if (app.activeQuery && app.isQuerying) {
-    console.log('🛑 Cancelling active queries...');
+    console.log("🛑 Cancelling active queries...");
     app.activeQuery.cancel();
     app.activeQuery = null;
     app.isQuerying = false;

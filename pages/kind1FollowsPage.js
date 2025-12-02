@@ -19,7 +19,8 @@ async function kind1FollowsPageHandler() {
     if (!kindThreeEvents || kindThreeEvents.length === 0) {
       pageContainer.innerHTML = `
         <h1>No Followed Pubkeys</h1>
-        <p>the list of pubkeys you followed on kind-1 clients</p>
+        <p>the list of pubkeys you followed on <a href="https://spatianostra.com/clients/">kind:1 clients</a></p>
+
       `;
       return;
     }
@@ -37,11 +38,15 @@ async function kind1FollowsPageHandler() {
     pageContainer.innerHTML = `
       <div class="following-header">
         <h2>Following from kind-1 (${followedPubkeys.length})</h2>
+        <button id="followAllBtn" class="action-follow-btn">👥 Follow All</button>
       </div>
       <div class="profiles-listview"></div>
     `;
     
     const profilesContainer = pageContainer.querySelector('.profiles-listview');
+    
+    // Add Follow All button handler
+    setupFollowAllButton(followedPubkeys, profilesContainer);
     
     // Create all skeleton cards first
     followedPubkeys.forEach(pubkey => {
@@ -65,6 +70,57 @@ async function kind1FollowsPageHandler() {
   }
 }
 
+function setupFollowAllButton(pubkeys, profilesContainer) {
+  const followAllBtn = document.getElementById('followAllBtn');
+  if (!followAllBtn) return;
+  
+  // Check if all pubkeys are already followed
+  const updateFollowAllButtonState = () => {
+    const allFollowed = pubkeys.every(pubkey => isProfileFollowed(pubkey));
+    followAllBtn.textContent = allFollowed ? "✓ All Followed" : "👥 Follow All";
+    followAllBtn.classList.toggle("following", allFollowed);
+  };
+  
+  // Initial state check
+  updateFollowAllButtonState();
+  
+  followAllBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    
+    let newFollowCount = 0;
+    
+    // Follow all pubkeys that aren't already followed
+    pubkeys.forEach(pubkey => {
+      if (!isProfileFollowed(pubkey)) {
+        const success = addFollowedPubkey(pubkey);
+        if (success) {
+          newFollowCount++;
+          
+          // Update the individual button if the card exists
+          const card = profilesContainer.querySelector(`[data-pubkey="${pubkey}"]`);
+          if (card && !card.classList.contains('skeleton')) {
+            const followBtn = card.querySelector('.action-follow-btn');
+            if (followBtn) {
+              followBtn.textContent = "👥 Following";
+              followBtn.classList.add("following");
+            }
+          }
+        }
+      }
+    });
+    
+    // Update the Follow All button state
+    updateFollowAllButtonState();
+    
+    // Show notification
+    if (newFollowCount > 0) {
+      showTemporaryNotification(`Followed ${newFollowCount} profile${newFollowCount !== 1 ? 's' : ''} (local)`);
+    } else {
+      showTemporaryNotification("All profiles already followed");
+    }
+  });
+}
+
 function setupLazyLoading(container, pubkeys) {
   const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
@@ -81,15 +137,13 @@ function setupLazyLoading(container, pubkeys) {
       }
     });
   }, {
-    rootMargin: '100px' // Start loading 100px before the element becomes visible
+    rootMargin: '100px'
   });
   
-  // Observe all skeleton cards
   const skeletonCards = container.querySelectorAll('.skeleton');
   skeletonCards.forEach(card => observer.observe(card));
 }
 
-// Your existing functions remain the same
 function createSkeletonProfileCard(pubkey) {
   const card = document.createElement('div');
   card.className = 'profile-item skeleton';
@@ -122,7 +176,6 @@ function createClickableFollowedPubkeyCard(pubkey) {
     </div>
   `;
   
-  // Add click handler for the profile details (not the entire card)
   const profileDetails = card.querySelector('.profile-details');
   profileDetails.addEventListener('click', (e) => {
     e.preventDefault();
@@ -131,7 +184,6 @@ function createClickableFollowedPubkeyCard(pubkey) {
   
   profileDetails.style.cursor = 'pointer';
   
-  // Add follow/unfollow button
   createFollowButton(card, pubkey);
   
   return card;
@@ -147,7 +199,7 @@ function createFollowButton(cardElement, pubkey) {
   followBtn.textContent = isFollowed ? "👥 Following" : "👥 Follow";
   
   followBtn.addEventListener("click", (e) => {
-    e.stopPropagation(); // Prevent triggering the profile navigation
+    e.stopPropagation();
     
     const currentlyFollowed = isProfileFollowed(pubkey);
     let success;
@@ -155,9 +207,8 @@ function createFollowButton(cardElement, pubkey) {
     if (currentlyFollowed) {
       success = removeFollowedPubkey(pubkey);
       if (success) {
-        // Also remove from favorites when unfollowing
         removeFavoriteChannel(pubkey);
-        updateDrawerContent(); // Update any UI that shows favorites
+        updateDrawerContent();
       }
     } else {
       success = addFollowedPubkey(pubkey);
@@ -169,6 +220,21 @@ function createFollowButton(cardElement, pubkey) {
       showTemporaryNotification(
         currentlyFollowed ? "Unfollowed (local)" : "Followed (local)"
       );
+      
+      // Update Follow All button state
+      const followAllBtn = document.getElementById('followAllBtn');
+      if (followAllBtn) {
+        const container = cardElement.closest('.profiles-listview');
+        if (container) {
+          const allCards = container.querySelectorAll('.profile-item:not(.skeleton)');
+          const allFollowed = Array.from(allCards).every(card => {
+            const pk = card.dataset.pubkey;
+            return isProfileFollowed(pk);
+          });
+          followAllBtn.textContent = allFollowed ? "✓ All Followed" : "👥 Follow All";
+          followAllBtn.classList.toggle("following", allFollowed);
+        }
+      }
     }
   });
 

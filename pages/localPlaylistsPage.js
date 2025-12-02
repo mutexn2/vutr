@@ -85,6 +85,7 @@ function renderPlaylistsGrid(playlists) {
   
   mainContent.innerHTML = `
       <div class="playlists-header">
+       <h1>My Playlists</h1>
         <div class="playlists-actions">
           <button class="create-playlist-btn btn-primary">Create Playlist</button>
           ${networkPlaylists.length > 0 ? 
@@ -381,20 +382,20 @@ function showPlaylistModal(dTag = null) {
       updatePlaylist(dTag, title, description, image);
       showTemporaryNotification('Playlist updated');
       
-      setTimeout(() => {
-        // Check which page we're on
-        const currentHash = window.location.hash;
-        
-        if (currentHash === '#localplaylists') {
-          // We're on the playlists grid page - re-render the grid
+      // Check which page we're on
+      const currentHash = window.location.hash;
+      
+      if (currentHash === '#localplaylists') {
+        // We're on the playlists grid page - re-render the grid
+        setTimeout(() => {
           const playlists = app.playlists || [];
           renderPlaylistsGrid(playlists);
           setupPlaylistsEventListeners();
-        } else if (currentHash.startsWith('#localplaylist/')) {
-          // We're on a single playlist page - re-render that playlist
-          localPlaylistPageHandler();
-        }
-      }, 500);
+        }, 500);
+      } else if (currentHash.startsWith('#localplaylist/')) {
+        // We're on a single playlist page - update only the metadata
+        updatePlaylistMetadataInView(dTag, title, description, image);
+      }
 
     } else {
       createPlaylist(title, description, image);

@@ -135,7 +135,7 @@ let app = {
     return Array.from(allRelays);
   },
 
-  chatRelays: ["wss://nos.lol", "wss://relay.damus.io"],
+  chatRelays: ["wss://nos.lol", "wss://relay.damus.io", "wss://nostr.mom"],
 
   // ========== CLEANUP MANAGEMENT ==========
   cleanupHandlers: [], // Array of cleanup functions to call on route change

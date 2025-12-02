@@ -445,19 +445,22 @@ function setupVideoCardMenuEvents(menuElement, video) {
     let relativeTime = getRelativeTime(video.created_at);
     let pubkey = video.pubkey;
     
-// Pick a random relay from app.relays
-const randomRelay = app.relays && app.relays.length > 0 
-  ? app.relays[Math.floor(Math.random() * app.relays.length)] 
-  : null;
+    // Check if video has a "relay" tag, use the first one if it exists, if not then a random from app.relays
+    const relayTag = video.tags?.find(tag => tag[0] === "relay");
+    const relayUrl = relayTag && relayTag[1] 
+      ? relayTag[1] 
+      : (app.relays && app.relays.length > 0 
+          ? app.relays[Math.floor(Math.random() * app.relays.length)] 
+          : null);
 
-showPlaylistSelector(video, video.id, {
-  title: title,
-  url: url,
-  mimeType: mimeType,
-  content: content,
-  relativeTime: relativeTime,
-  pubkey: pubkey,
-}, randomRelay);
+    showPlaylistSelector(video, video.id, {
+      title: title,
+      url: url,
+      mimeType: mimeType,
+      content: content,
+      relativeTime: relativeTime,
+      pubkey: pubkey,
+    }, relayUrl);
     
     videoCardMenuControls?.close();
   });

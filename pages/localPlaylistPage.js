@@ -1072,3 +1072,40 @@ function buildPlaylistEventData(playlist) {
   };
 }
 
+function updatePlaylistMetadataInView(dTag, title, description, image) {
+  // Update the title
+  const titleElement = document.querySelector('.playlist-title');
+  if (titleElement) {
+    titleElement.textContent = title;
+  }
+  
+  // Update the description
+  const descriptionElement = document.querySelector('.playlist-description');
+  if (descriptionElement) {
+    if (description) {
+      descriptionElement.textContent = description;
+      descriptionElement.style.display = '';
+    } else {
+      descriptionElement.style.display = 'none';
+    }
+  } else if (description) {
+    // If description didn't exist before, create it
+    const playlistDetails = document.querySelector('.playlist-details h1');
+    if (playlistDetails) {
+      const newDesc = document.createElement('p');
+      newDesc.className = 'playlist-description';
+      newDesc.textContent = description;
+      playlistDetails.insertAdjacentElement('afterend', newDesc);
+    }
+  }
+  
+  // Update the thumbnail
+  const thumbnailContainer = document.querySelector('.playlist-thumbnail');
+  if (thumbnailContainer) {
+    if (image) {
+      thumbnailContainer.innerHTML = `<img src="${escapeHtml(image)}" alt="Playlist thumbnail" loading="lazy">`;
+    } else {
+      thumbnailContainer.innerHTML = `<div class="no-thumbnail">📹</div>`;
+    }
+  }
+}

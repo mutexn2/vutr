@@ -1013,27 +1013,38 @@ function checkIfPlaylistEmpty() {
 
 async function sharePlaylistToNetwork(dTag) {
   const playlists = app.playlists || [];
-  const playlist = playlists.find(p => getValueFromTags(p, "d", "") === dTag);
-  
+  const playlist = playlists.find((p) => getValueFromTags(p, "d", "") === dTag);
+
   if (!playlist) {
     throw new Error("Playlist not found");
   }
 
   const eventData = buildPlaylistEventData(playlist);
-  
+
+  // await publishEventToRelays(signedEvent);
+
   try {
     console.log("Playlist event data:", eventData);
     const signedEvent = await handleEventSigning(eventData);
-    
-    // await publishEventToRelays(signedEvent);
-    
-    showTemporaryNotification('Playlist NOT shared to network successfully!');
-    console.log("Playlist NOT shared successfully!", signedEvent);
-    
-    return signedEvent;
-  } catch (error) {
-    console.error("Error sharing playlist:", error);
-    throw error;
+
+    const result = await publishEvent(signedEvent, app.relays, {
+      successMessage: "Playlist published successfully",
+      errorMessage: "Failed to publish playlist event",
+    });
+
+    if (result.success) {
+      console.dir(signedEvent, { depth: null });
+     
+      showTemporaryNotification("Playlist published successfully!");
+     
+
+    } else {
+      throw new Error(result.error);
+    }
+  } catch (publishError) {
+    console.error("Error publishing video event:", publishError);
+    showTemporaryNotification("❌ Failed to publish video event");
+    resetButton();
   }
 }
 

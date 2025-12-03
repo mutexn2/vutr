@@ -177,6 +177,8 @@
 
       // - visit https://github.com/danielgjackson/qrcodejs - great lib with direct download as a .js file
       "lib/qrcode.js",
+      // - https://github.com/Dens49/blurhash-js/blob/master/blurhash_pure_js_port.min.js
+      "lib/blurhash.js",      
     ],
 
     // components

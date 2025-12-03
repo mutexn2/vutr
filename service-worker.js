@@ -1,4 +1,4 @@
-const CACHE_VERSION = "vutr-v0.000214212";
+const CACHE_VERSION = "vutr-v0.000214226";
 
 const BASE_PATH = self.location.pathname.replace("service-worker.js", "");
 
@@ -16,6 +16,7 @@ const APP_SHELL_PATHS = [
   "lib/nostr-web-components.js",
   //"lib/window.nostr.js",
   "/lib/qrcode.js",
+  "/lib/blurhash.js",
   "/loader.js",
   "/main.js",
   "/favicon.svg",

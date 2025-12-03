@@ -1,5 +1,5 @@
 async function videoPageHandler() {
-  logMemoryUsage();
+//  logMemoryUsage();
   
   // Show loading
   mainContent.innerHTML = `

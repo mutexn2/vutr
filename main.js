@@ -292,7 +292,7 @@ function handleRoute() {
   updateApp({ currentPage: baseHash.slice(1) });
   updateSidebar();
   updateDrawerContent();
-  forceGarbageCollection();
+//  forceGarbageCollection();
 
   handler();
 

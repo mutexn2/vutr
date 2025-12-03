@@ -52,39 +52,46 @@ function createVideoCard(video) {
   let timeAgo = getRelativeTime(video.created_at);
   let imetaTags = video.tags?.filter((tag) => tag[0] === "imeta") || [];
   
-  // Extract thumbnail with proper priority
-  let thumbnailSrc = "";
-  
-  // Priority 1: Standalone "thumb" tag
-  let thumbTag = video.tags?.find((tag) => tag[0] === "thumb");
-  if (thumbTag?.[1]) {
-    thumbnailSrc = thumbTag[1];
-  }
-  
-  // Priority 2: "image" in imeta tags
-  if (!thumbnailSrc && imetaTags.length > 0) {
-    let imagesFromImeta = extractFromImetaForCard(imetaTags, "image");
-    thumbnailSrc = imagesFromImeta[0] || "";
-  }
-  
-  // Priority 3: Standalone "image" tag (outside imeta)
-  if (!thumbnailSrc) {
-    let imageTag = video.tags?.find((tag) => tag[0] === "image");
-    thumbnailSrc = imageTag?.[1] || "";
-  }
-  
-  // Priority 4: "thumb" in imeta tags
-  if (!thumbnailSrc && imetaTags.length > 0) {
-    let imagesFromImeta = extractFromImetaForCard(imetaTags, "thumb");
-    thumbnailSrc = imagesFromImeta[0] || "";
-  }
-    
-  // Fallback to default thumbnail
-  if (!thumbnailSrc) {
-    thumbnailSrc = "https://nostpic.com/media/df17934d47fbf9b26c360708f6413204e2a68bd9cc4057fc8c12eccfc59d7313/a82cbba16d74b6b64ff24c675abebed834b912e5e2b102ff2bf585c239482a78.webp";
-  }
+// Extract thumbnail with proper priority
+let thumbnailSrc = "";
+let blurhashValue = getBlurhashFromVideoEvent(video);
+let blurhashDataUrl = null;
 
-  let originalThumbnailSrc = sanitizeUrl(thumbnailSrc);
+// Generate blurhash data URL if blurhash exists
+if (blurhashValue) {
+  blurhashDataUrl = createBlurhashDataUrl(blurhashValue);
+}
+
+// Priority 1: Standalone "thumb" tag
+let thumbTag = video.tags?.find((tag) => tag[0] === "thumb");
+if (thumbTag?.[1]) {
+  thumbnailSrc = thumbTag[1];
+}
+
+// Priority 2: "image" in imeta tags
+if (!thumbnailSrc && imetaTags.length > 0) {
+  let imagesFromImeta = extractFromImetaForCard(imetaTags, "image");
+  thumbnailSrc = imagesFromImeta[0] || "";
+}
+
+// Priority 3: Standalone "image" tag (outside imeta)
+if (!thumbnailSrc) {
+  let imageTag = video.tags?.find((tag) => tag[0] === "image");
+  thumbnailSrc = imageTag?.[1] || "";
+}
+
+// Priority 4: "thumb" in imeta tags
+if (!thumbnailSrc && imetaTags.length > 0) {
+  let imagesFromImeta = extractFromImetaForCard(imetaTags, "thumb");
+  thumbnailSrc = imagesFromImeta[0] || "";
+}
+
+// Fallback: Use blurhash if no thumbnail found, otherwise default thumbnail
+if (!thumbnailSrc) {
+  thumbnailSrc = blurhashDataUrl || "https://nostpic.com/media/df17934d47fbf9b26c360708f6413204e2a68bd9cc4057fc8c12eccfc59d7313/a82cbba16d74b6b64ff24c675abebed834b912e5e2b102ff2bf585c239482a78.webp";
+}
+
+let originalThumbnailSrc = sanitizeUrl(thumbnailSrc);
   
   // Decide whether to replace thumbnail
   let shouldReplaceThumbnail = hasContentWarning && replaceThumbnail;
@@ -198,7 +205,27 @@ function createVideoCard(video) {
   let creatorSection = card.querySelector('.creator');
 
   // Set dynamic content programmatically
+// Set blurhash as initial thumbnail if available, then load actual image
+if (blurhashDataUrl && finalThumbnailSrc !== blurhashDataUrl) {
+  // Show blurhash first
+  thumbnailImg.src = blurhashDataUrl;
+  thumbnailImg.style.filter = 'blur(0px)'; // Blurhash is already blurred
+  
+  // Load actual thumbnail in background
+  const actualImg = new Image();
+  actualImg.onload = () => {
+    thumbnailImg.src = finalThumbnailSrc;
+    thumbnailImg.style.filter = ''; // Remove any filter when actual image loads
+  };
+  actualImg.onerror = () => {
+    // Keep blurhash if actual image fails to load
+    console.warn('Failed to load thumbnail, keeping blurhash');
+  };
+  actualImg.src = finalThumbnailSrc;
+} else {
+  // No blurhash, load thumbnail directly
   thumbnailImg.src = finalThumbnailSrc;
+}
   thumbnailImg.alt = title;
   
   titleElement.textContent = truncateTextForCard(title, 50);
@@ -502,3 +529,51 @@ menuElement.querySelector('.video-mute-user')?.addEventListener('click', () => {
     videoCardMenuControls?.close();
   });
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+///////////////
+const getBlurhashFromVideoEvent = (video) => {
+  // Priority 1: Check for standalone "blurhash" tag
+  let blurhashTag = video.tags?.find((tag) => tag[0] === "blurhash");
+  if (blurhashTag?.[1]) {
+    return blurhashTag[1];
+  }
+  
+  // Priority 2: Check for blurhash in imeta tags
+  let imetaTags = video.tags?.filter((tag) => tag[0] === "imeta") || [];
+  if (imetaTags.length > 0) {
+    let blurhashFromImeta = extractFromImetaForCard(imetaTags, "blurhash");
+    if (blurhashFromImeta[0]) {
+      return blurhashFromImeta[0];
+    }
+  }
+  
+  return null;
+};
+const createBlurhashDataUrl = (blurhashString, width = 32, height = 32) => {
+  try {
+    // Decode blurhash to pixels
+    const pixels = blurhash.decode(blurhashString, width, height, 1);
+    
+    // Use the library's helper to create canvas and get data URL
+    const canvas = blurhash.drawImageDataOnNewCanvas(pixels, width, height);
+    
+    return canvas.toDataURL();
+  } catch (error) {
+    console.error('Error creating blurhash:', error);
+    return null;
+  }
+};

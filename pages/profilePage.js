@@ -236,6 +236,7 @@ async function loadProfileVideosWithIntervals(profile, extendedRelays) {
       365 * 24 * 60 * 60,
     ],
     periodIndex: 0,
+    useIntervalBased: false, // Flag to switch to interval-based loading
   };
 
   function renderEventImmediately(event) {
@@ -261,6 +262,57 @@ async function loadProfileVideosWithIntervals(profile, extendedRelays) {
       return true;
     }
     return false;
+  }
+
+  // NEW: Simple request first (limit 100)
+  async function loadInitialBatch() {
+    return new Promise((resolve) => {
+      const events = [];
+      let isComplete = false;
+
+      const filter = {
+        kinds: [21, 22],
+        authors: [profile],
+        limit: 100, // Request up to 100 events
+      };
+
+      const sub = app.profileVideosPool.subscribe(
+        allRelays,
+        filter,
+        {
+          onevent(event) {
+            if (!scrollState.existingEventIds.has(event.id)) {
+              const sanitizedEvent = sanitizeNostrEvent(event);
+              if (sanitizedEvent) {
+                scrollState.existingEventIds.add(event.id);
+                events.push(sanitizedEvent);
+              }
+            }
+          },
+          oneose() {
+            if (!isComplete) {
+              isComplete = true;
+              sub.close();
+              resolve(events);
+            }
+          },
+          onclose() {
+            if (!isComplete) {
+              isComplete = true;
+              resolve(events);
+            }
+          },
+        }
+      );
+
+      setTimeout(() => {
+        if (!isComplete) {
+          isComplete = true;
+          sub.close();
+          resolve(events);
+        }
+      }, 5000);
+    });
   }
 
   async function loadEventsForPeriod(since, until, renderImmediately = false) {
@@ -408,7 +460,75 @@ async function loadProfileVideosWithIntervals(profile, extendedRelays) {
     loadMoreEvents();
   });
 
-  await loadMoreEvents();
+  // NEW: Try simple request first
+  console.log("Attempting simple batch request (limit 100)...");
+  const initialEvents = await loadInitialBatch();
+  
+  console.log(`Simple request returned ${initialEvents.length} events`);
+  
+  if (initialEvents.length < 100) {
+    // Less than 100 events means we got everything
+    console.log("Profile has < 100 events, using simple approach");
+    
+    // Sort by newest first
+    initialEvents.sort((a, b) => b.created_at - a.created_at);
+    
+    // Render first 20
+    const toRender = initialEvents.slice(0, scrollState.eventsPerPage);
+    toRender.forEach(event => renderEventImmediately(event));
+    
+    // Store remaining events for pagination
+    const remaining = initialEvents.slice(scrollState.eventsPerPage);
+    
+    if (remaining.length > 0) {
+      // We have more to show, but no need for complex loading
+      scrollState.hasMoreContent = true;
+      loadMoreBtn.style.display = 'block';
+      
+      // Simple load more handler
+      const simpleLoadMore = async () => {
+        const nextBatch = remaining.splice(0, scrollState.eventsPerPage);
+        nextBatch.forEach(event => renderEventImmediately(event));
+        
+        if (remaining.length === 0) {
+          scrollState.hasMoreContent = false;
+          loadMoreBtn.style.display = 'none';
+          loadMoreStatus.textContent = 'No more videos to load';
+          loadMoreStatus.style.display = 'block';
+        }
+        
+        const headerP = videosContent.querySelector("h1 + p");
+        if (headerP) {
+          headerP.textContent = `Found ${scrollState.loadedEventsCount} video${scrollState.loadedEventsCount !== 1 ? 's' : ''}`;
+        }
+      };
+      
+      // Replace the load more listener
+      loadMoreBtn.removeEventListener('click', loadMoreEvents);
+      loadMoreBtn.addEventListener('click', simpleLoadMore);
+    } else {
+      // No more events
+      scrollState.hasMoreContent = false;
+    }
+    
+    // Find oldest event for timestamp tracking
+    if (initialEvents.length > 0) {
+      scrollState.oldestTimestamp = initialEvents[initialEvents.length - 1].created_at;
+    }
+    
+  } else {
+    // Got 100 events, there are probably more
+    console.log("Profile has >= 100 events, switching to interval-based approach");
+    
+    // Clear the simple batch (we'll re-fetch with interval approach for proper sorting)
+    grid.innerHTML = '';
+    scrollState.existingEventIds.clear();
+    scrollState.loadedEventsCount = 0;
+    
+    // Use the interval-based approach
+    scrollState.useIntervalBased = true;
+    await loadMoreEvents();
+  }
 
   const headerP = videosContent.querySelector("h1 + p");
   if (headerP) {
@@ -1664,107 +1784,6 @@ async function cleanupCurrentTab(tabName) {
 }
 
 
-async function loadExtendedProfileVideos(profile, extendedRelays) {
-  const extendedVideosContent = document.getElementById(
-    "extendedChannelVideos"
-  );
-  if (!extendedVideosContent) return;
-
-  // Check if already loaded
-  if (extendedVideosContent.dataset.loaded === "true") {
-    return;
-  }
-
-  try {
-    extendedVideosContent.innerHTML = `
-      <h1>searching extended relays...</h1>
-      <p>Querying ${extendedRelays.length} relays for kind-21 events</p>
-    `;
-
-    const kinds = [21];
-    const limit = 40;
-
-    const channelVideos = await fetchAndProcessExtendedVideos(
-      profile,
-      extendedRelays,
-      kinds,
-      limit
-    );
-
-    if (channelVideos.length === 0) {
-      renderNoExtendedVideosFound(extendedVideosContent);
-      return;
-    }
-
-    channelVideos.sort((a, b) => b.created_at - a.created_at);
-
-    setTimeout(() => {
-      renderExtendedProfileVideos(channelVideos);
-      extendedVideosContent.dataset.loaded = "true";
-    }, 1000);
-  } catch (error) {
-    console.error("Error loading extended profile videos:", error);
-    renderExtendedVideosError(extendedVideosContent);
-  }
-}
-
-async function fetchAndProcessExtendedVideos(
-  profile,
-  extendedRelays,
-  kinds,
-  limit
-) {
-  const channelVideos = await NostrClient.getEventsFromRelays(extendedRelays, {
-    kinds: kinds,
-    limit: limit,
-    author: profile,
-  });
-
-  const processedVideos = channelVideos
-    .map(sanitizeNostrEvent)
-    .filter((v) => v !== null);
-
-  console.log(
-    "Extended search results:",
-    processedVideos.length,
-    "videos found"
-  );
-  return processedVideos;
-}
-
-function renderNoExtendedVideosFound(container) {
-  container.innerHTML = `
-    <h1>No Additional Videos Found</h1>
-    <p>No additional kind-21 video events were found across the extended relay set.</p>
-  `;
-  container.dataset.loaded = "true";
-}
-
-function renderExtendedVideosError(container) {
-  container.innerHTML = `
-    <h1>Error Loading Extended Videos</h1>
-    <p>Failed to load videos from extended relay search.</p>
-  `;
-}
-
-function renderExtendedProfileVideos(channelVideos) {
-  const videosContent = document.getElementById("extendedChannelVideos");
-  if (!videosContent) return;
-
-  videosContent.innerHTML = `
-    <h1>extended search results</h1>
-    <p>Found ${channelVideos.length} videos across all relays</p>
-    <div class="videos-grid"></div>
-  `;
-
-  const videosGrid = videosContent.querySelector(".videos-grid");
-  if (videosGrid) {
-    channelVideos.forEach((video) => {
-      const card = createVideoCard(video);
-      videosGrid.appendChild(card);
-    });
-  }
-}
 
 
 
@@ -1897,3 +1916,106 @@ document.addEventListener("click", (event) => {
 });
 }
 
+////////////////////////////
+/* async function loadExtendedProfileVideos(profile, extendedRelays) {
+  const extendedVideosContent = document.getElementById(
+    "extendedChannelVideos"
+  );
+  if (!extendedVideosContent) return;
+
+  // Check if already loaded
+  if (extendedVideosContent.dataset.loaded === "true") {
+    return;
+  }
+
+  try {
+    extendedVideosContent.innerHTML = `
+      <h1>searching extended relays...</h1>
+      <p>Querying ${extendedRelays.length} relays for kind-21 events</p>
+    `;
+
+    const kinds = [21];
+    const limit = 40;
+
+    const channelVideos = await fetchAndProcessExtendedVideos(
+      profile,
+      extendedRelays,
+      kinds,
+      limit
+    );
+
+    if (channelVideos.length === 0) {
+      renderNoExtendedVideosFound(extendedVideosContent);
+      return;
+    }
+
+    channelVideos.sort((a, b) => b.created_at - a.created_at);
+
+    setTimeout(() => {
+      renderExtendedProfileVideos(channelVideos);
+      extendedVideosContent.dataset.loaded = "true";
+    }, 1000);
+  } catch (error) {
+    console.error("Error loading extended profile videos:", error);
+    renderExtendedVideosError(extendedVideosContent);
+  }
+}
+function renderExtendedProfileVideos(channelVideos) {
+  const videosContent = document.getElementById("extendedChannelVideos");
+  if (!videosContent) return;
+
+  videosContent.innerHTML = `
+    <h1>extended search results</h1>
+    <p>Found ${channelVideos.length} videos across all relays</p>
+    <div class="videos-grid"></div>
+  `;
+
+  const videosGrid = videosContent.querySelector(".videos-grid");
+  if (videosGrid) {
+    channelVideos.forEach((video) => {
+      const card = createVideoCard(video);
+      videosGrid.appendChild(card);
+    });
+  }
+}
+function renderNoExtendedVideosFound(container) {
+  container.innerHTML = `
+    <h1>No Additional Videos Found</h1>
+    <p>No additional kind-21 video events were found across the extended relay set.</p>
+  `;
+  container.dataset.loaded = "true";
+}
+
+function renderExtendedVideosError(container) {
+  container.innerHTML = `
+    <h1>Error Loading Extended Videos</h1>
+    <p>Failed to load videos from extended relay search.</p>
+  `;
+}
+
+async function fetchAndProcessExtendedVideos(
+  profile,
+  extendedRelays,
+  kinds,
+  limit
+) {
+  const channelVideos = await NostrClient.getEventsFromRelays(extendedRelays, {
+    kinds: kinds,
+    limit: limit,
+    author: profile,
+  });
+
+  const processedVideos = channelVideos
+    .map(sanitizeNostrEvent)
+    .filter((v) => v !== null);
+
+  console.log(
+    "Extended search results:",
+    processedVideos.length,
+    "videos found"
+  );
+  return processedVideos;
+}
+
+
+ */

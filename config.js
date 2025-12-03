@@ -238,6 +238,7 @@ let config = {
       items: [
         //   { name: "queue", displayName: "Queue", icon: "⚙️" },
         { name: "settings", displayName: "Settings", icon: "⚙️" },
+        { name: "kind1home", displayName: "Kind 1s", icon: "⚙️" },
         { name: "localmuted", displayName: "Muted", icon: "⚙️" },
         { name: "historyplaylists", displayName: "Playlist history", icon: "📒" },
         { name: "shorts", displayName: "Shorts", icon: "⚙️" },

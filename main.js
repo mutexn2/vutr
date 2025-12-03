@@ -157,6 +157,7 @@ let routes = {
   "#localfollows": localFollowsPageHandler,
   "#localmuted": localMutedPageHandler,
   "#kind1follows": kind1FollowsPageHandler,
+  "#kind1home": k1HomePageHandler,
   "#followsfeed": followsFeedPageHandler,
   "#tag": tagPageHandler,
   "#watch": videoPageHandler,

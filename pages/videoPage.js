@@ -252,6 +252,12 @@ function renderVideoPage(video, videoId, pageHash, shouldAutoplay = false) {
             <span class="like-text">Like</span>
             <span class="like-count">0</span>
           </button>
+          <button id="action-comment-btn" class="video-action-tab-button">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.76c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.076-4.076a1.526 1.526 0 0 1 1.037-.443 48.282 48.282 0 0 0 5.68-.494c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z" />
+            </svg>
+            Comment
+          </button>
           <button id="action-share-btn" class="video-action-tab-button"><svg xmlns="http://www.w3.org/2000/svg"
               fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
               <path stroke-linecap="round" stroke-linejoin="round"
@@ -279,7 +285,6 @@ function renderVideoPage(video, videoId, pageHash, shouldAutoplay = false) {
         </div>
       </div>
     </div>
-
 
     <div class="info-containers">
       <div class="info-container social-info">
@@ -339,41 +344,30 @@ function renderVideoPage(video, videoId, pageHash, shouldAutoplay = false) {
           </div>
         </details>
       </div>
+
+      <div class="info-container comments-info">
+        <details id="comments-details">
+          <summary class="comments-summary">
+            <span class="comments-summary-text">Comments (<span id="comment-count">0</span>)</span>
+            <span class="arrow">!</span>
+          </summary>
+          <div class="comments-container"></div>
+        </details>
+      </div>
     </div>
-
-
-
-    <div class="comments-container"></div>
   </div>
 </div>
-
-
   `;
 
-  // Get references to containers
   let videoContainer = mainContent.querySelector(".video-container");
-
-//  VideoPlayer.render(videoContainer, url, videoId, video, pageHash, shouldAutoplay);
-
   handleVideoPlayback(videoContainer, url, videoId, video, pageHash, shouldAutoplay);
-
-
-
-
-
-
   setupVideoPageContent(video, videoId, title, content, relativeTime, pubkey, mimeType, url);
   
-
-
-
   // Load comments after delay
   setTimeout(() => {
     renderComments(videoId, video);
   }, 1000);
 
-
-    // Update playlist info if playlist exists
   updateVideoPagePlaylistInfo();
 }
 
@@ -708,7 +702,7 @@ function setupVideoPageContent(video, videoId, title, content, relativeTime, pub
       console.log(`Liked video: ${videoId} - ${title}`);
 
       if (!app.isLoggedIn || (!app.myPk && !app.guestSk)) {
-        showTemporaryNotification("❌ Please log in to like videos");
+        showTemporaryNotification("❌ Please log in to like videos...");
         return;
       }
 
@@ -794,11 +788,17 @@ function setupVideoPageContent(video, videoId, title, content, relativeTime, pub
   } else {
     // User not logged in - tracked handler
     const likeLoginHandler = () => {
-      showTemporaryNotification("❌ Please log in to like videos");
+      showTemporaryNotification("❌ Please log in to like videos!!");
     };
     addTrackedEventListener(likeBtn, 'click', likeLoginHandler, pageKey);
   }
 
+let commentBtn = mainContent.querySelector("#action-comment-btn");
+const commentBtnHandler = () => {
+  openCommentModal(videoId, video);
+};
+addTrackedEventListener(commentBtn, 'click', commentBtnHandler, pageKey);
+  
   // Bookmark button handler - tracked
   const bookmarkBtnHandler = () => {
     console.log(`Bookmark video: ${videoId} - ${title}`);

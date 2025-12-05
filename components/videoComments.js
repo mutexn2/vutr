@@ -223,7 +223,6 @@ insertCommentInChronologicalOrder(commentElement, event) {
 };
 
 async function renderComments(videoId, videoEvent) {
-  // Clean up any existing comment subscription
   if (app.commentSubscription) {
     app.commentSubscription.close();
     app.commentSubscription = null;
@@ -235,217 +234,16 @@ async function renderComments(videoId, videoEvent) {
     return;
   }
 
-
-commentsContainer.innerHTML = `
-  <div class="comments-content">
-    <h3 class="comments-header">Comments</h3>
-    
-    <div class="chat-input-container collapsed">
-      <button id="comment-expand-btn" class="comment-expand-button">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-        </svg>
-        Add a comment
-      </button>
-      
-      <div class="chat-input-expanded">
-        <div class="chat-input-header">
-          <span class="chat-input-title">Add a comment</span>
-          <button id="comment-collapse-btn" class="comment-collapse-button" title="Close">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        <div id="comment-reply-indicator" class="reply-indicator hidden">
-          <span id="comment-reply-text">Replying to...</span>
-          <button id="comment-cancel-reply-btn">✕</button>
-        </div>
-        <div class="chat-input-wrapper">
-          <textarea id="comment-input" placeholder="Add a comment..." rows="1"></textarea>
-          <button id="comment-send-button">Send</button>
-        </div>
+  commentsContainer.innerHTML = `
+    <div class="comments-content">
+      <div class="loading-indicator">
+        <p>Loading comments...</p>
       </div>
+      <div class="comments-list"></div>
     </div>
-
-    <div class="loading-indicator">
-      <p>Loading comments...</p>
-    </div>
-    
-    <div class="comments-list"></div>
-  </div>
-`;
+  `;
 
   const commentsList = commentsContainer.querySelector('.comments-list');
-  const commentInput = document.getElementById('comment-input');
-  const sendButton = document.getElementById('comment-send-button');
-  const cancelReplyBtn = document.getElementById('comment-cancel-reply-btn');
-  const collapseBtn = document.getElementById('comment-collapse-btn');
-  const expandBtn = document.getElementById('comment-expand-btn');
-  const chatInputContainer = document.querySelector('.chat-input-container');
-
-  // Auto-resize textarea
-  commentInput.addEventListener('input', function() {
-    this.style.height = 'auto';
-    this.style.height = Math.min(this.scrollHeight, 120) + 'px';
-  });
-
-  // Send functionality
-  sendButton.addEventListener('click', async () => {
-    if (commentInput.value.trim()) {
-      await sendComment(videoId, commentInput.value.trim());
-      commentInput.value = '';
-      commentInput.style.height = 'auto';
-    }
-  });
-
-  // Enter key to send
-  commentInput.addEventListener('keydown', async (e) => {
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-      navigator.userAgent
-    );
-
-    if (e.key === 'Enter') {
-      if (isMobile || e.shiftKey) {
-        return;
-      } else {
-        e.preventDefault();
-        if (commentInput.value.trim()) {
-          await sendComment(videoId, commentInput.value.trim());
-          commentInput.value = '';
-          commentInput.style.height = 'auto';
-        }
-      }
-    }
-  });
-
-  // Cancel reply button
-  cancelReplyBtn?.addEventListener('click', () => {
-    clearCommentReplyState();
-  });
-
-  // Expand button - clear any previous state first
-  expandBtn?.addEventListener('click', () => {
-    // If there's an existing reply state, clear it
-    if (commentReplyState.isReplying) {
-      clearCommentReplyState();
-    }
-    chatInputContainer.classList.remove('collapsed');
-    commentInput.focus();
-  });
-
-  // NEW: Collapse button
-  collapseBtn?.addEventListener('click', () => {
-    collapseCommentInput();
-  });
-
-  // collapse when clicking outside
-  document.addEventListener('click', (e) => {
-    if (chatInputContainer && 
-        !chatInputContainer.contains(e.target) && 
-        !chatInputContainer.classList.contains('collapsed') &&
-        !commentInput.value.trim() &&
-        !commentReplyState.isReplying) {
-      collapseCommentInput();
-    }
-  });
-
-  async function sendComment(videoId, content) {
-    if (!app.isLoggedIn || (!app.myPk && !app.guestSk)) {
-      showTemporaryNotification("❌ Please log in to comment");
-      return;
-    }
-
-    const sendButton = document.getElementById("comment-send-button");
-    const commentInput = document.getElementById("comment-input");
-
-    try {
-      sendButton.disabled = true;
-      sendButton.textContent = "Sending...";
-
-      const relayHint = app.relays && app.relays.length > 0 ? app.relays[0] : "";
-
-      // Use passed videoEvent directly - no fetching needed!
-      const videoPubkey = videoEvent.pubkey;
-
-      const commentEvent = {
-        kind: 1111,
-        created_at: Math.floor(Date.now() / 1000),
-        content: content,
-        tags: [],
-      };
-
-      if (commentReplyState.isReplying && commentReplyState.replyToEvent) {
-        // Reply to a comment
-        commentEvent.tags = [
-          ["E", videoId, relayHint, videoPubkey],
-          ["K", "21"],
-          ["P", videoPubkey, relayHint],
-          ["e", commentReplyState.replyToEvent.id, relayHint, commentReplyState.replyToEvent.pubkey],
-          ["k", "1111"],
-          ["p", commentReplyState.replyToEvent.pubkey, relayHint],
-        ];
-      } else {
-        // Top-level comment
-        commentEvent.tags = [
-          ["E", videoId, relayHint, videoPubkey],
-          ["K", "21"],
-          ["P", videoPubkey, relayHint],
-          ["e", videoId, relayHint, videoPubkey],
-          ["k", "21"],
-          ["p", videoPubkey, relayHint],
-        ];
-      }
-
-      console.log("Creating comment event:", commentEvent);
-
-      const signedCommentEvent = await handleEventSigning(commentEvent);
-
-      console.log("Comment event signed successfully:", signedCommentEvent);
-
-      if (app.relays && app.relays.length > 0) {
-        try {
-          const result = await publishEvent(signedCommentEvent, app.relays, {
-            successMessage: "Comment published successfully",
-            errorMessage: "Failed to publish comment",
-          });
-
-          if (result.success) {
-            showTemporaryNotification("✓ Comment sent!");
-
-            clearCommentReplyState();
-            // Collapse the input after sending
-            const chatInputContainer = document.querySelector(".chat-input-container");
-            if (chatInputContainer) {
-              chatInputContainer.classList.add('collapsed');
-            }
-
-            sendButton.disabled = false;
-            sendButton.textContent = "Send";
-          } else {
-            throw new Error(result.error);
-          }
-        } catch (publishError) {
-          console.error("Error publishing comment:", publishError);
-          showTemporaryNotification("❌ Failed to send comment");
-
-          sendButton.disabled = false;
-          sendButton.textContent = "Send";
-        }
-      } else {
-        console.warn("No relays configured, comment not published");
-        showTemporaryNotification("❌ No relays configured");
-        sendButton.disabled = false;
-        sendButton.textContent = "Send";
-      }
-    } catch (error) {
-      console.error("Error creating comment:", error);
-      showTemporaryNotification("❌ Failed to send comment: " + error.message);
-
-      sendButton.disabled = false;
-      sendButton.textContent = "Send";
-    }
-  }  
 
   try {
     if (!app.commentPool) {
@@ -466,11 +264,7 @@ commentsContainer.innerHTML = `
       },
       {
         onevent(event) {
-          console.log("got comment:", event);
-
-          if (existingEvents.has(event.id)) {
-            return;
-          }
+          if (existingEvents.has(event.id)) return;
           existingEvents.add(event.id);
 
           commentEventManager.processEvent(event);
@@ -488,11 +282,14 @@ commentsContainer.innerHTML = `
           isInitialLoad = false;
           hideCommentsLoadingIndicator();
           
-          const header = commentsContainer.querySelector('.comments-header');
-          if (header) {
-            header.textContent = initialLoadCount > 0 ? 
-              `Comments (${initialLoadCount})` : 
-              "No comments yet";
+          // Update comment count
+          const countSpan = document.getElementById('comment-count');
+          if (countSpan) {
+            countSpan.textContent = initialLoadCount;
+          }
+
+          if (initialLoadCount === 0) {
+            commentsList.innerHTML = '<div class="no-comments">No comments yet. Be the first to comment!</div>';
           }
 
           setTimeout(() => {
@@ -505,15 +302,155 @@ commentsContainer.innerHTML = `
         },
       }
     );
-
-
-
-
   } catch (error) {
     console.error("Error loading comments:", error);
     showCommentsError(commentsContainer);
   }
 }
+
+// New function to open comment modal
+function openCommentModal(videoId, videoEvent, replyToEvent = null) {
+  const isReply = !!replyToEvent;
+  const modalTitle = isReply ? "Reply to Comment" : "Add a Comment";
+  
+  let replyIndicatorHTML = '';
+  if (isReply) {
+    const authorDisplay = replyToEvent.pubkey.slice(0, 8) + "...";
+    const contentPreview = replyToEvent.content.length > 50
+      ? replyToEvent.content.slice(0, 50) + "..."
+      : replyToEvent.content;
+    
+    replyIndicatorHTML = `
+      <div class="modal-reply-indicator">
+        <span class="reply-icon">↳</span>
+        <span class="reply-text">Replying to ${authorDisplay}: "${contentPreview}"</span>
+      </div>
+    `;
+  }
+
+  const content = `
+    <div class="comment-modal-content">
+      ${replyIndicatorHTML}
+      <textarea id="modal-comment-input" placeholder="${isReply ? 'Write your reply...' : 'Share your thoughts...'}" rows="4"></textarea>
+      <div class="modal-actions">
+        <button class="btn-secondary" id="modal-comment-cancel">Cancel</button>
+        <button class="btn-primary" id="modal-comment-send">Send</button>
+      </div>
+    </div>
+  `;
+
+  const modal = openModal({
+    title: modalTitle,
+    content,
+    size: 'medium',
+    customClass: 'comment-modal'
+  });
+
+  const textarea = modal.querySelector('#modal-comment-input');
+  const sendBtn = modal.querySelector('#modal-comment-send');
+  const cancelBtn = modal.querySelector('#modal-comment-cancel');
+
+  // Auto-resize textarea
+  textarea.addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = Math.min(this.scrollHeight, 200) + 'px';
+  });
+
+  // Focus textarea
+  setTimeout(() => textarea.focus(), 100);
+
+  // Send button
+  sendBtn.addEventListener('click', async () => {
+    const content = textarea.value.trim();
+    if (!content) {
+      showTemporaryNotification("❌ Please enter a comment");
+      return;
+    }
+
+    await sendCommentFromModal(videoId, videoEvent, content, replyToEvent);
+    closeModal();
+  });
+
+  // Cancel button
+  cancelBtn.addEventListener('click', closeModal);
+
+  // Enter to send (Ctrl+Enter or Cmd+Enter on mobile)
+  textarea.addEventListener('keydown', async (e) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      const content = textarea.value.trim();
+      if (content) {
+        await sendCommentFromModal(videoId, videoEvent, content, replyToEvent);
+        closeModal();
+      }
+    }
+  });
+}
+
+async function sendCommentFromModal(videoId, videoEvent, content, replyToEvent = null) {
+  if (!app.isLoggedIn || (!app.myPk && !app.guestSk)) {
+    showTemporaryNotification("❌ Please log in to comment");
+    return;
+  }
+
+  try {
+    const relayHint = app.relays && app.relays.length > 0 ? app.relays[0] : "";
+    const videoPubkey = videoEvent.pubkey;
+
+    const commentEvent = {
+      kind: 1111,
+      created_at: Math.floor(Date.now() / 1000),
+      content: content,
+      tags: [],
+    };
+
+    if (replyToEvent) {
+      commentEvent.tags = [
+        ["E", videoId, relayHint, videoPubkey],
+        ["K", "21"],
+        ["P", videoPubkey, relayHint],
+        ["e", replyToEvent.id, relayHint, replyToEvent.pubkey],
+        ["k", "1111"],
+        ["p", replyToEvent.pubkey, relayHint],
+      ];
+    } else {
+      commentEvent.tags = [
+        ["E", videoId, relayHint, videoPubkey],
+        ["K", "21"],
+        ["P", videoPubkey, relayHint],
+        ["e", videoId, relayHint, videoPubkey],
+        ["k", "21"],
+        ["p", videoPubkey, relayHint],
+      ];
+    }
+
+    const signedCommentEvent = await handleEventSigning(commentEvent);
+
+    if (app.relays && app.relays.length > 0) {
+      const result = await publishEvent(signedCommentEvent, app.relays, {
+        successMessage: "Comment published successfully",
+        errorMessage: "Failed to publish comment",
+      });
+
+      if (result.success) {
+        showTemporaryNotification("✓ Comment sent!");
+        
+        // Update comment count
+        const countSpan = document.getElementById('comment-count');
+        if (countSpan) {
+          const currentCount = parseInt(countSpan.textContent) || 0;
+          countSpan.textContent = currentCount + 1;
+        }
+      } else {
+        throw new Error(result.error);
+      }
+    }
+  } catch (error) {
+    console.error("Error creating comment:", error);
+    showTemporaryNotification("❌ Failed to send comment: " + error.message);
+  }
+}
+
 
 function renderInitialComment(event, container) {
   const commentElement = createCommentElement(event);
@@ -862,26 +799,27 @@ async function loadReactionsForComment(eventId, likeButton, likeCountSpan) {
 function handleCommentReply(event) {
   console.log("Reply to comment:", event.id);
   
-  // Clear any existing reply state first to avoid conflicts
-  clearCommentReplyState();
+  // Get video ID from the comment's tags (E tag contains the root video event ID)
+  const videoIdTag = event.tags.find(t => t[0] === 'E');
+  const videoId = videoIdTag ? videoIdTag[1] : null;
   
-  // Then set the new reply state
-  setCommentReplyState(event);
-
-  const chatInputContainer = document.querySelector(".chat-input-container");
-  if (chatInputContainer) {
-    // Expand the input if collapsed
-    chatInputContainer.classList.remove('collapsed');
-    
-    chatInputContainer.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  if (!videoId) {
+    showTemporaryNotification("❌ Unable to determine video ID");
+    return;
   }
-
-  const commentInput = document.getElementById('comment-input');
-  if (commentInput) {
-    commentInput.focus();
-  }
+  
+  // Get video pubkey from the comment's tags (P tag contains the video author)
+  const videoPubkeyTag = event.tags.find(t => t[0] === 'P');
+  const videoPubkey = videoPubkeyTag ? videoPubkeyTag[1] : '';
+  
+  // Create a minimal video event object
+  const videoEvent = { 
+    pubkey: videoPubkey,
+    id: videoId
+  };
+  
+  openCommentModal(videoId, videoEvent, event);
 }
-
 
 async function handleCommentLikeWithUI(event, likeButton, likeCountSpan) {
   console.log("Like comment:", event.id);

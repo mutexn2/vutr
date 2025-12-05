@@ -161,6 +161,11 @@ async function renderPlaylistWithPlaceholders(playlist, playlistId, allRelays) {
   
   // Render immediately with placeholders
   renderNetworkPlaylist(playlist, placeholderEvents, playlistId);
+  
+  const dTag = getValueFromTags(playlist, "d", "");
+  const addressableTag = `${playlist.kind}:${playlist.pubkey}:${dTag}`;
+  await setupPlaylistCreatorAndZap(playlist, playlistId, addressableTag);
+  
   setupNetworkPlaylistEventListeners(playlist, placeholderEvents);
   
   // Now fetch real video data progressively with combined relays
@@ -595,11 +600,13 @@ function renderNetworkPlaylist(playlist, videoEvents, playlistId) {
       </div>
     </div>
     
-    <div class="playlist-publisher-info">
-      <nostr-picture pubkey="${playlist.pubkey}"></nostr-picture>
-      <nostr-name pubkey="${playlist.pubkey}"></nostr-name>
-      ${dTag ? `<p style="display: none;"><strong>Playlist ID (d-tag):</strong> ${escapeHtml(dTag)}</p>` : ''}
-    </div>    
+<div class="playlist-publisher-info">
+  <div class="channel-info">
+    <div class="creator-image"></div>
+    <div class="creator-name"></div>
+  </div>
+  ${dTag ? `<p style="display: none;"><strong>Playlist ID (d-tag):</strong> ${escapeHtml(dTag)}</p>` : ''}
+</div>
     
     <div class="playlist-content">
       <div class="playlist-videos" id="network-playlist-videos">
@@ -644,6 +651,38 @@ return `
       </div>
     `;
   }).join('');
+}
+
+async function setupPlaylistCreatorAndZap(playlist, playlistId, addressableTag) {
+  const pageKey = app.currentPageCleanupKey || 'playlistPage_default';
+  const pubkey = playlist.pubkey;
+  
+  const channelInfo = document.querySelector(".playlist-publisher-info .channel-info");
+  if (!channelInfo) return;
+  
+  let channelImage = document.createElement("nostr-picture");
+  channelImage.className = "channel-image";
+  channelImage.setAttribute("pubkey", pubkey);
+  
+  let channelName = document.createElement("nostr-name");
+  channelName.className = "channel-name";
+  channelName.setAttribute("pubkey", pubkey);
+  
+  channelInfo.children[0].appendChild(channelImage);
+  channelInfo.children[1].appendChild(channelName);
+
+  const zapContainer = document.createElement('div');
+  zapContainer.className = 'channel-zap-container';
+  channelInfo.appendChild(zapContainer);
+  await setupPlaylistZapButton(zapContainer, playlist, playlistId, pubkey, addressableTag);
+
+  addTrackedEventListener(channelImage, 'click', () => {
+    window.location.hash = `#profile/${pubkey}`;
+  }, pageKey);
+
+  addTrackedEventListener(channelName, 'click', () => {
+    window.location.hash = `#profile/${pubkey}`;
+  }, pageKey);
 }
 
 function setupNetworkPlaylistEventListeners(playlist, cachedVideoEvents = null) {

@@ -25,7 +25,22 @@ async function settingsPageHandler() {
           </div>
         </div>
 
-
+<!-- Appearance Section -->
+<div class="settings-section">
+  <h2>Appearance</h2>
+  <div class="settings-group">
+    <div class="setting-item setting-toggle">
+      <div class="setting-info">
+        <label for="no-thumbnail-toggle">Hide All Thumbnails</label>
+        <span class="setting-description">Don't display video thumbnails in the feed</span>
+      </div>
+      <label class="toggle-switch">
+        <input type="checkbox" id="no-thumbnail-toggle">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+  </div>
+</div>
 
         <!-- Playback Section -->
         <div class="settings-section strikethrough">
@@ -324,6 +339,16 @@ async function settingsPageHandler() {
       });
 
     // Toggles
+// Appearance - No thumbnail toggle
+document
+  .getElementById("no-thumbnail-toggle")
+  .addEventListener("change", (e) => {
+    localStorage.setItem("noThumbnail", e.target.checked);
+    showTemporaryNotification(
+      `Thumbnails ${e.target.checked ? "hidden" : "shown"}`
+    );
+  });
+
     document
       .getElementById("autoplay-toggle")
       .addEventListener("change", (e) => {
@@ -496,6 +521,8 @@ function loadSettings() {
   document.getElementById("playback-speed").value = savedSpeed;
 
   // Load toggles
+  document.getElementById("no-thumbnail-toggle").checked =
+    localStorage.getItem("noThumbnail") === "true";  
   document.getElementById("autoplay-toggle").checked =
     localStorage.getItem("autoplay") === "true";
   document.getElementById("muted-autoplay").checked =

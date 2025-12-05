@@ -15,15 +15,17 @@ function createZapButton(params) {
     eventId = null,
     relays = null,
     lud16 = null,
-    size = 'medium',
-    showLabel = true
+    size = "medium",
+    showLabel = true,
+    addressableTag = null,
   } = params;
 
-  const button = document.createElement('button');
+  const button = document.createElement("button");
   button.className = `zap-btn zap-btn-${size}`;
-  button.setAttribute('aria-label', 'Send a zap');
-  button.setAttribute('data-pubkey', pubkey);
-  if (eventId) button.setAttribute('data-event-id', eventId);
+  button.setAttribute("aria-label", "Send a zap");
+  button.setAttribute("data-pubkey", pubkey);
+  if (eventId) button.setAttribute("data-event-id", eventId);
+  if (addressableTag) button.setAttribute("data-addressable-tag", addressableTag);
 
   const iconSvg = `
     <svg class="zap-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2">
@@ -33,15 +35,14 @@ function createZapButton(params) {
 
   button.innerHTML = `
     ${iconSvg}
-    ${showLabel ? '<span class="zap-label">Zap</span>' : ''}
+    ${showLabel ? '<span class="zap-label">Zap</span>' : ""}
   `;
 
-  button.addEventListener('click', async (e) => {
+  button.addEventListener("click", async (e) => {
     e.preventDefault();
     e.stopPropagation();
-    
-    // Add loading state
-    button.classList.add('zap-btn-loading');
+
+    button.classList.add("zap-btn-loading");
     button.disabled = true;
 
     try {
@@ -49,13 +50,14 @@ function createZapButton(params) {
         pubkey,
         eventId,
         relays: relays || app.relays,
-        lud16
+        lud16,
+        addressableTag,
       });
     } catch (error) {
-      console.error('Zap failed:', error);
-      showTemporaryNotification('Zap failed: ' + error.message);
+      console.error("Zap failed:", error);
+      showTemporaryNotification("Zap failed: " + error.message);
     } finally {
-      button.classList.remove('zap-btn-loading');
+      button.classList.remove("zap-btn-loading");
       button.disabled = false;
     }
   });
@@ -67,17 +69,15 @@ function createZapButton(params) {
  * Main handler for zap button clicks
  */
 async function handleZapClick(params) {
-  const { pubkey, eventId, relays, lud16 } = params;
+  const { pubkey, eventId, relays, lud16, addressableTag } = params;
 
-  // Check if user is logged in
   if (!app.myPk) {
-    showTemporaryNotification('Please log in to send zaps');
+    showTemporaryNotification("Please log in to send zaps");
     return;
   }
 
-  // Get recipient's lightning address
   let recipientLud16 = lud16;
-  
+
   if (!recipientLud16) {
     try {
       const profile = await NostrClient.getProfile(pubkey);
@@ -86,21 +86,21 @@ async function handleZapClick(params) {
         recipientLud16 = profileData.lud16 || profileData.lud06;
       }
     } catch (error) {
-      console.error('Failed to fetch recipient profile:', error);
+      console.error("Failed to fetch recipient profile:", error);
     }
   }
 
   if (!recipientLud16) {
-    showTemporaryNotification('Recipient has no lightning address configured');
+    showTemporaryNotification("Recipient has no lightning address configured");
     return;
   }
 
-  // Open zap modal
   await openZapModal({
     pubkey,
     eventId,
     relays,
-    lud16: recipientLud16
+    lud16: recipientLud16,
+    addressableTag,
   });
 }
 
@@ -108,16 +108,17 @@ async function handleZapClick(params) {
  * Opens the zap modal for amount input and payment
  */
 async function openZapModal(zapParams) {
-  const { pubkey, eventId, relays, lud16 } = zapParams;
+  const { pubkey, eventId, relays, lud16, addressableTag } = zapParams;
 
-  // Determine if this is an event zap or profile zap
-  const zapType = eventId ? 'event' : 'profile';
-  const modalTitle = eventId ? '⚡ Zap this Video' : '⚡ Send a Zap';
+  const zapType = eventId ? "event" : "profile";
+  const modalTitle = eventId ? "⚡ Zap this Playlist" : "⚡ Send a Zap";
 
   const modalContent = `
     <div class="zap-modal-container">
       <div class="zap-recipient-info">
-        <p>Zapping ${zapType === 'event' ? 'video' : 'user'}: <strong>${lud16}</strong></p>
+        <p>Zapping ${
+          zapType === "event" ? "video" : "user"
+        }: <strong>${lud16}</strong></p>
       </div>
       
       <div class="zap-step" id="zapStep1">
@@ -185,11 +186,10 @@ async function openZapModal(zapParams) {
   const modal = openModal({
     title: modalTitle,
     content: modalContent,
-    size: 'medium',
-    customClass: 'zap-modal'
+    size: "medium",
+    customClass: "zap-modal",
   });
 
-  // Setup modal event handlers
   setupZapModalHandlers(modal, zapParams);
 }
 
@@ -197,22 +197,23 @@ async function openZapModal(zapParams) {
  * Setup event handlers for the zap modal
  */
 function setupZapModalHandlers(modal, zapParams) {
-  const { pubkey, eventId, relays, lud16 } = zapParams;
-  
+  const { pubkey, eventId, relays, lud16, addressableTag } = zapParams;
+
+
   let zapEndpoint = null;
   let zapInvoice = null;
   let receiptCheckInterval = null;
 
   // Quick amount buttons
-  modal.querySelectorAll('.quick-amount-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const amount = btn.getAttribute('data-amount');
-      modal.querySelector('#zapAmount').value = amount;
+  modal.querySelectorAll(".quick-amount-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const amount = btn.getAttribute("data-amount");
+      modal.querySelector("#zapAmount").value = amount;
     });
   });
 
   // Cancel button
-  modal.querySelector('#zapCancelBtn').addEventListener('click', () => {
+  modal.querySelector("#zapCancelBtn").addEventListener("click", () => {
     if (receiptCheckInterval) {
       clearInterval(receiptCheckInterval);
     }
@@ -220,84 +221,90 @@ function setupZapModalHandlers(modal, zapParams) {
   });
 
   // Continue button - validate wallet and create zap request
-  modal.querySelector('#zapContinueBtn').addEventListener('click', async () => {
-    const amount = parseInt(modal.querySelector('#zapAmount').value);
-    const comment = modal.querySelector('#zapComment').value.trim();
+  modal.querySelector("#zapContinueBtn").addEventListener("click", async () => {
+    const amount = parseInt(modal.querySelector("#zapAmount").value);
+    const comment = modal.querySelector("#zapComment").value.trim();
 
     if (!amount || amount < 1) {
-      updateZapStatus(modal, 'Please enter a valid amount', 'error');
+      updateZapStatus(modal, "Please enter a valid amount", "error");
       return;
     }
 
-    const continueBtn = modal.querySelector('#zapContinueBtn');
+    const continueBtn = modal.querySelector("#zapContinueBtn");
     continueBtn.disabled = true;
-    continueBtn.textContent = 'Processing...';
+    continueBtn.textContent = "Processing...";
 
     try {
-      updateZapStatus(modal, 'Validating lightning address...', 'loading');
+      updateZapStatus(modal, "Validating lightning address...", "loading");
 
       // Get zap endpoint
       zapEndpoint = await getZapEndpointFromLud16(lud16);
-      
+
       if (!zapEndpoint) {
-        throw new Error('Invalid lightning address or zaps not supported');
+        throw new Error("Invalid lightning address or zaps not supported");
       }
 
-      updateZapStatus(modal, 'Creating zap request...', 'loading');
+      updateZapStatus(modal, "Creating zap request...", "loading");
 
       // Create and sign zap request
       const zapRequest = await createAndSignZapRequest({
         pubkey,
         eventId,
-        amount: amount * 1000, // Convert to millisats
+        amount: amount * 1000,
         comment,
         relays,
-        lud16
+        lud16,
+        addressableTag,
       });
 
-      updateZapStatus(modal, 'Requesting invoice...', 'loading');
+      updateZapStatus(modal, "Requesting invoice...", "loading");
 
       // Get invoice from wallet
-      zapInvoice = await requestZapInvoice(zapEndpoint, zapRequest, amount * 1000);
+      zapInvoice = await requestZapInvoice(
+        zapEndpoint,
+        zapRequest,
+        amount * 1000
+      );
 
       // Show invoice in step 2
       showZapInvoice(modal, zapInvoice, zapRequest, relays);
-
     } catch (error) {
-      console.error('Zap request failed:', error);
-      updateZapStatus(modal, 'Error: ' + error.message, 'error');
+      console.error("Zap request failed:", error);
+      updateZapStatus(modal, "Error: " + error.message, "error");
       continueBtn.disabled = false;
-      continueBtn.textContent = 'Continue';
+      continueBtn.textContent = "Continue";
     }
   });
 
   // Back button from invoice view
-  modal.querySelector('#zapBackBtn').addEventListener('click', () => {
+  modal.querySelector("#zapBackBtn").addEventListener("click", () => {
     if (receiptCheckInterval) {
       clearInterval(receiptCheckInterval);
     }
     showZapStep(modal, 1);
-    modal.querySelector('#zapContinueBtn').disabled = false;
-    modal.querySelector('#zapContinueBtn').textContent = 'Continue';
+    modal.querySelector("#zapContinueBtn").disabled = false;
+    modal.querySelector("#zapContinueBtn").textContent = "Continue";
   });
 
   // Copy invoice button
-  modal.querySelector('#zapCopyInvoiceBtn').addEventListener('click', async () => {
-    const invoiceText = modal.querySelector('#zapInvoiceText').value;
-    try {
-      await navigator.clipboard.writeText(invoiceText);
-      const btn = modal.querySelector('#zapCopyInvoiceBtn');
-      btn.textContent = 'Copied!';
-      setTimeout(() => {
-        btn.textContent = 'Copy Invoice';
-      }, 2000);
-    } catch (error) {
-      console.error('Failed to copy invoice:', error);
-    }
-  });
+  modal
+    .querySelector("#zapCopyInvoiceBtn")
+    .addEventListener("click", async () => {
+      const invoiceText = modal.querySelector("#zapInvoiceText").value;
+      try {
+        await navigator.clipboard.writeText(invoiceText);
+        const btn = modal.querySelector("#zapCopyInvoiceBtn");
+        btn.textContent = "Copied!";
+        setTimeout(() => {
+          btn.textContent = "Copy Invoice";
+        }, 2000);
+      } catch (error) {
+        console.error("Failed to copy invoice:", error);
+      }
+    });
 
   // Close button on success
-  modal.querySelector('#zapCloseBtn').addEventListener('click', () => {
+  modal.querySelector("#zapCloseBtn").addEventListener("click", () => {
     if (receiptCheckInterval) {
       clearInterval(receiptCheckInterval);
     }
@@ -310,34 +317,33 @@ function setupZapModalHandlers(modal, zapParams) {
  */
 async function getZapEndpointFromLud16(lud16) {
   try {
-    const [name, domain] = lud16.split('@');
+    const [name, domain] = lud16.split("@");
     if (!name || !domain) {
-      throw new Error('Invalid lightning address format');
+      throw new Error("Invalid lightning address format");
     }
 
     const lnurlUrl = `https://${domain}/.well-known/lnurlp/${name}`;
     const response = await fetch(lnurlUrl);
-    
+
     if (!response.ok) {
-      throw new Error('Failed to fetch lnurl data');
+      throw new Error("Failed to fetch lnurl data");
     }
 
     const data = await response.json();
 
     // Check if zaps are supported
     if (!data.allowsNostr || !data.nostrPubkey) {
-      throw new Error('Recipient does not support zaps');
+      throw new Error("Recipient does not support zaps");
     }
 
     return {
       callback: data.callback,
       nostrPubkey: data.nostrPubkey,
       minSendable: data.minSendable || 1000,
-      maxSendable: data.maxSendable || 100000000000
+      maxSendable: data.maxSendable || 100000000000,
     };
-
   } catch (error) {
-    console.error('Error getting zap endpoint:', error);
+    console.error("Error getting zap endpoint:", error);
     throw error;
   }
 }
@@ -346,42 +352,43 @@ async function getZapEndpointFromLud16(lud16) {
  * Create and sign a zap request event
  */
 async function createAndSignZapRequest(params) {
-  const { pubkey, eventId, amount, comment, relays, lud16 } = params;
+  const { pubkey, eventId, amount, comment, relays, lud16, addressableTag } = params;
 
   // Build zap request event
   const zapRequestTemplate = {
     kind: 9734,
-    content: comment || '',
+    content: comment || "",
     tags: [
-      ['relays', ...relays],
-      ['amount', amount.toString()],
-      ['p', pubkey]
+      ["relays", ...relays],
+      ["amount", amount.toString()],
+      ["p", pubkey],
     ],
-    created_at: Math.round(Date.now() / 1000)
+    created_at: Math.round(Date.now() / 1000),
   };
 
   // Add event tag if zapping an event
   if (eventId) {
-    zapRequestTemplate.tags.push(['e', eventId]);
+    zapRequestTemplate.tags.push(["e", eventId]);
   }
 
-  // The lnurl tag is optional according to NIP-57, so we can skip it
-  // Most wallet servers don't require it
+  // Add addressable tag for addressable events (kind:pubkey:dtag)
+  if (addressableTag) {
+    zapRequestTemplate.tags.push(["a", addressableTag]);
+  }
 
   // Sign the event
   const signedZapRequest = await handleEventSigning(zapRequestTemplate);
-  
+
   return signedZapRequest;
 }
-
 /**
  * Encode lud16 to lnurl format
  */
 function encodeLnurl(lud16) {
-  const [name, domain] = lud16.split('@');
+  const [name, domain] = lud16.split("@");
   const url = `https://${domain}/.well-known/lnurlp/${name}`;
   const words = window.NostrTools.bech32.toWords(new TextEncoder().encode(url));
-  return window.NostrTools.bech32.encode('lnurl', words, 2000);
+  return window.NostrTools.bech32.encode("lnurl", words, 2000);
 }
 
 /**
@@ -396,26 +403,25 @@ async function requestZapInvoice(zapEndpoint, zapRequest, amount) {
     // The lnurl parameter is optional according to LUD-06
     const invoiceUrl = `${zapEndpoint.callback}?amount=${amount}&nostr=${encodedZapRequest}`;
 
-    console.log('Requesting invoice from:', invoiceUrl);
+    console.log("Requesting invoice from:", invoiceUrl);
 
     const response = await fetch(invoiceUrl);
-    
+
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Invoice request failed:', errorText);
-      throw new Error('Failed to get invoice from wallet');
+      console.error("Invoice request failed:", errorText);
+      throw new Error("Failed to get invoice from wallet");
     }
 
     const data = await response.json();
 
     if (!data.pr) {
-      throw new Error('No invoice returned from wallet');
+      throw new Error("No invoice returned from wallet");
     }
 
     return data.pr;
-
   } catch (error) {
-    console.error('Error requesting invoice:', error);
+    console.error("Error requesting invoice:", error);
     throw error;
   }
 }
@@ -424,11 +430,11 @@ async function requestZapInvoice(zapEndpoint, zapRequest, amount) {
  */
 function showZapInvoice(modal, invoice, zapRequest, relays) {
   // Generate QR code
-  const qrDisplay = modal.querySelector('#zapQrDisplay');
+  const qrDisplay = modal.querySelector("#zapQrDisplay");
   qrDisplay.innerHTML = generateQrCode(invoice);
 
   // Show invoice text
-  modal.querySelector('#zapInvoiceText').value = invoice;
+  modal.querySelector("#zapInvoiceText").value = invoice;
 
   // Switch to step 2
   showZapStep(modal, 2);
@@ -450,17 +456,17 @@ function startReceiptCheck(modal, zapRequest, relays) {
 
     try {
       const receipt = await checkForZapReceipt(zapRequest.id, relays);
-      
+
       if (receipt) {
         clearInterval(receiptCheckInterval);
         showZapSuccess(modal);
       } else if (checkCount >= maxChecks) {
         clearInterval(receiptCheckInterval);
         // Could show a message that payment is taking longer than expected
-        console.log('Receipt check timeout - payment may still be processing');
+        console.log("Receipt check timeout - payment may still be processing");
       }
     } catch (error) {
-      console.error('Error checking for receipt:', error);
+      console.error("Error checking for receipt:", error);
     }
   }, checkInterval);
 
@@ -475,15 +481,17 @@ async function checkForZapReceipt(zapRequestId, relays) {
   try {
     const receipts = await NostrClient.getEvents({
       kinds: [9735],
-      '#e': [zapRequestId],
-      limit: 1
+      "#e": [zapRequestId],
+      limit: 1,
     });
 
     if (receipts && receipts.length > 0) {
       // Validate the receipt
       const receipt = receipts[0];
-      const descriptionTag = receipt.tags.find(tag => tag[0] === 'description');
-      
+      const descriptionTag = receipt.tags.find(
+        (tag) => tag[0] === "description"
+      );
+
       if (descriptionTag && descriptionTag[1]) {
         const zapRequest = JSON.parse(descriptionTag[1]);
         if (zapRequest.id === zapRequestId) {
@@ -494,7 +502,7 @@ async function checkForZapReceipt(zapRequestId, relays) {
 
     return null;
   } catch (error) {
-    console.error('Error checking for zap receipt:', error);
+    console.error("Error checking for zap receipt:", error);
     return null;
   }
 }
@@ -504,31 +512,29 @@ async function checkForZapReceipt(zapRequestId, relays) {
  */
 function showZapSuccess(modal) {
   showZapStep(modal, 3);
-  
+
   // Trigger confetti or celebration animation if you have one
-  console.log('⚡ Zap successful!');
+  console.log("⚡ Zap successful!");
 }
 
 /**
  * Switch between modal steps
  */
 function showZapStep(modal, stepNumber) {
-  modal.querySelectorAll('.zap-step').forEach(step => {
-    step.style.display = 'none';
+  modal.querySelectorAll(".zap-step").forEach((step) => {
+    step.style.display = "none";
   });
-  modal.querySelector(`#zapStep${stepNumber}`).style.display = 'block';
+  modal.querySelector(`#zapStep${stepNumber}`).style.display = "block";
 }
 
 /**
  * Update status message in modal
  */
-function updateZapStatus(modal, message, type = 'info') {
-  const statusEl = modal.querySelector('#zapStatus');
+function updateZapStatus(modal, message, type = "info") {
+  const statusEl = modal.querySelector("#zapStatus");
   statusEl.textContent = message;
   statusEl.className = `zap-status zap-status-${type}`;
 }
-
-
 
 //////
 //video page
@@ -545,7 +551,7 @@ async function setupVideoZapButton(container, video, videoId, pubkey) {
       lud16 = profileData.lud16 || profileData.lud06;
     }
   } catch (error) {
-    console.error('Failed to fetch creator profile:', error);
+    console.error("Failed to fetch creator profile:", error);
   }
 
   // If no lightning address, don't show zap button
@@ -566,19 +572,19 @@ async function setupVideoZapButton(container, video, videoId, pubkey) {
     eventId: videoId,
     relays: app.relays,
     lud16: lud16,
-    size: 'small',
-    showLabel: true
+    size: "small",
+    showLabel: true,
   });
 
-  const zapInfo = document.createElement('div');
-  zapInfo.className = 'video-zap-info';
-  zapInfo.style.cursor = 'pointer'; // Make it clear it's clickable
+  const zapInfo = document.createElement("div");
+  zapInfo.className = "video-zap-info";
+  zapInfo.style.cursor = "pointer"; // Make it clear it's clickable
   zapInfo.innerHTML = `
     <span class="zap-total">⚡ <span class="zap-amount">0</span> sats</span>
   `;
 
   // Add click handler to show zap details
-  zapInfo.addEventListener('click', () => {
+  zapInfo.addEventListener("click", () => {
     showVideoZapDetails(videoId);
   });
 
@@ -595,12 +601,12 @@ async function setupVideoZapButton(container, video, videoId, pubkey) {
 async function loadVideoZapCount(videoId) {
   try {
     const pool = new window.NostrTools.SimplePool();
-    
+
     // Query for zap receipts (kind 9735) for this video
     const zapReceipts = await pool.querySync(app.relays || [], {
       kinds: [9735],
-      '#e': [videoId],
-      limit: 500 // Get a reasonable number of zaps
+      "#e": [videoId],
+      limit: 500, // Get a reasonable number of zaps
     });
 
     let totalSats = 0;
@@ -611,30 +617,33 @@ async function loadVideoZapCount(videoId) {
     for (const receipt of zapReceipts) {
       try {
         // Get the bolt11 invoice from the receipt
-        const bolt11Tag = receipt.tags.find(tag => tag[0] === 'bolt11');
+        const bolt11Tag = receipt.tags.find((tag) => tag[0] === "bolt11");
         if (!bolt11Tag || !bolt11Tag[1]) continue;
 
         const invoice = bolt11Tag[1];
-        
+
         // Extract amount from invoice using nostr-tools helper
-        const amountSats = window.NostrTools.nip57.getSatoshisAmountFromBolt11(invoice);
-        
+        const amountSats =
+          window.NostrTools.nip57.getSatoshisAmountFromBolt11(invoice);
+
         if (amountSats > 0) {
           totalSats += amountSats;
           validZapCount++;
 
           // Get zapper pubkey from the description tag (zap request)
-          const descriptionTag = receipt.tags.find(tag => tag[0] === 'description');
+          const descriptionTag = receipt.tags.find(
+            (tag) => tag[0] === "description"
+          );
           let zapperPubkey = null;
-          let zapComment = '';
+          let zapComment = "";
 
           if (descriptionTag && descriptionTag[1]) {
             try {
               const zapRequest = JSON.parse(descriptionTag[1]);
               zapperPubkey = zapRequest.pubkey;
-              zapComment = zapRequest.content || '';
+              zapComment = zapRequest.content || "";
             } catch (e) {
-              console.warn('Failed to parse zap request:', e);
+              console.warn("Failed to parse zap request:", e);
             }
           }
 
@@ -644,21 +653,25 @@ async function loadVideoZapCount(videoId) {
             zapperPubkey: zapperPubkey,
             comment: zapComment,
             timestamp: receipt.created_at,
-            receiptId: receipt.id
+            receiptId: receipt.id,
           });
         }
       } catch (error) {
-        console.warn('Error processing zap receipt:', error);
+        console.warn("Error processing zap receipt:", error);
       }
     }
 
     // Sort by amount (highest first)
     zapDetails.sort((a, b) => b.amount - a.amount);
 
-    console.log(`Found ${validZapCount} valid zaps totaling ${totalSats} sats for video ${videoId}`);
+    console.log(
+      `Found ${validZapCount} valid zaps totaling ${totalSats} sats for video ${videoId}`
+    );
 
     // Update the display
-    const zapAmountElement = document.querySelector('.channel-zap-container .zap-amount');
+    const zapAmountElement = document.querySelector(
+      ".channel-zap-container .zap-amount"
+    );
     if (zapAmountElement) {
       zapAmountElement.textContent = formatSatsAmount(totalSats);
     }
@@ -671,11 +684,10 @@ async function loadVideoZapCount(videoId) {
       totalSats,
       zapCount: validZapCount,
       zapDetails: zapDetails, // Store the details
-      lastUpdated: Date.now()
+      lastUpdated: Date.now(),
     };
-
   } catch (error) {
-    console.error('Error loading video zap count:', error);
+    console.error("Error loading video zap count:", error);
   }
 }
 /**
@@ -691,7 +703,6 @@ function formatSatsAmount(sats) {
   }
 }
 
-
 /**
  * Show modal with detailed zap information
  */
@@ -699,36 +710,276 @@ function showVideoZapDetails(videoId) {
   const zapData = app.videoZapData?.[videoId];
 
   if (!zapData || !zapData.zapDetails || zapData.zapDetails.length === 0) {
-    alertModal('No zaps found for this video yet.', 'Zap Details');
+    alertModal("No zaps found for this video yet.", "Zap Details");
     return;
   }
 
   const { totalSats, zapCount, zapDetails } = zapData;
 
   // Build the zap list HTML
-  const zapListHTML = zapDetails.map((zap, index) => {
-    const zapperDisplay = zap.zapperPubkey 
-      ? `<nostr-name pubkey="${zap.zapperPubkey}"></nostr-name>`
-      : 'Anonymous';
-    
-    const timeAgo = getRelativeTime(zap.timestamp);
-    
-    return `
-      <div class="zap-detail-item" data-pubkey="${zap.zapperPubkey || ''}">
+  const zapListHTML = zapDetails
+    .map((zap, index) => {
+      const zapperDisplay = zap.zapperPubkey
+        ? `<nostr-name pubkey="${zap.zapperPubkey}"></nostr-name>`
+        : "Anonymous";
+
+      const timeAgo = getRelativeTime(zap.timestamp);
+
+      return `
+      <div class="zap-detail-item" data-pubkey="${zap.zapperPubkey || ""}">
       <div>
         <div class="zap-detail-header">
           <div class="zap-detail-zapper">
-            ${zap.zapperPubkey ? `<nostr-picture pubkey="${zap.zapperPubkey}" class="zap-detail-avatar"></nostr-picture>` : ''}
+            ${
+              zap.zapperPubkey
+                ? `<nostr-picture pubkey="${zap.zapperPubkey}" class="zap-detail-avatar"></nostr-picture>`
+                : ""
+            }
             <span class="zap-detail-name">${zapperDisplay}</span>
           </div>
           <div class="zap-detail-amount">⚡ ${zap.amount.toLocaleString()} sats</div>
         </div>
         <div class="zap-detail-time">${timeAgo}</div>
         </div>
-        ${zap.comment ? `<div class="zap-detail-comment">${escapeHtml(zap.comment)}</div>` : ''}
+        ${
+          zap.comment
+            ? `<div class="zap-detail-comment">${escapeHtml(zap.comment)}</div>`
+            : ""
+        }
       </div>
     `;
-  }).join('');
+    })
+    .join("");
+
+  const content = `
+    <div class="zap-details-modal">
+      <div class="zap-details-summary">
+        <div class="zap-summary-item">
+          <span class="zap-summary-label">Total Zaps:</span>
+          <span class="zap-summary-value">${zapCount}</span>
+        </div>
+        <div class="zap-summary-item">
+          <span class="zap-summary-label">Total Amount:</span>
+          <span class="zap-summary-value">⚡ ${totalSats.toLocaleString()} sats</span>
+        </div>
+        <div class="zap-summary-item">
+          <span class="zap-summary-label">Average:</span>
+          <span class="zap-summary-value">⚡ ${Math.round(
+            totalSats / zapCount
+          ).toLocaleString()} sats</span>
+        </div>
+      </div>
+      
+      <div class="zap-details-list">
+        ${zapListHTML}
+      </div>
+    </div>
+  `;
+
+  const modal = openModal({
+    title: `⚡ Zap Details (${zapCount})`,
+    content: content,
+    size: "medium",
+    customClass: "zap-details-modal-container",
+  });
+
+  // Add click handlers to navigate to profiles
+  const zapItems = modal.querySelectorAll(".zap-detail-item[data-pubkey]");
+  zapItems.forEach((item) => {
+    const pubkey = item.dataset.pubkey;
+    if (pubkey) {
+      item.style.cursor = "pointer";
+      item.addEventListener("click", () => {
+        closeModal();
+        window.location.hash = `#profile/${pubkey}`;
+      });
+    }
+  });
+}
+
+///////
+// playlist
+/**
+ * Setup zap button for playlist page (addressable event)
+ */
+async function setupPlaylistZapButton(container, playlist, playlistId, pubkey, addressableTag) {
+  let lud16 = null;
+  try {
+    const profile = await NostrClient.getProfile(pubkey);
+    if (profile && profile.content) {
+      const profileData = JSON.parse(profile.content);
+      lud16 = profileData.lud16 || profileData.lud06;
+    }
+  } catch (error) {
+    console.error("Failed to fetch creator profile:", error);
+  }
+
+  if (!lud16) {
+    container.innerHTML = `
+      <div class="video-zap-info">
+        <span class="zap-total">⚡ <span class="zap-amount">--</span> sats</span>
+      </div>
+    `;
+    loadPlaylistZapCount(playlist);
+    return;
+  }
+
+  const zapButton = createZapButton({
+    pubkey: pubkey,
+    eventId: playlist.id,
+    relays: app.relays,
+    lud16: lud16,
+    size: "small",
+    showLabel: true,
+    addressableTag: addressableTag,
+  });
+
+  const zapInfo = document.createElement("div");
+  zapInfo.className = "video-zap-info";
+  zapInfo.style.cursor = "pointer";
+  zapInfo.innerHTML = `
+    <span class="zap-total">⚡ <span class="zap-amount">0</span> sats</span>
+  `;
+
+  zapInfo.addEventListener("click", () => {
+    showPlaylistZapDetails(playlist);
+  });
+
+  container.appendChild(zapButton);
+  container.appendChild(zapInfo);
+
+  loadPlaylistZapCount(playlist);
+}
+
+/**
+ * Load and display total zaps for a playlist
+ */
+async function loadPlaylistZapCount(playlist) {
+  try {
+    const pool = new window.NostrTools.SimplePool();
+
+    // Query for zap receipts (kind 9735) for this playlist event ID
+    const zapReceipts = await pool.querySync(app.relays || [], {
+      kinds: [9735],
+      "#e": [playlist.id],
+      limit: 500,
+    });
+
+    let totalSats = 0;
+    let validZapCount = 0;
+    const zapDetails = [];
+
+    // Process each zap receipt
+    for (const receipt of zapReceipts) {
+      try {
+        const bolt11Tag = receipt.tags.find((tag) => tag[0] === "bolt11");
+        if (!bolt11Tag || !bolt11Tag[1]) continue;
+
+        const invoice = bolt11Tag[1];
+        const amountSats = window.NostrTools.nip57.getSatoshisAmountFromBolt11(invoice);
+
+        if (amountSats > 0) {
+          totalSats += amountSats;
+          validZapCount++;
+
+          const descriptionTag = receipt.tags.find((tag) => tag[0] === "description");
+          let zapperPubkey = null;
+          let zapComment = "";
+
+          if (descriptionTag && descriptionTag[1]) {
+            try {
+              const zapRequest = JSON.parse(descriptionTag[1]);
+              zapperPubkey = zapRequest.pubkey;
+              zapComment = zapRequest.content || "";
+            } catch (e) {
+              console.warn("Failed to parse zap request:", e);
+            }
+          }
+
+          zapDetails.push({
+            amount: amountSats,
+            zapperPubkey: zapperPubkey,
+            comment: zapComment,
+            timestamp: receipt.created_at,
+            receiptId: receipt.id,
+          });
+        }
+      } catch (error) {
+        console.warn("Error processing zap receipt:", error);
+      }
+    }
+
+    zapDetails.sort((a, b) => b.amount - a.amount);
+
+    console.log(`Found ${validZapCount} valid zaps totaling ${totalSats} sats for playlist ${playlist.id}`);
+
+    // Update the display
+    const zapAmountElement = document.querySelector(".playlist-publisher-info .zap-amount");
+    if (zapAmountElement) {
+      zapAmountElement.textContent = formatSatsAmount(totalSats);
+    }
+
+    // Store in app state
+    if (!app.playlistZapData) {
+      app.playlistZapData = {};
+    }
+    app.playlistZapData[playlist.id] = {
+      totalSats,
+      zapCount: validZapCount,
+      zapDetails: zapDetails,
+      lastUpdated: Date.now(),
+    };
+  } catch (error) {
+    console.error("Error loading playlist zap count:", error);
+  }
+}
+
+/**
+ * Show modal with detailed zap information for playlist
+ */
+function showPlaylistZapDetails(playlist) {
+  const zapData = app.playlistZapData?.[playlist.id];
+
+  if (!zapData || !zapData.zapDetails || zapData.zapDetails.length === 0) {
+    alertModal("No zaps found for this playlist yet.", "Zap Details");
+    return;
+  }
+
+  const { totalSats, zapCount, zapDetails } = zapData;
+
+  const zapListHTML = zapDetails
+    .map((zap) => {
+      const zapperDisplay = zap.zapperPubkey
+        ? `<nostr-name pubkey="${zap.zapperPubkey}"></nostr-name>`
+        : "Anonymous";
+
+      const timeAgo = getRelativeTime(zap.timestamp);
+
+      return `
+      <div class="zap-detail-item" data-pubkey="${zap.zapperPubkey || ""}">
+        <div>
+          <div class="zap-detail-header">
+            <div class="zap-detail-zapper">
+              ${
+                zap.zapperPubkey
+                  ? `<nostr-picture pubkey="${zap.zapperPubkey}" class="zap-detail-avatar"></nostr-picture>`
+                  : ""
+              }
+              <span class="zap-detail-name">${zapperDisplay}</span>
+            </div>
+            <div class="zap-detail-amount">⚡ ${zap.amount.toLocaleString()} sats</div>
+          </div>
+          <div class="zap-detail-time">${timeAgo}</div>
+        </div>
+        ${
+          zap.comment
+            ? `<div class="zap-detail-comment">${escapeHtml(zap.comment)}</div>`
+            : ""
+        }
+      </div>
+    `;
+    })
+    .join("");
 
   const content = `
     <div class="zap-details-modal">
@@ -756,34 +1007,28 @@ function showVideoZapDetails(videoId) {
   const modal = openModal({
     title: `⚡ Zap Details (${zapCount})`,
     content: content,
-    size: 'medium',
-    customClass: 'zap-details-modal-container'
+    size: "medium",
+    customClass: "zap-details-modal-container",
   });
 
   // Add click handlers to navigate to profiles
-  const zapItems = modal.querySelectorAll('.zap-detail-item[data-pubkey]');
-  zapItems.forEach(item => {
+  const zapItems = modal.querySelectorAll(".zap-detail-item[data-pubkey]");
+  zapItems.forEach((item) => {
     const pubkey = item.dataset.pubkey;
     if (pubkey) {
-      item.style.cursor = 'pointer';
-      item.addEventListener('click', () => {
+      item.style.cursor = "pointer";
+      item.addEventListener("click", () => {
         closeModal();
         window.location.hash = `#profile/${pubkey}`;
       });
     }
   });
 }
-
-
-
-
 ////////
 // not applied
 /**
  * Subscribe to new zaps for the current video
  */
-
-
 
 /* function subscribeToVideoZaps(videoId) {
   if (app.zapSubscription) {

@@ -82,7 +82,7 @@ async function loadPlaylistWithUpdates(author, dtag, allRelays) {
     
     const sub = app.playlistPool.subscribeMany(
       allRelays,
-      [filter],
+      filter,
       {
         onevent(event) {
           const sanitizedEvent = sanitizeNostrEvent(event);
@@ -186,7 +186,7 @@ async function fetchVideoEventsProgressively(videoIds, allRelays, playlistId) {
   
   const sub = pool.subscribeMany(
     allRelays,
-    [filter],
+    filter,
     {
       onevent(event) {
         const sanitizedEvent = sanitizeNostrEvent(event);
@@ -322,7 +322,7 @@ async function fetchVideoEventsOptimized(videoTags, allRelays) {
     
     const sub = pool.subscribeMany(
       allRelays,
-      [filter],  // Array of filters
+      filter,
       {
         onevent(event) {
           const sanitizedEvent = sanitizeNostrEvent(event);
@@ -384,7 +384,7 @@ function subscribeToVideoUpdates(videoTags, allRelays, playlistId) {
   
   const sub = pool.subscribeMany(
     allRelays,
-    [filter],  // Array of filters
+    filter,
     {
       onevent(event) {
         const sanitizedEvent = sanitizeNostrEvent(event);

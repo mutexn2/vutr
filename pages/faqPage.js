@@ -32,7 +32,7 @@ async function faqPageHandler() {
       <p>- Experimental project exploring nostr.</p>
 
  
-      <a href="https://github.com/mutexn2/vutr" target="_blank">Open-source</a>
+     
     </div>
 
 
@@ -60,6 +60,11 @@ async function faqPageHandler() {
 
 
     <!--
+
+ <a href="https://github.com/nostr-protocol/nips/blob/master/71.md" target="_blank">Open-source</a>
+
+
+
           <p>- Using nostr as the discovery/social layer for the URLs.</p>      
       <p>- Any http file server exposing a direct media URL should work. <a href="https://github.com/hzrd149/blossom"
           target="_blank">Blossom</a> is currently optional and not fully applied. 

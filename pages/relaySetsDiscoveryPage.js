@@ -202,7 +202,7 @@ async function relaySetsDiscoveryPageHandler() {
     
     subscription = window.nostrPool.subscribeMany(
       relaysToUse,
-      [filter],
+      filter,
       {
         onevent: (event) => {
           const card = handleNewRelaySetEvent(event, receivedEvents, rSets);

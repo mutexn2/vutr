@@ -121,7 +121,7 @@ let NostrClient = {
         }, timeout);
 
         try {
-          sub = this.pool.subscribeManyEose(this.relays, [filter], {
+          sub = this.pool.subscribeManyEose(this.relays, filter, {
             onevent: (event) => {
             //  console.log(`Received event kind ${event.kind}:`, event);
               events.push(event);
@@ -220,7 +220,7 @@ let NostrClient = {
         }, timeout);
 
         try {
-          sub = this.pool.subscribeManyEose(relays, [filter], {
+          sub = this.pool.subscribeManyEose(relays, filter, {
             onevent: (event) => {
             //  console.log(`Received event kind ${event.kind}:`, event);
               events.push(event);

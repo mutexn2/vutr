@@ -173,6 +173,7 @@ let routes = {
   "#contact": contactPageHandler,
   "#faq": faqPageHandler,
   "#blob": blobPageHandler,
+  "#blossom": blossomPageHandler,
   "#nak": fafoPageHandler,
   "#nak2": nakPageHandler,
   "#settings": settingsPageHandler,

@@ -685,7 +685,7 @@ async function getFeedFromRelays(relays, options = {}) {
       }, timeout);
 
       try {
-        sub = pool.subscribeManyEose(cleanRelays, [filter], {
+        sub = pool.subscribeManyEose(cleanRelays, filter, {
           onevent: (event) => {
             try {
               // Basic event validation
@@ -773,7 +773,7 @@ async function getKind3Events(pubkey) {
       }, 5000);
 
       try {
-        sub = pool.subscribeManyEose(cleanRelays, [filter], {
+        sub = pool.subscribeManyEose(cleanRelays, filter, {
           onevent: (event) => {
             try {
               if (event && event.kind === 3 && event.pubkey) {

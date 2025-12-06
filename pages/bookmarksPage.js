@@ -115,7 +115,7 @@ async function fetchVideoEventsForBookmarks(videoIds, bookmarkedVideos) {
   
   const sub = pool.subscribeMany(
     app.globalRelays,
-    [filter],
+    filter,
     {
       onevent(event) {
         const sanitizedEvent = sanitizeNostrEvent(event);

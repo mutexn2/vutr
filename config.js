@@ -249,6 +249,7 @@ let config = {
         { name: "contact", displayName: "contact", icon: "💬" },
         { name: "nak", displayName: "nak", icon: "🚨" },
         { name: "blob", displayName: "blob", icon: "⚗️" },
+        { name: "blossom", displayName: "blossom", icon: "⚗️" },
         { name: "tag", displayName: "tags", icon: "ℹ️" },
         { name: "offline", displayName: "offline", icon: "ℹ️" },
         { name: "nak2", displayName: "nak2", icon: "🔒" },

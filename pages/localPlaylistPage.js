@@ -89,7 +89,7 @@ async function fetchVideoEventsForLocalPlaylist(videoIds, playlistId, playlist) 
   
   const sub = pool.subscribeMany(
     allRelays,
-    [filter],
+    filter,
     {
       onevent(event) {
         const sanitizedEvent = sanitizeNostrEvent(event);

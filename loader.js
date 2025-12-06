@@ -152,10 +152,11 @@
   let scriptGroups = [
     // core libraries
     // normally imported via CDN if possible then saved locally, all statically served within app
-    // uncomment to get latest version and manually update (copy/paste to local file)
+    // visit a lib link and paste to local file
     [
       //"https://unpkg.com/nostr-tools/lib/nostr.bundle.js",
-      // 8-2025
+      // 12-2025
+      // nostr-tools@2.19.2
       "lib/nostr.bundle.js",
 
       // manual download: https://dompurify.com
@@ -163,7 +164,7 @@
       // 8-2025
       "lib/purify.min.js",
 
-      // no url, has to do it custom from npm to single js
+      // no url, doing it custom from npm to single js
       // @nostr/gadgets@0.0.39 | latest: 0.0.39 | versions: 38
       "lib/nostr-gadgets.js",
 
@@ -172,11 +173,12 @@
       "lib/nostr-web-components.js",
 
       //"https://unpkg.com/window.nostr.js/dist/window.nostr.js",
-      //
+      // not used - will apply directly from nostr-tools or find something better
       //"lib/window.nostr.js",
 
-      // - visit https://github.com/danielgjackson/qrcodejs - great lib with direct download as a .js file
+      // - visit https://github.com/danielgjackson/qrcodejs - direct download as a .js file
       "lib/qrcode.js",
+
       // - https://github.com/Dens49/blurhash-js/blob/master/blurhash_pure_js_port.min.js
       "lib/blurhash.js",      
     ],
@@ -205,6 +207,7 @@
       "pages/videoPage.js",
       "pages/faqPage.js",
       "pages/blobPage.js",
+      "pages/blossomPage.js",
       "pages/fafoPage.js",
       "pages/postingPage.js",
       "pages/contactPage.js",

@@ -157,7 +157,12 @@
       //"https://unpkg.com/nostr-tools/lib/nostr.bundle.js",
       // 12-2025
       // nostr-tools@2.19.2
+      // https://cdn.jsdelivr.net/npm/nostr-tools/+esm
       "lib/nostr.bundle.js",
+
+
+      // nip46
+      "lib/nip46.js",
 
       // manual download: https://dompurify.com
       //"https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.2.4/purify.min.js",

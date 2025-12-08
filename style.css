@@ -526,6 +526,13 @@ h1 {
   fill: var(--background);
   stroke: var(--text);
 }
+
+.message .video-action-tabs svg {
+  width: 18px;
+  height: 18px;
+  fill: var(--background);
+  stroke: var(--text);
+}
 /* .light-theme .video-action-tabs svg {
   width: 24px;
   height: 24px;
@@ -2775,6 +2782,10 @@ main {
   min-width: fit-content;
 }
 
+.message .video-action-tab-button {
+  padding: 4px;
+}
+
 .video-action-tab-button:hover {
   border: 1px solid var(--primary);
 }
@@ -2790,6 +2801,7 @@ main {
     padding: 8px 12px;
     font-size: 13px;
   }
+ 
 }
 
 @media (max-width: 480px) {
@@ -3086,6 +3098,11 @@ nostr-picture::part(img) {
   border: 1px solid var(--primary);
   background-color: var(--background);
 }
+
+.full-check-btn {
+  display: none;
+}
+
 
 .validation-section .validation-results {
   margin-top: 1rem;
@@ -9972,12 +9989,21 @@ noscript {
   display: flex;
   flex-direction: column;
   background: var(--background);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  margin: 4px;
+  border: 1px solid #7272722d;
+  border-radius: 0;
+  margin-top: 8px;
+  padding: 0;
   transition: box-shadow 0.2s ease;
   max-width: 800px;
   width: 95%;
+}
+
+.video-page-layout .message {
+  width: auto;
+}
+
+.message .video-action-tabs {
+  margin: 0;
 }
 
 .message:hover {
@@ -9985,8 +10011,8 @@ noscript {
 }
 
 .message nostr-picture::part(img) {
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
 }
 
 #messages-container {
@@ -10054,12 +10080,10 @@ noscript {
 
 .message-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin: 8px;
-  padding: 8px;
-  font-size: large;
-  border-bottom: 1px solid var(--border);
+  margin: 0;
+  padding: 0;
+  gap: 8px;
 }
 
 .author-container {
@@ -10076,12 +10100,13 @@ noscript {
 }
 
 .message-content {
-  padding: 4px;
-  margin-top: 4px;
+  margin: 0;
+  padding-left: 16px;
   line-height: 1.5;
   color: var(--text);
   white-space: pre-wrap;
   word-wrap: break-word;
+  border: 1px solid #7272722d;
 }
 
 .message-tags {
@@ -10093,11 +10118,12 @@ noscript {
 
 .message-footer {
   display: flex;
-  margin-top: 8px;
+  margin: 0;
 }
 
 .message-footer .tab-scroll-container {
   background-color: transparent;
+  border: none;
 }
 
 .message-footer .video-action-tab-button {
@@ -10108,17 +10134,9 @@ noscript {
   background-color: var(--surface);
 }
 
-/* Mobile responsiveness */
-@media (max-width: 768px) {
-  .message {
-    padding: 8px;
-  }
-}
 
 @media (max-width: 480px) {
-  .message {
-    padding: 4px;
-  }
+
 
   .chat-input-wrapper {
     width: 99%;
@@ -10304,13 +10322,6 @@ noscript {
 
   .chat-input-container {
     flex-shrink: 0;
-  }
-
-  .message-header {
-    align-items: flex-start;
-    gap: 4px;
-    margin: 4px;
-    padding: 4px;
   }
 }
 .reference-click-to-load .reference-action {
@@ -13093,6 +13104,7 @@ input[type="number"] {
   gap: 8px;
   padding: 6px 12px;
   background: var(--background);
+  border: 1px solid var(--background);
   border-radius: 8px;
   font-size: 14px;
   font-weight: 600;
@@ -13654,3 +13666,67 @@ input[type="number"] {
 
 
 /***********bunker***********/
+/* .bunker-login-modal {
+  padding: 20px;
+}
+
+.bunker-methods {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 20px 0;
+}
+
+.bunker-info {
+  font-size: 0.9em;
+  color: var(--text-secondary);
+  margin-top: 12px;
+}
+
+.bunker-qr-container {
+  text-align: center;
+  padding: 20px;
+}
+
+.qr-display {
+  margin: 20px 0;
+  display: flex;
+  justify-content: center;
+}
+
+.connection-status {
+  margin: 20px 0;
+  padding: 12px;
+  background: var(--surface);
+  border-radius: 8px;
+}
+
+.uri-details {
+  margin-top: 20px;
+  text-align: left;
+}
+
+.uri-input {
+  width: 100%;
+  padding: 8px;
+  margin: 8px 0;
+  font-family: monospace;
+  font-size: 0.9em;
+}
+
+.bunker-uri-input {
+  padding: 20px;
+}
+
+.bunker-input {
+  width: 100%;
+  padding: 12px;
+  margin: 12px 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.connecting-status {
+  text-align: center;
+  padding: 40px 20px;
+} */

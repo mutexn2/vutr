@@ -223,23 +223,75 @@ function setupSettingsMenuEvents(menuElement) {
   });
 }
 
-function handleSignOut() {
+async function handleSignOut() {
   const confirmSignOut = confirm('Are you sure you want to sign out? This will clear your login preference.');
   
   if (confirmSignOut) {
-    localStorage.removeItem('preferredLoginMethod');
+    console.log("%c[Sign Out] User confirmed sign out", "color: red; font-weight: bold");
     
+    // Clean up bunker connection if it exists
+    if (app.loginMethod === 'bunker') {
+      console.log("%c[Sign Out] Cleaning up bunker connection", "color: red");
+      await cleanupBunkerConnection();
+    }
+    
+    // Remove login preferences
+    localStorage.removeItem('preferredLoginMethod');
+    localStorage.removeItem('bunker_connection_data');
+    
+    // Clear guest data if it exists
+    if (app.loginMethod === 'guest') {
+      console.log("%c[Sign Out] Clearing guest data", "color: red");
+      localStorage.removeItem('nostr_guest_data');
+    }
+    
+    console.log("%c[Sign Out] Updating app state", "color: red");
     updateApp({
       isLoggedIn: false,
       myPk: null,
       myNpub: null,
       isGuest: false,
       guestSk: null,
-      loginMethod: null
+      loginMethod: null,
+      // Clear bunker-specific state
+      bunkerSigner: null,
+      bunkerLocalSk: null,
+      bunkerPointer: null,
+      bunkerPool: null
     });
     
+    console.log("%c[Sign Out] ✅ Sign out complete, reloading page", "color: red; font-weight: bold");
     window.location.reload();
   }
+}
+
+async function cleanupBunkerConnection() {
+  console.log("%c[Bunker Cleanup] Starting cleanup", "color: red");
+  
+  if (app.bunkerSigner) {
+    try {
+      console.log("%c[Bunker Cleanup] Closing bunker signer", "color: red");
+      await app.bunkerSigner.close();
+      console.log("%c[Bunker Cleanup] ✅ Bunker signer closed", "color: green");
+    } catch (error) {
+      console.error("%c[Bunker Cleanup] Error closing bunker signer:", "color: red", error);
+    }
+  }
+  
+  if (app.bunkerPool) {
+    try {
+      console.log("%c[Bunker Cleanup] Closing bunker pool", "color: red");
+      app.bunkerPool.close([]);
+      console.log("%c[Bunker Cleanup] ✅ Bunker pool closed", "color: green");
+    } catch (error) {
+      console.error("%c[Bunker Cleanup] Error closing bunker pool:", "color: red", error);
+    }
+  }
+
+  console.log("%c[Bunker Cleanup] Removing bunker data from localStorage", "color: red");
+  localStorage.removeItem("bunker_connection_data");
+  
+  console.log("%c[Bunker Cleanup] ✅ Cleanup complete", "color: green; font-weight: bold");
 }
 
 async function getAppVersion() {

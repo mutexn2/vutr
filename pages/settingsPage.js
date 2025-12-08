@@ -226,6 +226,22 @@ async function settingsPageHandler() {
           </div>
         </div>
 
+<!-- Blossom Section -->
+<div class="settings-section" style="display: none;">
+  <h2>Blossom</h2>
+  <div class="settings-group">
+    <div class="setting-item setting-toggle">
+      <div class="setting-info">
+        <label for="auto-blossom-toggle">Auto Validation</label>
+        <span class="setting-description">Automatically validate Blossom URLs when video is buffered</span>
+      </div>
+      <label class="toggle-switch">
+        <input type="checkbox" id="auto-blossom-toggle" checked>
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+  </div>
+</div>    
 
         <!-- Notifications Section -->
         <div class="settings-section strikethrough">
@@ -346,6 +362,16 @@ document
     localStorage.setItem("noThumbnail", e.target.checked);
     showTemporaryNotification(
       `Thumbnails ${e.target.checked ? "hidden" : "shown"}`
+    );
+  });
+
+// Blossom auto-validation toggle
+document
+  .getElementById("auto-blossom-toggle")
+  .addEventListener("change", (e) => {
+    localStorage.setItem("autoBlossomValidation", e.target.checked);
+    showTemporaryNotification(
+      `Auto Blossom validation ${e.target.checked ? "enabled" : "disabled"}`
     );
   });
 
@@ -531,6 +557,9 @@ function loadSettings() {
     localStorage.getItem("notifications") === "true";
   document.getElementById("desktop-notifications").checked =
     localStorage.getItem("desktopNotifications") === "true";
+// Load blossom settings
+document.getElementById("auto-blossom-toggle").checked =
+  localStorage.getItem("autoBlossomValidation") !== "false"; // Default true
 
   // Load content warning settings
   document.getElementById("show-content-warning-toggle").checked =

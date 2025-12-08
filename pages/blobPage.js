@@ -553,3 +553,160 @@ async function validateBlossomInPlace(videoUrl, onProgress = null) {
     };
   }
 }
+
+function isBlosomUrl(url) {
+  try {
+    const urlObj = new URL(url);
+    const filename = urlObj.pathname.split('/').pop();
+    const filenameWithoutExt = filename.split('.')[0];
+    // Check if it's exactly 64 hex characters
+    return /^[a-f0-9]{64}$/i.test(filenameWithoutExt);
+  } catch (e) {
+    return false;
+  }
+}
+
+let blossomValidationCache = new Map(); // Cache validation results by URL
+
+
+function setupAutoBlossomValidation(directUrl, filename, technicalSummary, validationResults, fileExtension, dimensions, fileSize, pageKey) {
+  // Wait for the video element to be ready
+  const checkForVideo = () => {
+    const videoElement = document.querySelector('.custom-video-element');
+    if (!videoElement) {
+      // Video not ready yet, try again
+      setTimeout(checkForVideo, 500);
+      return;
+    }
+    
+    console.log('Video element found, setting up auto-validation listeners');
+    
+    // Track if we've already validated
+    let hasAutoValidated = false;
+    
+    // Listen for when enough data has been downloaded
+    const onProgress = () => {
+      if (hasAutoValidated) return;
+      
+      const buffered = videoElement.buffered;
+      if (buffered.length === 0) return;
+      
+      // Check if we have substantial buffering (at least 30% or 10 seconds)
+      const duration = videoElement.duration;
+      const bufferedEnd = buffered.end(buffered.length - 1);
+      const bufferedPercentage = duration > 0 ? (bufferedEnd / duration) * 100 : 0;
+      
+      // Trigger auto-validation if we have enough buffer
+      if (bufferedPercentage >= 30 || bufferedEnd >= 10) {
+        hasAutoValidated = true;
+        console.log('Video sufficiently buffered, triggering auto-validation...');
+        performAutoValidation(directUrl, filename, technicalSummary, validationResults, fileExtension, dimensions, fileSize);
+      }
+    };
+    
+    // Also trigger on ended event (video fully watched)
+    const onEnded = () => {
+      if (hasAutoValidated) return;
+      hasAutoValidated = true;
+      console.log('Video ended, triggering auto-validation...');
+      performAutoValidation(directUrl, filename, technicalSummary, validationResults, fileExtension, dimensions, fileSize);
+    };
+    
+    // Listen to progress and ended events
+    addTrackedEventListener(videoElement, 'progress', onProgress, pageKey);
+    addTrackedEventListener(videoElement, 'ended', onEnded, pageKey);
+    
+    // Also check on play events in case video is already buffered
+    const onPlay = () => {
+      setTimeout(onProgress, 1000); // Check buffer 1 second after play
+    };
+    addTrackedEventListener(videoElement, 'play', onPlay, pageKey);
+  };
+  
+  // Start checking for video element
+  setTimeout(checkForVideo, 100);
+}
+
+async function performAutoValidation(directUrl, filename, technicalSummary, validationResults, fileExtension, dimensions, fileSize) {
+  try {
+    console.log('Performing auto-validation (using cached video data)...');
+    
+    // Show subtle loading message
+    validationResults.innerHTML = `
+      <div class="result loading" style="font-size: 0.9em; padding: 8px;">
+        <small>Auto-validating Blossom...</small>
+      </div>
+    `;
+    
+    // Fetch from cache (browser should have it cached from video playback)
+    const response = await fetch(directUrl);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    
+    const blob = await response.blob();
+    const hash = await generateSHA256Hash(blob);
+    
+    // Validate against URL filename (not x-tag!)
+    const filenameWithoutExt = filename.split('.')[0];
+    const isValid = filenameWithoutExt === hash;
+    
+    const result = {
+      success: true,
+      hash: hash,
+      isValid: isValid,
+      urlHash: filenameWithoutExt,
+      blobHash: hash
+    };
+    
+    // Cache the result
+    blossomValidationCache.set(directUrl, result);
+    
+    // Update summary
+    let summaryParts = [fileExtension, dimensions];
+    summaryParts.push(result.isValid ? '🌸 verified' : '⚠ hash mismatch');
+    if (fileSize) summaryParts.push(fileSize);
+    technicalSummary.textContent = summaryParts.join(' - ');
+    
+    // Show subtle validation result
+    validationResults.innerHTML = `
+      <div class="result ${result.isValid ? 'success' : 'warning'}" style="font-size: 0.9em; padding: 8px;">
+        <small>${result.isValid ? '✓ Auto-validated: Hash matches filename' : '⚠ Auto-validated: Hash mismatch'}</small>
+      </div>
+    `;
+    
+    console.log('Auto-validation complete:', result.isValid ? 'VALID' : 'INVALID');
+    
+  } catch (error) {
+    console.log('Auto-validation failed (will require manual validation):', error.message);
+    // Silently fail - user can still manually validate
+  }
+}
+
+function displayValidationResult(result, validationResults, fullCheckBtn) {
+  if (result.success) {
+    const statusClass = result.isValid ? 'success' : 'warning';
+    const statusText = result.isValid 
+      ? '🌸🌸🌸 Valid Blossom! Hash matches filename' 
+      : '⚠ Hash does not match filename';
+    
+    validationResults.innerHTML = `
+      <div class="result ${statusClass}">
+        <h4>Blossom Validation Result</h4>
+        <div class="info-grid">
+          <div><strong>Status:</strong> ${statusText}</div>
+          <div><strong>Calculated Hash:</strong><br><code class="hash">${result.hash}</code></div>
+          <div><strong>URL Filename:</strong> ${result.urlHash || 'N/A'}</div>
+        </div>
+      </div>
+    `;
+    
+   // fullCheckBtn.style.display = 'inline-block';
+  } else {
+    validationResults.innerHTML = `
+      <div class="result error">
+        <strong>Validation Error:</strong> ${result.error}
+      </div>
+    `;
+  }
+}

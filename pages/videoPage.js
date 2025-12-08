@@ -494,7 +494,7 @@ function setupVideoPageContent(video, videoId, title, content, relativeTime, pub
 
   // Technical info processing
   const imetaTag = video.tags.find(tag => tag[0] === 'imeta');
-  let directUrl = url; // Declare here for use in validate button
+  let directUrl = url;
   
   if (imetaTag) {
     // Parse imeta tag
@@ -531,22 +531,35 @@ function setupVideoPageContent(video, videoId, title, content, relativeTime, pub
       filename = 'Invalid URL';
     }
     
-    // Validate blossom (check if filename without extension matches x hash)
-    const filenameWithoutExt = filename.split('.')[0];
-    const isValidBlossom = filenameWithoutExt === xHash;
+    // Check if this is a Blossom URL
+    const isBlossomUrl = isBlosomUrl(directUrl);
     
     // Set technical summary (collapsed state)
     const fileExtension = mimeType.split('/')[1] || 'unknown';
-    const blossomStatus = isValidBlossom ? 'blossom (?)' : ' ';
     
-    // Build the summary with optional file size
-    let summaryParts = [fileExtension, dimensions, blossomStatus];
+    // Build summary with validation status
+    let summaryParts = [fileExtension, dimensions];
+    
+    // Check if we already have validation results cached
+    const cachedValidation = blossomValidationCache.get(directUrl);
+    if (cachedValidation) {
+      summaryParts.push(cachedValidation.isValid ? '🌸 verified' : '⚠ hash mismatch');
+    } else if (isBlossomUrl) {
+      summaryParts.push('blossom');
+    }
+    
     if (fileSize) {
       summaryParts.push(fileSize);
     }
+    
+    let technicalSummary = mainContent.querySelector(".technical-summary");
     technicalSummary.textContent = summaryParts.join(' - ');
 
     // Set expanded technical data
+    let technicalUrl = mainContent.querySelector(".technical-url");
+    let technicalFilename = mainContent.querySelector(".technical-filename");
+    let technicalHash = mainContent.querySelector(".technical-hash");
+    
     technicalUrl.textContent = directUrl;
     technicalFilename.textContent = filename;
     technicalHash.textContent = xHash;
@@ -555,17 +568,45 @@ function setupVideoPageContent(video, videoId, title, content, relativeTime, pub
     let fullCheckBtn = mainContent.querySelector(".full-check-btn");
     let validationResults = mainContent.querySelector("#validationResults");
 
+    // Update button text based on whether it's a Blossom URL
+    if (isBlossomUrl) {
+      validateBtn.textContent = 'Validate Blossom';
+    } else {
+      validateBtn.textContent = 'Full Metada44k';
+    }
+
+// Setup auto-validation when video is sufficiently loaded
+if (isBlossomUrl && !cachedValidation) {
+  // Check if auto-validation is enabled
+  const autoValidationEnabled = localStorage.getItem("autoBlossomValidation") !== "false";
+  
+  if (autoValidationEnabled) {
+    setupAutoBlossomValidation(directUrl, filename, technicalSummary, validationResults, fileExtension, dimensions, fileSize, pageKey);
+  }
+}
+
     // Validate button handler - tracked
     const validateBtnHandler = async () => {
-      console.log('Validating blossom for x hash:', xHash);
-      console.log('Filename without extension:', filenameWithoutExt);
-      console.log('Is claiming valid blossom:', isValidBlossom);
+      if (!isBlossomUrl) {
+        // Not a Blossom URL, go to full check page
+      //  window.location.hash = `#blob/${encodeURIComponent(directUrl)}`;
+        return;
+      }
+      
+      console.log('Manual Blossom validation triggered for:', directUrl);
+      
+      // Check cache first
+      if (blossomValidationCache.has(directUrl)) {
+        const cached = blossomValidationCache.get(directUrl);
+        displayValidationResult(cached, validationResults, fullCheckBtn);
+        return;
+      }
       
       // Show loading state
       validationResults.innerHTML = '<div class="result loading">Preparing validation...</div>';
       validateBtn.disabled = true;
       
-      // Progress callback for download feedback
+      // Download and validate with progress
       const updateProgress = (progress) => {
         if (progress.indeterminate) {
           validationResults.innerHTML = `
@@ -596,58 +637,47 @@ function setupVideoPageContent(video, videoId, title, content, relativeTime, pub
         }
       };
       
-      // Perform validation
       const result = await validateBlossomInPlace(directUrl, updateProgress);
       
-      // Display results
+      // Cache the result
       if (result.success) {
-        const statusClass = result.isValid ? 'success' : 'warning';
-        const statusText = result.isValid 
-          ? '🌸🌸🌸 Valid Blossom! Hash matches filename' 
-          : '⚠ Hash does not match filename';
+        blossomValidationCache.set(directUrl, result);
         
-        validationResults.innerHTML = `
-          <div class="result ${statusClass}">
-            <h4>Blossom Validation Result</h4>
-            <div class="info-grid">
-              <div><strong>Status:</strong> ${statusText}</div>
-              <div><strong>Calculated Hash:</strong><br><code class="hash">${result.hash}</code></div>
-              <div><strong>URL Filename:</strong> ${result.urlHash || 'N/A'}</div>
-            </div>
-          </div>
-        `;
-        
-        // Show the full check button
-        fullCheckBtn.style.display = 'inline-block';
-      } else {
-        validationResults.innerHTML = `
-          <div class="result error">
-            <strong>Validation Error:</strong> ${result.error}
-          </div>
-        `;
+        // Update summary
+        summaryParts = [fileExtension, dimensions];
+        summaryParts.push(result.isValid ? '🌸 verified' : '⚠ hash mismatch');
+        if (fileSize) summaryParts.push(fileSize);
+        technicalSummary.textContent = summaryParts.join(' - ');
       }
       
+      // Display results
+      displayValidationResult(result, validationResults, fullCheckBtn);
       validateBtn.disabled = false;
     };
     addTrackedEventListener(validateBtn, 'click', validateBtnHandler, pageKey);
 
     // Full check button handler - tracked
     const fullCheckBtnHandler = () => {
-      window.location.hash = `#blob/${directUrl}`;
+     // window.location.hash = `#blob/${encodeURIComponent(directUrl)}`;
     };
     addTrackedEventListener(fullCheckBtn, 'click', fullCheckBtnHandler, pageKey);
     
   } else {
     // No imeta tag found
+    let technicalSummary = mainContent.querySelector(".technical-summary");
+    let technicalUrl = mainContent.querySelector(".technical-url");
+    let technicalFilename = mainContent.querySelector(".technical-filename");
+    let technicalHash = mainContent.querySelector(".technical-hash");
+    
     technicalSummary.textContent = 'No technical data available';
     technicalUrl.textContent = url;
     technicalFilename.textContent = 'N/A';
     technicalHash.textContent = 'N/A';
     
     let validateBtn = mainContent.querySelector(".validate-blossom-btn");
+    validateBtn.textContent = '123';
     const validateBtnHandler = () => {
-      console.log('No x tag found for validation');
-      window.location.hash = `#blob/${encodeURIComponent(url)}`;
+    //  window.location.hash = `#blob/${encodeURIComponent(url)}`;
     };
     addTrackedEventListener(validateBtn, 'click', validateBtnHandler, pageKey);
   }
@@ -890,6 +920,116 @@ addTrackedEventListener(commentBtn, 'click', commentBtnHandler, pageKey);
 //////////////////////////
 ////////////////////////////
 
+
+
+//////////
+// Helper function to extract hostname from URL
+function extractHostname(url) {
+  try {
+    const urlObj = new URL(url);
+    return urlObj.hostname;
+  } catch (error) {
+    console.error("Invalid URL:", url);
+    return null;
+  }
+}
+
+// Helper function to check whitelist and handle video playback
+function handleVideoPlayback(videoContainer, url, videoId, video, pageHash, shouldAutoplay) {
+  const hostname = extractHostname(url);
+  
+  if (!hostname) {
+    showError("Invalid video URL");
+    return;
+  }
+  
+  // Check if server is in whitelist
+  const isWhitelisted = app.mediaServerWhitelist.includes(hostname);
+  
+  if (isWhitelisted) {
+    // Server is whitelisted, play video directly
+    VideoPlayer.render(videoContainer, url, videoId, video, pageHash, shouldAutoplay);
+  } else {
+    // Server is not whitelisted, show prompt
+    renderWhitelistPrompt(videoContainer, hostname, url, videoId, video, pageHash, shouldAutoplay);
+  }
+}
+
+// Render the whitelist prompt
+function renderWhitelistPrompt(videoContainer, hostname, url, videoId, video, pageHash, shouldAutoplay) {
+  videoContainer.innerHTML = `
+    <div class="whitelist-prompt">
+      <div class="whitelist-prompt-content">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="whitelist-icon">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+        </svg>
+        <h3>Server Not Whitelisted</h3>
+        <p>This video is hosted on <strong>${escapeHtml(hostname)}</strong>, which is not in your trusted media servers list.</p>
+        <div class="whitelist-prompt-actions">
+          <button id="add-to-whitelist-btn" class="btn-primary">Add to Whitelist & Play</button>
+          <button id="cancel-whitelist-btn" class="btn-secondary" style="display: none;">Cancel</button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  // Add event listeners
+  const addBtn = videoContainer.querySelector("#add-to-whitelist-btn");
+  const cancelBtn = videoContainer.querySelector("#cancel-whitelist-btn");
+  
+  addTrackedEventListener(
+    addBtn,
+    "click",
+    () => {
+      // Add server to whitelist
+      app.mediaServerWhitelist.push(hostname);
+      localStorage.setItem("mediaServerWhitelist", JSON.stringify(app.mediaServerWhitelist));
+      
+      // Clear the prompt and render video player
+      videoContainer.innerHTML = "";
+      VideoPlayer.render(videoContainer, url, videoId, video, pageHash, shouldAutoplay);
+      
+      showTemporaryNotification(`${hostname} has been added to your whitelist`);
+    },
+    app.currentPageCleanupKey
+  );
+  
+  addTrackedEventListener(
+    cancelBtn,
+    "click",
+    () => {
+      window.location.hash = "#";
+    },
+    app.currentPageCleanupKey
+  );
+}
+
+function removeServerFromWhitelist(url) {
+  const hostname = extractHostname(url);
+  
+  if (!hostname) {
+    console.log("Invalid video URL");
+    return false;
+  }
+  
+  // Check if server is in whitelist
+  const index = app.mediaServerWhitelist.indexOf(hostname);
+  
+  if (index === -1) {
+    showTemporaryNotification(`${hostname} is not in your whitelist`);
+    return false;
+  }
+  
+  // Remove from whitelist
+  app.mediaServerWhitelist.splice(index, 1);
+  localStorage.setItem("mediaServerWhitelist", JSON.stringify(app.mediaServerWhitelist));
+  
+  showTemporaryNotification(`${hostname} has been removed from your whitelist`);
+  return true;
+}
+
+
+/////////////////////
 let shareMenuControls = null;
 let moreMenuControls = null;
 
@@ -1181,112 +1321,6 @@ function setupMoreMenuEvents(menuElement, video, videoId, url) {
   
 }
 
-//////////
-// Helper function to extract hostname from URL
-function extractHostname(url) {
-  try {
-    const urlObj = new URL(url);
-    return urlObj.hostname;
-  } catch (error) {
-    console.error("Invalid URL:", url);
-    return null;
-  }
-}
-
-// Helper function to check whitelist and handle video playback
-function handleVideoPlayback(videoContainer, url, videoId, video, pageHash, shouldAutoplay) {
-  const hostname = extractHostname(url);
-  
-  if (!hostname) {
-    showError("Invalid video URL");
-    return;
-  }
-  
-  // Check if server is in whitelist
-  const isWhitelisted = app.mediaServerWhitelist.includes(hostname);
-  
-  if (isWhitelisted) {
-    // Server is whitelisted, play video directly
-    VideoPlayer.render(videoContainer, url, videoId, video, pageHash, shouldAutoplay);
-  } else {
-    // Server is not whitelisted, show prompt
-    renderWhitelistPrompt(videoContainer, hostname, url, videoId, video, pageHash, shouldAutoplay);
-  }
-}
-
-// Render the whitelist prompt
-function renderWhitelistPrompt(videoContainer, hostname, url, videoId, video, pageHash, shouldAutoplay) {
-  videoContainer.innerHTML = `
-    <div class="whitelist-prompt">
-      <div class="whitelist-prompt-content">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="whitelist-icon">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
-        </svg>
-        <h3>Server Not Whitelisted</h3>
-        <p>This video is hosted on <strong>${escapeHtml(hostname)}</strong>, which is not in your trusted media servers list.</p>
-        <div class="whitelist-prompt-actions">
-          <button id="add-to-whitelist-btn" class="btn-primary">Add to Whitelist & Play</button>
-          <button id="cancel-whitelist-btn" class="btn-secondary" style="display: none;">Cancel</button>
-        </div>
-      </div>
-    </div>
-  `;
-  
-  // Add event listeners
-  const addBtn = videoContainer.querySelector("#add-to-whitelist-btn");
-  const cancelBtn = videoContainer.querySelector("#cancel-whitelist-btn");
-  
-  addTrackedEventListener(
-    addBtn,
-    "click",
-    () => {
-      // Add server to whitelist
-      app.mediaServerWhitelist.push(hostname);
-      localStorage.setItem("mediaServerWhitelist", JSON.stringify(app.mediaServerWhitelist));
-      
-      // Clear the prompt and render video player
-      videoContainer.innerHTML = "";
-      VideoPlayer.render(videoContainer, url, videoId, video, pageHash, shouldAutoplay);
-      
-      showTemporaryNotification(`${hostname} has been added to your whitelist`);
-    },
-    app.currentPageCleanupKey
-  );
-  
-  addTrackedEventListener(
-    cancelBtn,
-    "click",
-    () => {
-      window.location.hash = "#";
-    },
-    app.currentPageCleanupKey
-  );
-}
-
-function removeServerFromWhitelist(url) {
-  const hostname = extractHostname(url);
-  
-  if (!hostname) {
-    console.log("Invalid video URL");
-    return false;
-  }
-  
-  // Check if server is in whitelist
-  const index = app.mediaServerWhitelist.indexOf(hostname);
-  
-  if (index === -1) {
-    showTemporaryNotification(`${hostname} is not in your whitelist`);
-    return false;
-  }
-  
-  // Remove from whitelist
-  app.mediaServerWhitelist.splice(index, 1);
-  localStorage.setItem("mediaServerWhitelist", JSON.stringify(app.mediaServerWhitelist));
-  
-  showTemporaryNotification(`${hostname} has been removed from your whitelist`);
-  return true;
-}
-/////////////////////
 /////////////////////
 
 function addVideoToBookmarks(video, videoId) {

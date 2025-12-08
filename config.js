@@ -68,6 +68,7 @@ let config = {
       ["description", "local video bookmarks."],
       ["e", "7f1aa7aeb30712939decd176a49e96f3aae7e9659c3957f0b8b0a88cac0c20a0"],
       ["e", "217f66a167ecbbebde0d8163ff0e81741740345e7fef89c92748f5e404d64fec"],
+      ["e", "94ef504244bd3ee02b8ca982b68ec007d44750386765e1a1f44c21b25431547d"],
       ["e", "d50341d5dd971951debf20675330b980aedc13b4939fdd33fc854a95002a205f"],
       ["e", "ec9c975bc63c965900e0a37ae4bc9bce404e6bb4a5dce3f53c4f77e3a707a486"],
     ],

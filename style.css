@@ -11873,7 +11873,8 @@ noscript {
   gap: 0.75rem;
 }
 
-.login-buttons button {
+.login-buttons button,
+.bunker-login-modal button {
   padding: 0.75rem 1.5rem;
   border: none;
   border-radius: 8px;
@@ -13666,7 +13667,7 @@ input[type="number"] {
 
 
 /***********bunker***********/
-/* .bunker-login-modal {
+.bunker-login-modal {
   padding: 20px;
 }
 
@@ -13688,11 +13689,7 @@ input[type="number"] {
   padding: 20px;
 }
 
-.qr-display {
-  margin: 20px 0;
-  display: flex;
-  justify-content: center;
-}
+
 
 .connection-status {
   margin: 20px 0;
@@ -13729,4 +13726,88 @@ input[type="number"] {
 .connecting-status {
   text-align: center;
   padding: 40px 20px;
-} */
+}
+
+.login-overlay-persistent {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+.login-overlay-content {
+  background: var(--surface);
+  padding: 2rem;
+  border-radius: 12px;
+  text-align: center;
+  max-width: 400px;
+}
+
+.login-spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 1rem;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.login-error {
+  color: var(--error);
+}
+
+.error-hint {
+  font-size: 0.9rem;
+  color: var(--text);
+  margin-top: 1rem;
+}
+
+.qr-display {
+  margin: 20px 0;
+  display: flex;
+  justify-content: center;
+  background-color: white;
+}
+
+/* Dedicated login modal - separate from universal modal system */
+#dedicated-login-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10001; /* Higher than universal modals */
+}
+
+.bunker-qr-actions,
+.bunker-uri-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 16px;
+}
+
+.uri-details {
+  margin-top: 16px;
+  font-size: 0.85em;
+}
+
+.uri-details summary {
+  cursor: pointer;
+  color: var(--primary);
+}

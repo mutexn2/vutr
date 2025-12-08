@@ -14,7 +14,13 @@ let app = {
   bunkerLocalSk: null,
   bunkerPointer: null,
   bunkerPool: null,
-  
+  //
+  loginState: {
+  isAttemptingLogin: false,
+  loginOverlayActive: true,
+  lastAttemptMethod: null,
+  attemptStartTime: null,
+    },
   // ========== NAVIGATION ==========
   currentPage: null,
   currentSidebar: null,
@@ -417,125 +423,110 @@ document.getElementById("create-button").addEventListener("click", function () {
 //////////////////////////////////////////////////////
 
 async function handleNostrLogin() {
+  console.log("%c[Login] Starting login handler", "color: blue; font-weight: bold");
+  
+  // CRITICAL: Always show login overlay initially
+  showPersistentLoginOverlay();
+  
   const savedLoginMethod = localStorage.getItem("preferredLoginMethod");
 
-  if (savedLoginMethod === "extension") {
-    await attemptExtensionLogin();
-  } else if (savedLoginMethod === "guest") {
-    await handleGuestLogin();
-  } else if (savedLoginMethod === "bunker") {
-    await attemptBunkerLogin();
-  } else {
-    await showLoginPrompt();
-  }
-}
-
-async function attemptExtensionLogin() {
-  console.log("%c[Extension] Attempting extension login", "color: green; font-weight: bold");
-  
-  if (typeof window.nostr !== "undefined" && window.nostr !== null) {
-    try {
-      console.log("%c[Extension] Extension detected, requesting public key", "color: green");
-      const pk = await window.nostr.getPublicKey();
-      const myNpub = window.NostrTools.nip19.npubEncode(pk);
-
-      updateApp({
-        isLoggedIn: true,
-        myPk: pk,
-        myNpub: myNpub,
-        isGuest: false,
-        guestSk: null,
-        loginMethod: "extension",
-      });
-
-      console.log("%c[Extension] ✅ Logged in with extension:", "color: green; font-weight: bold", myNpub);
-      renderNavLinks();
-      updateSidebar();
-      updateDrawerContent();
-    } catch (err) {
-      console.error("%c[Extension] ❌ Extension login failed:", "color: red; font-weight: bold", err);
-      // Fallback to login prompt
-      await fallbackToLoginPrompt("Extension login failed");
-    }
-  } else {
-    console.warn("%c[Extension] Extension not available", "color: orange");
-    // Fallback to login prompt
-    await fallbackToLoginPrompt("Extension not available");
-  }
-}
-
-async function showLoginPrompt() {
-  return new Promise((resolve) => {
-    const hasExtension =
-      typeof window.nostr !== "undefined" && window.nostr !== null;
-
-    if (hasExtension) {
-      // Show modal asking if user wants to use extension
-      showLoginChoiceModal(resolve);
+  try {
+    if (savedLoginMethod === "extension") {
+      await attemptLoginWithMethod("extension", attemptExtensionLogin);
+    } else if (savedLoginMethod === "guest") {
+      await attemptLoginWithMethod("guest", handleGuestLogin);
+    } else if (savedLoginMethod === "bunker") {
+      await attemptLoginWithMethod("bunker", attemptBunkerLogin);
     } else {
-      // No extension, inform user about guest login
-      showGuestInfoModal(resolve);
+      // No saved method - show login prompt
+      await showLoginPrompt();
     }
-  });
-}
-
-function showLoginChoiceModal(resolve) {
-  const hasExtension = typeof window.nostr !== "undefined" && window.nostr !== null;
-  
-  const modal = document.createElement("div");
-  modal.className = "login-modal-overlay";
-  modal.innerHTML = `
-    <div class="login-modal">
-      <h3>Choose Login Method</h3>
-      <p>${hasExtension ? "We detected a Nostr browser extension. " : ""}How would you like to sign in?</p>
-      <div class="login-buttons">
-        ${hasExtension ? `
-          <button id="use-extension-btn" class="primary-btn">
-            🔐 Use Browser Extension
-          </button>
-        ` : ''}
-        <button id="use-bunker-btn" class="primary-btn">
-          🔗 Use Remote Signer (Bunker)
-        </button>
-        <button id="use-guest-btn" class="secondary-btn">
-          👤 Use Guest Account
-        </button>
-      </div>
-    </div>
-  `;
-
-  document.body.appendChild(modal);
-
-  if (hasExtension) {
-    document.getElementById("use-extension-btn").addEventListener("click", async () => {
-      modal.remove();
-      localStorage.setItem("preferredLoginMethod", "extension");
-      await attemptExtensionLogin();
-      resolve();
-    });
+  } catch (error) {
+    console.error("%c[Login] Top-level login error:", "color: red; font-weight: bold", error);
+    await handleLoginFailure("Unexpected login error", error);
   }
-
-  document.getElementById("use-bunker-btn").addEventListener("click", async () => {
-    modal.remove();
-    await showBunkerLoginModal(resolve);
-  });
-
-  document.getElementById("use-guest-btn").addEventListener("click", async () => {
-    modal.remove();
-    localStorage.setItem("preferredLoginMethod", "guest");
-    await handleGuestLogin();
-    resolve();
-  });
 }
 
-async function fallbackToLoginPrompt(reason = "Login failed") {
-  console.log(`%c[Login Fallback] ${reason}, showing login prompt`, "color: orange; font-weight: bold");
+async function attemptLoginWithMethod(methodName, loginFunction) {
+  console.log(`%c[Login] Attempting ${methodName} login`, "color: blue; font-weight: bold");
   
-  // Clear any saved login preferences
-  localStorage.removeItem("preferredLoginMethod");
+  // Prevent concurrent login attempts
+  if (app.loginState.isAttemptingLogin) {
+    console.warn("%c[Login] Login already in progress, ignoring duplicate attempt", "color: orange");
+    return;
+  }
   
-  // Clean up any partial bunker connections
+  app.loginState.isAttemptingLogin = true;
+  app.loginState.lastAttemptMethod = methodName;
+  app.loginState.attemptStartTime = Date.now();
+  
+  try {
+    // Set a timeout for login attempts (30 seconds for bunker, 10 for others)
+    const timeout = methodName === "bunker" ? 30000 : 10000;
+    
+    await Promise.race([
+      loginFunction(),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("Login timeout")), timeout)
+      )
+    ]);
+    
+    // Success - verify we're actually logged in
+    if (!app.isLoggedIn || !app.myPk) {
+      throw new Error("Login function completed but user not logged in");
+    }
+    
+    console.log(`%c[Login] ✅ ${methodName} login successful`, "color: green; font-weight: bold");
+    console.log(`%c[Login] User: ${app.myNpub}`, "color: green");
+    console.log(`%c[Login] isLoggedIn: ${app.isLoggedIn}, myPk: ${app.myPk}`, "color: green");
+    
+    // CRITICAL: Force removal of ALL login UI after successful login
+    console.log("%c[Login] Closing login modal after successful login", "color: green; font-weight: bold");
+    removePersistentLoginOverlay();
+    
+    // Update UI
+    renderNavLinks();
+    updateSidebar();
+    updateDrawerContent();
+    
+    // Double-check after a short delay (safety net)
+    setTimeout(() => {
+      if (app.isLoggedIn && app.myPk && app.loginState.loginOverlayActive) {
+        console.log("%c[Login] Overlay still active after login, forcing removal", "color: orange; font-weight: bold");
+        removePersistentLoginOverlay();
+      }
+    }, 500);
+    
+  } catch (error) {
+    console.error(`%c[Login] ❌ ${methodName} login failed:`, "color: red; font-weight: bold", error);
+    await handleLoginFailure(`${methodName} login failed`, error);
+  } finally {
+    app.loginState.isAttemptingLogin = false;
+    app.loginState.attemptStartTime = null;
+  }
+}
+
+async function handleLoginFailure(reason, error = null) {
+  console.log(`%c[Login Failure] ${reason}`, "color: red; font-weight: bold");
+  
+  // Clean up any partial login state
+  await cleanupPartialLoginState();
+  
+  // Show error to user (non-blocking)
+  if (error && error.message !== "Login timeout") {
+    showLoginError(reason, error.message);
+  }
+  
+  // CRITICAL: Always return to login prompt
+  await showLoginPrompt();
+}
+
+async function cleanupPartialLoginState() {
+  console.log("%c[Cleanup] Cleaning up partial login state", "color: orange; font-weight: bold");
+  
+  // If bunker connection was started, clean it up
   if (app.bunkerSigner || app.bunkerPool) {
+    console.log("%c[Cleanup] Cleaning up bunker resources", "color: orange");
     await cleanupBunkerConnection();
   }
   
@@ -553,6 +544,186 @@ async function fallbackToLoginPrompt(reason = "Login failed") {
     bunkerPool: null
   });
   
+  console.log("%c[Cleanup] ✅ Cleanup complete", "color: green");
+}
+
+function showPersistentLoginOverlay() {
+  console.log("%c[Login Overlay] Showing initial overlay", "color: blue");
+  
+  const overlay = document.createElement("div");
+  overlay.id = "login-overlay";
+  overlay.className = "login-overlay-persistent";
+  overlay.innerHTML = `
+    <div class="login-overlay-content">
+      <div class="login-spinner"></div>
+      <p>Initializing...</p>
+    </div>
+  `;
+  
+  document.body.appendChild(overlay);
+  app.loginState.loginOverlayActive = true;
+}
+
+function removePersistentLoginOverlay() {
+  console.log("%c[Login Overlay] Removing all login overlays", "color: green; font-weight: bold");
+  
+  // Remove initial loading overlay
+  const overlay = document.getElementById("login-overlay");
+  if (overlay) {
+    overlay.remove();
+  }
+  
+  // Remove dedicated login modal
+  removeLoginModal();
+  
+  app.loginState.loginOverlayActive = false;
+  console.log("%c[Login Overlay] ✅ All login UI removed", "color: green; font-weight: bold");
+}
+
+function showLoginError(title, message) {
+  const overlay = document.getElementById("login-overlay");
+  if (overlay) {
+    const content = overlay.querySelector(".login-overlay-content");
+    if (content) {
+      content.innerHTML = `
+        <div class="login-error">
+          <h3>⚠️ ${title}</h3>
+          <p>${message}</p>
+          <p class="error-hint">Please try again or choose a different login method.</p>
+        </div>
+      `;
+      
+      // Auto-hide error after 3 seconds
+      setTimeout(() => {
+        if (app.loginState.loginOverlayActive) {
+          content.innerHTML = `
+            <div class="login-spinner"></div>
+            <p>Preparing login options...</p>
+          `;
+        }
+      }, 3000);
+    }
+  }
+}
+
+async function attemptExtensionLogin() {
+  console.log("%c[Extension] Attempting extension login", "color: green; font-weight: bold");
+  
+  if (typeof window.nostr !== "undefined" && window.nostr !== null) {
+    console.log("%c[Extension] Extension detected, requesting public key", "color: green");
+    const pk = await window.nostr.getPublicKey();
+    const myNpub = window.NostrTools.nip19.npubEncode(pk);
+
+    updateApp({
+      isLoggedIn: true,
+      myPk: pk,
+      myNpub: myNpub,
+      isGuest: false,
+      guestSk: null,
+      loginMethod: "extension",
+    });
+
+    console.log("%c[Extension] ✅ Logged in with extension:", "color: green; font-weight: bold", myNpub);
+    
+    // Don't update UI here - let attemptLoginWithMethod do it after modal closes
+    
+  } else {
+    console.warn("%c[Extension] Extension not available", "color: orange");
+    throw new Error("Extension not available");
+  }
+}
+async function showLoginPrompt() {
+  return new Promise((resolve) => {
+    console.log("%c[Login Prompt] Showing login choice", "color: blue; font-weight: bold");
+    
+    // Remove initial loading overlay first
+    const loadingOverlay = document.getElementById("login-overlay");
+    if (loadingOverlay) {
+      loadingOverlay.remove();
+    }
+    
+    const hasExtension = typeof window.nostr !== "undefined" && window.nostr !== null;
+    
+    const content = `
+      <p>${hasExtension ? "We detected a Nostr browser extension. " : ""}Choose your login method:</p>
+      <div class="login-buttons">
+        ${hasExtension ? `
+          <button id="use-extension-btn" class="btn-primary">
+            🔐 Use Browser Extension
+          </button>
+        ` : ''}
+        <button id="use-bunker-btn" class="btn-primary">
+          🔗 Use Remote Signer (Bunker)
+        </button>
+        <button id="use-guest-btn" class="btn-secondary">
+          👤 Use Guest Account
+        </button>
+      </div>
+    `;
+    
+    const modal = createLoginModal("Choose Login Method", content);
+    
+    if (hasExtension) {
+      modal.querySelector("#use-extension-btn").addEventListener("click", async () => {
+        localStorage.setItem("preferredLoginMethod", "extension");
+        showLoginSpinner("Connecting to extension...");
+        try {
+          await attemptExtensionLogin();
+          // Success - close modal
+          console.log("%c[Extension] Login successful, closing modal", "color: green; font-weight: bold");
+          removePersistentLoginOverlay();
+          renderNavLinks();
+          updateSidebar();
+          updateDrawerContent();
+          resolve();
+        } catch (error) {
+          console.error("%c[Extension] Login failed", "color: red", error);
+          await handleLoginFailure("Extension login failed", error);
+        }
+      });
+    }
+    
+    modal.querySelector("#use-bunker-btn").addEventListener("click", async () => {
+      await showBunkerLoginFlow(resolve);
+    });
+    
+    modal.querySelector("#use-guest-btn").addEventListener("click", async () => {
+      localStorage.setItem("preferredLoginMethod", "guest");
+      showLoginSpinner("Creating guest account...");
+      try {
+        await handleGuestLogin();
+        // Success - close modal
+        console.log("%c[Guest] Login successful, closing modal", "color: green; font-weight: bold");
+        removePersistentLoginOverlay();
+        renderNavLinks();
+        updateSidebar();
+        updateDrawerContent();
+        resolve();
+      } catch (error) {
+        console.error("%c[Guest] Login failed", "color: red", error);
+        await handleLoginFailure("Guest login failed", error);
+      }
+    });
+  });
+}
+
+async function fallbackToLoginPrompt(reason = "Login failed") {
+  console.log(`%c[Login Fallback] ${reason}, returning to login prompt`, "color: orange; font-weight: bold");
+  
+  // Clear any saved login preferences that failed
+  if (app.loginState.lastAttemptMethod) {
+    console.log(`%c[Login Fallback] Clearing failed ${app.loginState.lastAttemptMethod} preference`, "color: orange");
+    localStorage.removeItem("preferredLoginMethod");
+  }
+  
+  // Clean up any partial state
+  await cleanupPartialLoginState();
+  
+  // Ensure overlay is visible
+  if (!app.loginState.loginOverlayActive) {
+    showPersistentLoginOverlay();
+  }
+  
   // Show the login prompt
   await showLoginPrompt();
 }
@@ -565,7 +736,7 @@ function showGuestInfoModal(resolve) {
       <h3>Guest Login</h3>
       <p>No Nostr extension detected. You'll be logged in with a guest account that's stored locally on your device.</p>
       <div class="login-buttons">
-        <button id="continue-guest-btn" class="primary-btn">
+        <button id="continue-guest-btn" class="btn-primary">
           👤 Continue as Guest
         </button>
       </div>
@@ -591,69 +762,62 @@ async function handleGuestLogin() {
   let guestSk;
   let isNewAccount = false;
 
-  try {
-    if (!encryptedGuestData) {
-      console.log("%c[Guest] Creating new guest account", "color: blue");
+  if (!encryptedGuestData) {
+    console.log("%c[Guest] Creating new guest account", "color: blue");
+    guestSk = window.NostrTools.generateSecretKey();
+    isNewAccount = true;
+
+    const guestData = {
+      sk: Array.from(guestSk),
+      created: Date.now(),
+    };
+
+    const encryptedData = btoa(JSON.stringify(guestData));
+    localStorage.setItem("nostr_guest_data", encryptedData);
+    console.log("%c[Guest] New guest account created", "color: blue");
+  } else {
+    try {
+      console.log("%c[Guest] Loading existing guest account", "color: blue");
+      const decryptedData = JSON.parse(atob(encryptedGuestData));
+      guestSk = new Uint8Array(decryptedData.sk);
+      console.log("%c[Guest] Existing guest account loaded", "color: blue");
+    } catch (error) {
+      console.error("%c[Guest] Error decrypting guest data:", "color: red", error);
+      console.log("%c[Guest] Creating new account after decryption failure", "color: blue");
       guestSk = window.NostrTools.generateSecretKey();
       isNewAccount = true;
-
       const guestData = {
         sk: Array.from(guestSk),
         created: Date.now(),
       };
-
       const encryptedData = btoa(JSON.stringify(guestData));
       localStorage.setItem("nostr_guest_data", encryptedData);
-      console.log("%c[Guest] New guest account created", "color: blue");
-    } else {
-      try {
-        console.log("%c[Guest] Loading existing guest account", "color: blue");
-        const decryptedData = JSON.parse(atob(encryptedGuestData));
-        guestSk = new Uint8Array(decryptedData.sk);
-        console.log("%c[Guest] Existing guest account loaded", "color: blue");
-      } catch (error) {
-        console.error("%c[Guest] Error decrypting guest data:", "color: red", error);
-        console.log("%c[Guest] Creating new account after decryption failure", "color: blue");
-        guestSk = window.NostrTools.generateSecretKey();
-        isNewAccount = true;
-        const guestData = {
-          sk: Array.from(guestSk),
-          created: Date.now(),
-        };
-        const encryptedData = btoa(JSON.stringify(guestData));
-        localStorage.setItem("nostr_guest_data", encryptedData);
-      }
     }
-
-    let pk = window.NostrTools.getPublicKey(guestSk);
-    let myNpub = window.NostrTools.nip19.npubEncode(pk);
-
-    updateApp({
-      isLoggedIn: true,
-      myPk: pk,
-      myNpub: myNpub,
-      isGuest: true,
-      guestSk: guestSk,
-      loginMethod: "guest",
-    });
-
-    console.log("%c[Guest] ✅ Logged in as guest:", "color: green; font-weight: bold", myNpub);
-
-    if (isNewAccount) {
-      await publishGuestProfile(guestSk, pk);
-    }
-
-    renderNavLinks();
-    updateSidebar();
-    updateDrawerContent();
-    
-  } catch (error) {
-    console.error("%c[Guest] ❌ Guest login failed:", "color: red; font-weight: bold", error);
-    // Fallback to login prompt
-    await fallbackToLoginPrompt("Guest login failed");
   }
-}
 
+  let pk = window.NostrTools.getPublicKey(guestSk);
+  let myNpub = window.NostrTools.nip19.npubEncode(pk);
+
+  updateApp({
+    isLoggedIn: true,
+    myPk: pk,
+    myNpub: myNpub,
+    isGuest: true,
+    guestSk: guestSk,
+    loginMethod: "guest",
+  });
+
+  console.log("%c[Guest] ✅ Logged in as guest:", "color: green; font-weight: bold", myNpub);
+
+  if (isNewAccount) {
+    // Don't await this - let it happen in background
+    publishGuestProfile(guestSk, pk).catch(err => 
+      console.error("Background profile publish failed:", err)
+    );
+  }
+
+  // Don't update UI here - let attemptLoginWithMethod do it after modal closes
+}
 async function publishGuestProfile(secretKey, publicKey) {
   try {
     const randomNum = Math.floor(Math.random() * 10000);
@@ -848,75 +1012,65 @@ window.addEventListener("appinstalled", () => {
 
 
 /////////////////////////
-async function showBunkerLoginModal(resolve) {
-  console.log("%c[Bunker] Starting bunker login flow", "color: purple; font-weight: bold");
+async function showBunkerLoginFlow(resolve) {
+  console.log("%c[Bunker] Starting bunker flow", "color: purple; font-weight: bold");
   
-  // Check if we have a saved bunker connection
   const savedBunkerData = localStorage.getItem("bunker_connection_data");
   
   if (savedBunkerData) {
-    console.log("%c[Bunker] Found saved connection, attempting to reconnect", "color: purple");
+    console.log("%c[Bunker] Reconnecting with saved data", "color: purple");
+    showLoginSpinner("Reconnecting to bunker...");
     await attemptBunkerLogin();
     resolve();
     return;
   }
-
-  console.log("%c[Bunker] No saved connection, showing method selection", "color: purple");
-
-  // First time bunker login - show options
+  
+  // Show method selection
   const content = `
-    <div class="bunker-login-modal">
-      <p>Connect to a remote signer (bunker) using one of these methods:</p>
-      <div class="bunker-methods">
-        <button id="bunker-scan-qr" class="primary-btn">
-          📱 Scan QR Code (Recommended)
-        </button>
-        <button id="bunker-enter-uri" class="secondary-btn">
-          ⌨️ Enter Bunker URI
-        </button>
-      </div>
-      <p class="bunker-info">First time? Use QR code for the best experience.</p>
+    <p>Connect to a remote signer (bunker):</p>
+    <div class="bunker-methods">
+      <button id="bunker-scan-qr" class="btn-primary">
+        📱 Scan QR Code
+      </button>
+      <button id="bunker-enter-uri" class="btn-primary">
+        ⌨️ Enter Bunker URI
+      </button>
+      <button id="bunker-back-btn" class="btn-secondary">
+        ← Back to Login Options
+      </button>
     </div>
   `;
-
-  const modal = openModal({
-    title: "Connect Remote Signer",
-    content: content,
-    size: "medium",
-  });
-
-  console.log("%c[Bunker] Method selection modal opened", "color: purple");
-
+  
+  updateLoginModalContent("Connect Remote Signer", content);
+  
+  const modal = document.querySelector("#dedicated-login-overlay .login-modal");
+  
   modal.querySelector("#bunker-scan-qr").addEventListener("click", async () => {
-    console.log("%c[Bunker] QR method selected", "color: purple; font-weight: bold");
-    // Don't close the modal yet, just replace its content
-    await initiateBunkerQRFlow(resolve, modal);
+    await initiateBunkerQRFlow(resolve);
   });
-
+  
   modal.querySelector("#bunker-enter-uri").addEventListener("click", async () => {
-    console.log("%c[Bunker] URI method selected", "color: purple; font-weight: bold");
-    // Don't close the modal yet, just replace its content
-    await initiateBunkerURIFlow(resolve, modal);
+    await initiateBunkerURIFlow(resolve);
+  });
+  
+  modal.querySelector("#bunker-back-btn").addEventListener("click", async () => {
+    await showLoginPrompt();
   });
 }
 
-async function initiateBunkerQRFlow(resolve, existingModal = null) {
+
+async function initiateBunkerQRFlow(resolve) {
   console.log("%c[Bunker QR] Starting QR flow", "color: blue; font-weight: bold");
   
+  let pool = null;
+  let localSecretKey = null;
+  
   try {
-    // Generate local secret key for communication
-    console.log("%c[Bunker QR] Generating local secret key", "color: blue");
-    const localSecretKey = window.NostrTools.generateSecretKey();
+    localSecretKey = window.NostrTools.generateSecretKey();
     const clientPubkey = window.NostrTools.getPublicKey(localSecretKey);
-    console.log("%c[Bunker QR] Client pubkey:", "color: blue", clientPubkey);
-
-    // Generate a random secret for verification
     const connectionSecret = window.NostrTools.generateSecretKey();
     const secretString = Array.from(connectionSecret).map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 32);
-    console.log("%c[Bunker QR] Connection secret generated", "color: blue");
-
-    // Create connection URI
-    console.log("%c[Bunker QR] Creating nostrconnect URI", "color: blue");
+    
     const connectionUri = createNostrConnectURI({
       clientPubkey,
       relays: ['wss://relay.damus.io', 'wss://relay.primal.net', 'wss://nos.lol'],
@@ -924,365 +1078,244 @@ async function initiateBunkerQRFlow(resolve, existingModal = null) {
       name: 'Vutr'
     });
     
-    console.log("%c[Bunker QR] Connection URI created:", "color: blue", connectionUri);
-    console.log("%c[Bunker QR] Generating QR code", "color: blue");
-
-    // Show QR code modal
     const qrContent = `
       <div class="bunker-qr-container">
-        <p>Scan this QR code with your bunker app (e.g., Amber, nsec.app):</p>
+        <p>Scan this QR code with your bunker app:</p>
         <div class="qr-display">
           ${generateQrCode(connectionUri)}
         </div>
         <div class="connection-status">
           <p id="connection-status">⏳ Waiting for connection...</p>
         </div>
+        <div class="bunker-qr-actions">
+          <button id="cancel-bunker-qr-btn" class="btn-secondary">← Back</button>
+          <button id="copy-uri-btn" class="btn-secondary">Copy URI</button>
+        </div>
         <details class="uri-details">
-          <summary>Show URI (advanced)</summary>
+          <summary>Show URI</summary>
           <input type="text" value="${connectionUri}" readonly class="uri-input">
-          <button id="copy-uri-btn">Copy URI</button>
         </details>
       </div>
     `;
-
-    let modal;
-    if (existingModal) {
-      // Replace content of existing modal
-      console.log("%c[Bunker QR] Replacing existing modal content", "color: blue");
-      const modalContent = existingModal.querySelector('.modal-body');
-      const modalTitle = existingModal.querySelector('.modal-title');
-      if (modalTitle) modalTitle.textContent = "Scan QR Code to Connect";
-      if (modalContent) modalContent.innerHTML = qrContent;
-      modal = existingModal;
-    } else {
-      // Create new modal
-      console.log("%c[Bunker QR] Creating new modal", "color: blue");
-      modal = openModal({
-        title: "Scan QR Code to Connect",
-        content: qrContent,
-        size: "medium",
-        closeOnOverlay: false,
-      });
-    }
-
-    console.log("%c[Bunker QR] QR modal displayed", "color: blue");
-
-    // Copy URI button handler
-    const copyBtn = modal.querySelector("#copy-uri-btn");
-    if (copyBtn) {
-      copyBtn.addEventListener("click", async () => {
-        console.log("%c[Bunker QR] Copy URI clicked", "color: blue");
-        try {
-          await navigator.clipboard.writeText(connectionUri);
-          copyBtn.textContent = "Copied!";
-          setTimeout(() => copyBtn.textContent = "Copy URI", 2000);
-          console.log("%c[Bunker QR] URI copied to clipboard", "color: green");
-        } catch (err) {
-          console.error("%c[Bunker QR] Failed to copy:", "color: red", err);
-        }
-      });
-    }
-
-    // Wait for bunker to connect (Method 2 from docs)
+    
+    updateLoginModalContent("Scan QR Code", qrContent);
+    
+    const modal = document.querySelector("#dedicated-login-overlay .login-modal");
     const statusEl = modal.querySelector("#connection-status");
-    statusEl.textContent = "⏳ Connecting...";
-    console.log("%c[Bunker QR] Waiting for bunker to scan and connect...", "color: blue; font-weight: bold");
-
-    const pool = new window.NostrTools.SimplePool();
-    console.log("%c[Bunker QR] SimplePool created", "color: blue");
     
-    console.log("%c[Bunker QR] Calling BunkerSigner.fromURI (this will wait for connection)", "color: blue; font-weight: bold");
-    const signer = await BunkerSigner.fromURI(
-      localSecretKey,
-      connectionUri,
-      { pool }
-    );
-
-    console.log("%c[Bunker QR] ✅ Bunker connected!", "color: green; font-weight: bold");
-    statusEl.textContent = "✅ Connected! Getting your public key...";
-
-    // Get public key
-    console.log("%c[Bunker QR] Requesting public key from bunker", "color: blue");
-    const pubkey = await signer.getPublicKey();
-    const npub = window.NostrTools.nip19.npubEncode(pubkey);
-    console.log("%c[Bunker QR] Public key received:", "color: green", npub);
-
-    // Save connection data for future sessions (Method 1)
-    console.log("%c[Bunker QR] Saving connection data to localStorage", "color: blue");
-    const bunkerData = {
-      localSk: Array.from(localSecretKey),
-      pubkey: pubkey,
-      bunkerUri: connectionUri,
-      connected: Date.now()
-    };
-
-    localStorage.setItem("bunker_connection_data", JSON.stringify(bunkerData));
-    localStorage.setItem("preferredLoginMethod", "bunker");
-    console.log("%c[Bunker QR] Connection data saved", "color: green");
-
-    // Update app state
-    console.log("%c[Bunker QR] Updating app state", "color: blue");
-    updateApp({
-      isLoggedIn: true,
-      myPk: pubkey,
-      myNpub: npub,
-      isGuest: false,
-      guestSk: null,
-      loginMethod: "bunker",
-      bunkerSigner: signer,
-      bunkerLocalSk: localSecretKey,
-      bunkerPool: pool
+    // Cancel button
+    modal.querySelector("#cancel-bunker-qr-btn").addEventListener("click", () => {
+      if (pool) pool.close([]);
+      showBunkerLoginFlow(resolve);
     });
-
-    console.log("%c[Bunker QR] ✅ Logged in with bunker:", "color: green; font-weight: bold", npub);
-    statusEl.textContent = "✅ Success! Logging you in...";
-
-    // Close modal after a brief moment
-    setTimeout(() => {
-      closeModal();
-      renderNavLinks();
-      updateSidebar();
-      updateDrawerContent();
-      console.log("%c[Bunker QR] Login complete, UI updated", "color: green; font-weight: bold");
-    }, 1000);
-
-    if (resolve) resolve();
-
+    
+    // Copy button
+    modal.querySelector("#copy-uri-btn").addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(connectionUri);
+        const btn = modal.querySelector("#copy-uri-btn");
+        btn.textContent = "✓ Copied!";
+        setTimeout(() => btn.textContent = "Copy URI", 2000);
+      } catch (err) {
+        console.error("Copy failed:", err);
+      }
+    });
+    
+    // Connect
+    pool = new window.NostrTools.SimplePool();
+    statusEl.textContent = "⏳ Connecting...";
+    
+    const signer = await Promise.race([
+      BunkerSigner.fromURI(localSecretKey, connectionUri, { pool }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("QR code not scanned within 60 seconds")), 60000))
+    ]);
+    
+    statusEl.textContent = "✅ Connected! Getting your public key...";
+    
+    const pubkey = await Promise.race([
+      signer.getPublicKey(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout getting public key")), 10000))
+    ]);
+    
+    await completeBunkerLogin(signer, localSecretKey, pubkey, connectionUri, pool);
+    resolve();
+    
   } catch (error) {
-    console.error("%c[Bunker QR] ❌ Error:", "color: red; font-weight: bold", error);
-    console.error("%c[Bunker QR] Error stack:", "color: red", error.stack);
-    closeModal();
+    console.error("%c[Bunker QR] Error:", "color: red; font-weight: bold", error);
+    if (pool) pool.close([]);
     
-    // Show error message
-    await alertModal("Failed to connect to bunker: " + error.message, "Connection Error");
+    await alertModal(
+      error.message.includes("timeout") || error.message.includes("60 seconds")
+        ? "Connection timed out. Please try again."
+        : "Failed to connect: " + error.message,
+      "Connection Error"
+    );
     
-    // Fallback to login prompt
-    await fallbackToLoginPrompt("Bunker QR connection failed");
-    
-    if (resolve) resolve();
+    await showBunkerLoginFlow(resolve);
   }
 }
 
-async function initiateBunkerURIFlow(resolve, existingModal = null) {
-  console.log("%c[Bunker URI] Starting URI input flow", "color: orange; font-weight: bold");
-  
+async function initiateBunkerURIFlow(resolve) {
   const content = `
     <div class="bunker-uri-input">
-      <p>Enter your bunker URI or NIP-05 identifier:</p>
+      <p>Enter your bunker URI or NIP-05:</p>
       <input type="text" id="bunker-uri-input" placeholder="bunker://... or user@domain.com" class="bunker-input">
-      <button id="connect-bunker-btn" class="primary-btn">Connect</button>
-      <p class="help-text">Get your bunker URI from your remote signer app (e.g., Amber, nsec.app)</p>
+      <div class="bunker-uri-actions">
+        <button id="cancel-bunker-uri-btn" class="btn-secondary">← Back</button>
+        <button id="connect-bunker-btn" class="btn-primary">Connect</button>
+      </div>
+      <p class="help-text">Get your bunker URI from your remote signer app</p>
     </div>
   `;
-
-  let modal;
-  if (existingModal) {
-    // Replace content of existing modal
-    console.log("%c[Bunker URI] Replacing existing modal content", "color: orange");
-    const modalContent = existingModal.querySelector('.modal-body');
-    const modalTitle = existingModal.querySelector('.modal-title');
-    if (modalTitle) modalTitle.textContent = "Enter Bunker URI";
-    if (modalContent) modalContent.innerHTML = content;
-    modal = existingModal;
-  } else {
-    // Create new modal
-    console.log("%c[Bunker URI] Creating new modal", "color: orange");
-    modal = openModal({
-      title: "Enter Bunker URI",
-      content: content,
-      size: "medium",
-    });
-  }
-
-  console.log("%c[Bunker URI] URI input modal displayed", "color: orange");
-
-  const connectBtn = modal.querySelector("#connect-bunker-btn");
-  if (connectBtn) {
-    connectBtn.addEventListener("click", async () => {
-      const bunkerInput = modal.querySelector("#bunker-uri-input").value.trim();
-      
-      console.log("%c[Bunker URI] Connect button clicked", "color: orange; font-weight: bold");
-      console.log("%c[Bunker URI] Input value:", "color: orange", bunkerInput);
-      
-      if (!bunkerInput) {
-        console.warn("%c[Bunker URI] Empty input", "color: orange");
-        alertModal("Please enter a bunker URI or NIP-05 identifier", "Invalid Input");
-        return;
-      }
-
-      try {
-        console.log("%c[Bunker URI] Parsing bunker input", "color: orange");
-        
-        // Show connecting status in the same modal
-        const modalContent = modal.querySelector('.modal-body');
-        if (modalContent) {
-          modalContent.innerHTML = `<div class="connecting-status"><p>⏳ Connecting to bunker...</p></div>`;
-        }
-        console.log("%c[Bunker URI] Connecting status displayed", "color: orange");
-
-        // Parse bunker input (handles both bunker:// URIs and NIP-05)
-        const bunkerPointer = await parseBunkerInput(bunkerInput);
-        
-        if (!bunkerPointer) {
-          throw new Error("Invalid bunker input");
-        }
-        
-        console.log("%c[Bunker URI] Bunker pointer parsed:", "color: orange", bunkerPointer);
-
-        // Generate local secret key
-        console.log("%c[Bunker URI] Generating local secret key", "color: orange");
-        const localSecretKey = window.NostrTools.generateSecretKey();
-        const clientPubkey = window.NostrTools.getPublicKey(localSecretKey);
-        console.log("%c[Bunker URI] Client pubkey:", "color: orange", clientPubkey);
-
-        // Create bunker signer (Method 1 from docs)
-        console.log("%c[Bunker URI] Creating SimplePool", "color: orange");
-        const pool = new window.NostrTools.SimplePool();
-        
-        console.log("%c[Bunker URI] Creating BunkerSigner from bunker pointer", "color: orange");
-        const bunker = BunkerSigner.fromBunker(
-          localSecretKey,
-          bunkerPointer,
-          { pool }
-        );
-
-        // For first-time connection, explicitly connect
-        console.log("%c[Bunker URI] Calling bunker.connect() for first-time connection", "color: orange; font-weight: bold");
-        await bunker.connect();
-        console.log("%c[Bunker URI] ✅ Bunker connected!", "color: green; font-weight: bold");
-
-        // Get public key
-        console.log("%c[Bunker URI] Requesting public key from bunker", "color: orange");
-        const pubkey = await bunker.getPublicKey();
-        const npub = window.NostrTools.nip19.npubEncode(pubkey);
-        console.log("%c[Bunker URI] Public key received:", "color: green", npub);
-
-        // Save connection data
-        console.log("%c[Bunker URI] Saving connection data to localStorage", "color: orange");
-        const bunkerData = {
-          localSk: Array.from(localSecretKey),
-          pubkey: pubkey,
-          bunkerPointer: {
-            pubkey: bunkerPointer.pubkey,
-            relays: bunkerPointer.relays,
-            secret: bunkerPointer.secret
-          },
-          connected: Date.now()
-        };
-
-        localStorage.setItem("bunker_connection_data", JSON.stringify(bunkerData));
-        localStorage.setItem("preferredLoginMethod", "bunker");
-        console.log("%c[Bunker URI] Connection data saved", "color: green");
-
-        // Update app state
-        console.log("%c[Bunker URI] Updating app state", "color: orange");
-        updateApp({
-          isLoggedIn: true,
-          myPk: pubkey,
-          myNpub: npub,
-          isGuest: false,
-          guestSk: null,
-          loginMethod: "bunker",
-          bunkerSigner: bunker,
-          bunkerLocalSk: localSecretKey,
-          bunkerPointer: bunkerPointer,
-          bunkerPool: pool
-        });
-
-        console.log("%c[Bunker URI] ✅ Logged in with bunker:", "color: green; font-weight: bold", npub);
-
-        // Show success message briefly
-        if (modalContent) {
-          modalContent.innerHTML = `<div class="connecting-status"><p>✅ Connected successfully!</p></div>`;
-        }
-
-        setTimeout(() => {
-          closeModal();
-          renderNavLinks();
-          updateSidebar();
-          updateDrawerContent();
-          console.log("%c[Bunker URI] Login complete, UI updated", "color: green; font-weight: bold");
-        }, 1000);
-
-        if (resolve) resolve();
-
-      } catch (error) {
-        console.error("%c[Bunker URI] ❌ Error:", "color: red; font-weight: bold", error);
-        console.error("%c[Bunker URI] Error stack:", "color: red", error.stack);
-        closeModal();
-        
-        // Show error message
-        await alertModal("Failed to connect: " + error.message, "Connection Error");
-        
-        // Fallback to login prompt
-        await fallbackToLoginPrompt("Bunker URI connection failed");
-        
-        if (resolve) resolve();
-      }
-    });
-  }
-}
-async function attemptBunkerLogin() {
-  console.log("%c[Bunker Reconnect] Attempting to reconnect with saved data", "color: cyan; font-weight: bold");
   
-  try {
-    const savedBunkerData = localStorage.getItem("bunker_connection_data");
+  updateLoginModalContent("Enter Bunker URI", content);
+  
+  const modal = document.querySelector("#dedicated-login-overlay .login-modal");
+  
+  // Cancel button
+  modal.querySelector("#cancel-bunker-uri-btn").addEventListener("click", () => {
+    showBunkerLoginFlow(resolve);
+  });
+  
+  // Connect button
+  modal.querySelector("#connect-bunker-btn").addEventListener("click", async () => {
+    const bunkerInput = modal.querySelector("#bunker-uri-input").value.trim();
     
-    if (!savedBunkerData) {
-      console.warn("%c[Bunker Reconnect] No saved bunker connection found", "color: cyan");
-      await fallbackToLoginPrompt("No saved bunker connection");
+    if (!bunkerInput) {
+      alertModal("Please enter a bunker URI or NIP-05 identifier", "Invalid Input");
       return;
     }
-
-    console.log("%c[Bunker Reconnect] Parsing saved bunker data", "color: cyan");
-    const bunkerData = JSON.parse(savedBunkerData);
-    const localSecretKey = new Uint8Array(bunkerData.localSk);
-    console.log("%c[Bunker Reconnect] Local secret key restored", "color: cyan");
-    console.log("%c[Bunker Reconnect] Saved pubkey:", "color: cyan", bunkerData.pubkey);
-
-    // Reconnect using Method 1 (no need to call .connect() again)
-    console.log("%c[Bunker Reconnect] Creating SimplePool", "color: cyan");
-    const pool = new window.NostrTools.SimplePool();
     
-    console.log("%c[Bunker Reconnect] Creating BunkerSigner from saved pointer", "color: cyan");
-    const bunker = BunkerSigner.fromBunker(
-      localSecretKey,
-      bunkerData.bunkerPointer,
-      { pool }
-    );
+    try {
+      showLoginSpinner("Connecting to bunker...");
+      
+      const bunkerPointer = await parseBunkerInput(bunkerInput);
+      if (!bunkerPointer) throw new Error("Invalid bunker input");
+      
+      const localSecretKey = window.NostrTools.generateSecretKey();
+      const pool = new window.NostrTools.SimplePool();
+      const bunker = BunkerSigner.fromBunker(localSecretKey, bunkerPointer, { pool });
+      
+      await bunker.connect();
+      const pubkey = await bunker.getPublicKey();
+      
+      await completeBunkerLogin(bunker, localSecretKey, pubkey, null, pool, bunkerPointer);
+      resolve();
+      
+    } catch (error) {
+      console.error("%c[Bunker URI] Error:", "color: red; font-weight: bold", error);
+      await alertModal("Failed to connect: " + error.message, "Connection Error");
+      await showBunkerLoginFlow(resolve);
+    }
+  });
+}
 
-    // Verify connection by getting public key (note: no .connect() needed for reconnection)
-    console.log("%c[Bunker Reconnect] Verifying connection by requesting public key", "color: cyan");
-    const pubkey = await bunker.getPublicKey();
-    const npub = window.NostrTools.nip19.npubEncode(pubkey);
-    console.log("%c[Bunker Reconnect] ✅ Connection verified, pubkey:", "color: green", npub);
-
-    console.log("%c[Bunker Reconnect] Updating app state", "color: cyan");
-    updateApp({
-      isLoggedIn: true,
-      myPk: pubkey,
-      myNpub: npub,
-      isGuest: false,
-      guestSk: null,
-      loginMethod: "bunker",
-      bunkerSigner: bunker,
-      bunkerLocalSk: localSecretKey,
-      bunkerPointer: bunkerData.bunkerPointer,
-      bunkerPool: pool
-    });
-
-    console.log("%c[Bunker Reconnect] ✅ Reconnected to bunker successfully:", "color: green; font-weight: bold", npub);
+// Shared completion logic for interactive bunker login (QR/URI)
+async function completeBunkerLogin(signer, localSecretKey, pubkey, bunkerUri = null, pool, bunkerPointer = null) {
+  const npub = window.NostrTools.nip19.npubEncode(pubkey);
+  
+  const bunkerData = {
+    localSk: Array.from(localSecretKey),
+    pubkey: pubkey,
+    ...(bunkerUri && { bunkerUri }),
+    ...(bunkerPointer && { bunkerPointer }),
+    connected: Date.now()
+  };
+  
+  localStorage.setItem("bunker_connection_data", JSON.stringify(bunkerData));
+  localStorage.setItem("preferredLoginMethod", "bunker");
+  
+  updateApp({
+    isLoggedIn: true,
+    myPk: pubkey,
+    myNpub: npub,
+    isGuest: false,
+    guestSk: null,
+    loginMethod: "bunker",
+    bunkerSigner: signer,
+    bunkerLocalSk: localSecretKey,
+    bunkerPointer: bunkerPointer,
+    bunkerPool: pool
+  });
+  
+  console.log("%c[Bunker] ✅ Login complete:", "color: green; font-weight: bold", npub);
+  console.log("%c[Bunker] Closing login modal", "color: green; font-weight: bold");
+  
+  // Show brief success message
+  showLoginSpinner("Success! Loading app...");
+  
+  // Wait a moment then close everything and update UI
+  setTimeout(() => {
+    removePersistentLoginOverlay(); // This closes ALL login UI
     renderNavLinks();
     updateSidebar();
     updateDrawerContent();
+    console.log("%c[Bunker] ✅ Modal closed, UI updated", "color: green; font-weight: bold");
+  }, 1000);
+}
 
-  } catch (error) {
-    console.error("%c[Bunker Reconnect] ❌ Reconnection failed:", "color: red; font-weight: bold", error);
-    console.error("%c[Bunker Reconnect] Error stack:", "color: red", error.stack);
-    
-    // Fallback to login prompt
-    await fallbackToLoginPrompt("Bunker reconnection failed");
+async function attemptBunkerLogin() {
+  console.log("%c[Bunker Reconnect] Attempting to reconnect with saved data", "color: cyan; font-weight: bold");
+  
+  const savedBunkerData = localStorage.getItem("bunker_connection_data");
+  
+  if (!savedBunkerData) {
+    console.warn("%c[Bunker Reconnect] No saved bunker connection found", "color: cyan");
+    throw new Error("No saved bunker connection");
   }
+
+  console.log("%c[Bunker Reconnect] Parsing saved bunker data", "color: cyan");
+  const bunkerData = JSON.parse(savedBunkerData);
+  
+  // Validate saved data
+  if (!bunkerData.localSk || !bunkerData.bunkerPointer) {
+    console.error("%c[Bunker Reconnect] Invalid saved bunker data", "color: red");
+    localStorage.removeItem("bunker_connection_data");
+    throw new Error("Invalid saved bunker data");
+  }
+  
+  const localSecretKey = new Uint8Array(bunkerData.localSk);
+  console.log("%c[Bunker Reconnect] Local secret key restored", "color: cyan");
+
+  console.log("%c[Bunker Reconnect] Creating SimplePool", "color: cyan");
+  const pool = new window.NostrTools.SimplePool();
+  
+  console.log("%c[Bunker Reconnect] Creating BunkerSigner from saved pointer", "color: cyan");
+  const bunker = BunkerSigner.fromBunker(
+    localSecretKey,
+    bunkerData.bunkerPointer,
+    { pool }
+  );
+
+  // Verify connection with timeout
+  console.log("%c[Bunker Reconnect] Verifying connection (15s timeout)", "color: cyan");
+  const pubkey = await Promise.race([
+    bunker.getPublicKey(),
+    new Promise((_, reject) => 
+      setTimeout(() => reject(new Error("Bunker verification timeout")), 15000)
+    )
+  ]);
+  
+  const npub = window.NostrTools.nip19.npubEncode(pubkey);
+  console.log("%c[Bunker Reconnect] ✅ Connection verified, pubkey:", "color: green", npub);
+
+  console.log("%c[Bunker Reconnect] Updating app state", "color: cyan");
+  updateApp({
+    isLoggedIn: true,
+    myPk: pubkey,
+    myNpub: npub,
+    isGuest: false,
+    guestSk: null,
+    loginMethod: "bunker",
+    bunkerSigner: bunker,
+    bunkerLocalSk: localSecretKey,
+    bunkerPointer: bunkerData.bunkerPointer,
+    bunkerPool: pool
+  });
+
+  console.log("%c[Bunker Reconnect] ✅ Reconnected successfully", "color: green; font-weight: bold");
+  
+  // Don't update UI here - let attemptLoginWithMethod do it after modal closes
 }
 
 async function signEventWithBunker(eventTemplate) {

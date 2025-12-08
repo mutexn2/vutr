@@ -660,3 +660,63 @@ function showVideoJsonModal(videoData) {
 }
 
 
+/////////////////////////////////////////////////
+/**
+ * Dedicated login modal system - completely separate from universal modals
+ * Only closes when login succeeds or user explicitly cancels
+ */
+function createLoginModal(title, content) {
+  // Remove any existing login modal first
+  removeLoginModal();
+  
+  const overlay = document.createElement("div");
+  overlay.id = "dedicated-login-overlay";
+  overlay.className = "login-modal-overlay";
+  
+  const modal = document.createElement("div");
+  modal.className = "login-modal";
+  modal.innerHTML = `
+    <h3 class="login-modal-title">${title}</h3>
+    <div class="login-modal-body">${content}</div>
+  `;
+  
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  
+  // CRITICAL: Prevent closing on overlay click
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) {
+      // Do nothing - login modal must stay open
+      console.log("%c[Login Modal] Overlay click prevented - login required", "color: orange");
+    }
+  });
+  
+  return modal;
+}
+
+function updateLoginModalContent(title, content) {
+  const modal = document.querySelector("#dedicated-login-overlay .login-modal");
+  if (modal) {
+    const titleEl = modal.querySelector(".login-modal-title");
+    const bodyEl = modal.querySelector(".login-modal-body");
+    
+    if (titleEl) titleEl.textContent = title;
+    if (bodyEl) bodyEl.innerHTML = content;
+  }
+}
+
+function removeLoginModal() {
+  const overlay = document.getElementById("dedicated-login-overlay");
+  if (overlay) {
+    overlay.remove();
+  }
+}
+
+function showLoginSpinner(message = "Connecting...") {
+  updateLoginModalContent("Authenticating", `
+    <div class="connecting-status">
+      <div class="login-spinner"></div>
+      <p>${message}</p>
+    </div>
+  `);
+}

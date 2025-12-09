@@ -224,7 +224,7 @@ function setupSettingsMenuEvents(menuElement) {
 }
 
 async function handleSignOut() {
-  const confirmSignOut = confirm('Are you sure you want to sign out? This will clear your login preference.');
+  const confirmSignOut = confirm('Are you sure you want to sign out?');
   
   if (confirmSignOut) {
     console.log("%c[Sign Out] User confirmed sign out", "color: red; font-weight: bold");
@@ -237,13 +237,15 @@ async function handleSignOut() {
     
     // Remove login preferences
     localStorage.removeItem('preferredLoginMethod');
-    localStorage.removeItem('bunker_connection_data');
     
-    // Clear guest data if it exists
-    if (app.loginMethod === 'guest') {
-      console.log("%c[Sign Out] Clearing guest data", "color: red");
-      localStorage.removeItem('nostr_guest_data');
+    // Only remove bunker data on logout (not guest data)
+    if (app.loginMethod === 'bunker') {
+      localStorage.removeItem('bunker_connection_data');
     }
+    
+    // IMPORTANT: DO NOT remove guest data - preserve for reuse
+    // Guest keys stay in localStorage permanently unless explicitly deleted
+    console.log("%c[Sign Out] Guest keys preserved for future use", "color: blue");
     
     console.log("%c[Sign Out] Updating app state", "color: red");
     updateApp({
@@ -253,7 +255,6 @@ async function handleSignOut() {
       isGuest: false,
       guestSk: null,
       loginMethod: null,
-      // Clear bunker-specific state
       bunkerSigner: null,
       bunkerLocalSk: null,
       bunkerPointer: null,
@@ -264,6 +265,7 @@ async function handleSignOut() {
     window.location.reload();
   }
 }
+
 
 async function cleanupBunkerConnection() {
   console.log("%c[Bunker Cleanup] Starting cleanup", "color: red");
@@ -278,10 +280,10 @@ async function cleanupBunkerConnection() {
     }
   }
   
-  if (app.bunkerPool) {
+  if (app.bunkerPool && app.bunkerPointer?.relays) {
     try {
       console.log("%c[Bunker Cleanup] Closing bunker pool", "color: red");
-      app.bunkerPool.close([]);
+      app.bunkerPool.close(app.bunkerPointer.relays);
       console.log("%c[Bunker Cleanup] ✅ Bunker pool closed", "color: green");
     } catch (error) {
       console.error("%c[Bunker Cleanup] Error closing bunker pool:", "color: red", error);
@@ -309,3 +311,5 @@ async function getAppVersion() {
     return 'v0.0';
   }
 }
+
+

@@ -576,7 +576,7 @@ function setupVideoPageContent(video, videoId, title, content, relativeTime, pub
     }
 
 // Setup auto-validation when video is sufficiently loaded
-if (isBlossomUrl && !cachedValidation) {
+/* if (isBlossomUrl && !cachedValidation) {
   // Check if auto-validation is enabled
   const autoValidationEnabled = localStorage.getItem("autoBlossomValidation") !== "false";
   
@@ -584,7 +584,7 @@ if (isBlossomUrl && !cachedValidation) {
     setupAutoBlossomValidation(directUrl, filename, technicalSummary, validationResults, fileExtension, dimensions, fileSize, pageKey);
   }
 }
-
+ */
     // Validate button handler - tracked
     const validateBtnHandler = async () => {
       if (!isBlossomUrl) {

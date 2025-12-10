@@ -203,6 +203,7 @@
       "components/videoPlayer.js",
       "components/videoComments.js",
       "components/zapButton.js",
+      "keys.js",
       "config.js",
       //     "indexeddb.js",
     ],

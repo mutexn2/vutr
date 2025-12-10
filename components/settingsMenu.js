@@ -266,36 +266,6 @@ async function handleSignOut() {
   }
 }
 
-
-async function cleanupBunkerConnection() {
-  console.log("%c[Bunker Cleanup] Starting cleanup", "color: red");
-  
-  if (app.bunkerSigner) {
-    try {
-      console.log("%c[Bunker Cleanup] Closing bunker signer", "color: red");
-      await app.bunkerSigner.close();
-      console.log("%c[Bunker Cleanup] ✅ Bunker signer closed", "color: green");
-    } catch (error) {
-      console.error("%c[Bunker Cleanup] Error closing bunker signer:", "color: red", error);
-    }
-  }
-  
-  if (app.bunkerPool && app.bunkerPointer?.relays) {
-    try {
-      console.log("%c[Bunker Cleanup] Closing bunker pool", "color: red");
-      app.bunkerPool.close(app.bunkerPointer.relays);
-      console.log("%c[Bunker Cleanup] ✅ Bunker pool closed", "color: green");
-    } catch (error) {
-      console.error("%c[Bunker Cleanup] Error closing bunker pool:", "color: red", error);
-    }
-  }
-
-  console.log("%c[Bunker Cleanup] Removing bunker data from localStorage", "color: red");
-  localStorage.removeItem("bunker_connection_data");
-  
-  console.log("%c[Bunker Cleanup] ✅ Cleanup complete", "color: green; font-weight: bold");
-}
-
 async function getAppVersion() {
   try {
     const cache = await self.caches.open('version-cache');

@@ -1,4 +1,4 @@
-const CACHE_VERSION = "vutr-v0.000214344";
+const CACHE_VERSION = "vutr-v0.000214346";
 
 const BASE_PATH = self.location.pathname.replace("service-worker.js", "");
 
@@ -38,6 +38,7 @@ const APP_SHELL_PATHS = [
   "/components/videoPlayer.js",
   "/components/videoComments.js",
   "/components/zapButton.js",
+  "/keys.js",
   "/config.js",
 //  "/indexeddb.js",
   "/helpers.js",

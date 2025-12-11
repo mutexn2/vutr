@@ -518,7 +518,7 @@ function signEventAsGuest(eventTemplate) {
 /////////////////////
 async function showBunkerLoginFlow(resolve) {
   console.log(
-    "%c[Bunker] Starting bunker flow",
+    "%c[Bunker] Starting unified bunker flow",
     "color: purple; font-weight: bold"
   );
 
@@ -526,49 +526,334 @@ async function showBunkerLoginFlow(resolve) {
 
   if (savedBunkerData) {
     console.log("%c[Bunker] Reconnecting with saved data", "color: purple");
-    showLoginSpinner("Reconnecting to bunker...", true); // true enables reset button
-    await attemptBunkerLogin();
-    resolve();
-    return;
+    showLoginSpinner("Reconnecting to bunker...", true);
+    
+    try {
+      await attemptBunkerLogin();
+      resolve();
+      return;
+    } catch (error) {
+      console.error("%c[Bunker] Reconnect failed:", "color: red", error);
+      // Clear bad data and continue to show connection options
+      await cleanupBunkerConnection();
+      localStorage.removeItem("bunker_connection_data");
+      localStorage.removeItem("preferredLoginMethod");
+    }
   }
 
-  // Show method selection
+  // Show unified bunker connection interface
   const content = `
-    <p>Connect to a remote signer (bunker):</p>
-    <div class="bunker-methods">
-      <button id="bunker-scan-qr" class="btn-primary">
-        📱 Scan QR Code
-      </button>
-      <button id="bunker-enter-uri" class="btn-primary">
-        ⌨️ Enter Bunker URI
-      </button>
-      <button id="bunker-back-btn" class="btn-secondary">
-        ← Back to Login Options
-      </button>
+    <div class="bunker-unified-container">
+     
+      <div class="bunker-connection-area">
+        <!-- QR Code Display -->
+        <div class="qr-section" id="qr-section">
+          <p class="section-label">Scan QR Code from your bunker app</p>
+          <div class="qr-display" id="qr-display">
+            <div class="qr-placeholder">Generating QR code...</div>
+          </div>
+          <button id="copy-client-uri-btn" class="btn-secondary btn-small">
+            📋 Copy Connection URI
+          </button>
+        </div>
+
+        <div class="or-divider">OR</div>
+
+        <!-- URI Input -->
+        <div class="uri-section">
+          <p class="section-label">Paste bunker URI from your signer app</p>
+          <input 
+            type="text" 
+            id="bunker-uri-input" 
+            placeholder="bunker://... or user@domain.com" 
+            class="bunker-input"
+          >
+          <button id="connect-bunker-uri-btn" class="btn-primary btn-small">
+            Connect
+          </button>
+        </div>
+      </div>
+
+      <div class="connection-status" id="bunker-status">
+        <p>⏳ Waiting for connection...</p>
+      </div>
+
+      <div class="bunker-actions">
+        <button id="back-to-login-btn" class="btn-secondary">
+          ← Back to Login Options
+        </button>
+      </div>
+
+      <details class="help-section">
+        <summary>Need help?</summary>
+        <p class="help-text">
+          • <strong>Method 1 (QR):</strong> Open your bunker app, select "Add Connection", and scan the QR code above.<br>
+          • <strong>Method 2 (URI):</strong> Copy the bunker URI from your signer app and paste it in the input field.
+        </p>
+      </details>
     </div>
   `;
 
-  updateLoginModalContent("Connect Remote Signer", content);
+  updateLoginModalContent("Remote Signer", content);
 
   const modal = document.querySelector("#dedicated-login-overlay .login-modal");
+  
+  // Initialize QR flow in background
+  initializeQRConnection(modal, resolve);
 
-  modal.querySelector("#bunker-scan-qr").addEventListener("click", async () => {
-    await initiateBunkerQRFlow(resolve);
+  // Back button - always works
+  modal.querySelector("#back-to-login-btn").addEventListener("click", () => {
+    cleanupBunkerAttempt();
+    showLoginPrompt();
   });
 
-  modal
-    .querySelector("#bunker-enter-uri")
-    .addEventListener("click", async () => {
-      await initiateBunkerURIFlow(resolve);
+  // URI connection button
+  modal.querySelector("#connect-bunker-uri-btn").addEventListener("click", async () => {
+    await handleURIConnection(modal, resolve);
+  });
+}
+async function handleURIConnection(modal, resolve) {
+  const input = modal.querySelector("#bunker-uri-input");
+  const bunkerInput = input.value.trim();
+
+  if (!bunkerInput) {
+    updateBunkerStatus(modal, "❌ Please enter a bunker URI", true);
+    return;
+  }
+
+  // Cancel any active QR connection
+  cleanupBunkerAttempt();
+
+  const statusEl = modal.querySelector("#bunker-status p");
+  statusEl.textContent = "🔗 Connecting to bunker...";
+
+  // Disable input during connection
+  input.disabled = true;
+  modal.querySelector("#connect-bunker-uri-btn").disabled = true;
+
+  let pool = null;
+
+  try {
+    const bunkerPointer = await parseBunkerInput(bunkerInput);
+
+    if (!bunkerPointer?.pubkey || !bunkerPointer?.relays?.length) {
+      throw new Error("Invalid bunker URI or NIP-05 identifier");
+    }
+
+    console.log("%c[Bunker URI] Parsed:", "color: purple", {
+      remotePubkey: bunkerPointer.pubkey.substring(0, 16) + "...",
+      relays: bunkerPointer.relays,
     });
 
-  modal
-    .querySelector("#bunker-back-btn")
-    .addEventListener("click", async () => {
-      await showLoginPrompt();
-    });
+    const localSecretKey = window.NostrTools.generateSecretKey();
+    pool = new window.NostrTools.SimplePool();
+
+    const bunker = BunkerSigner.fromBunker(localSecretKey, bunkerPointer, { pool });
+
+    statusEl.textContent = "🔐 Requesting authorization...";
+
+    await Promise.race([
+      bunker.connect(),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("CONNECTION_TIMEOUT")), 30000)
+      ),
+    ]);
+
+    statusEl.textContent = "✅ Authorized! Getting public key...";
+
+    const pubkey = await Promise.race([
+      bunker.getPublicKey(),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("PUBKEY_TIMEOUT")), 10000)
+      ),
+    ]);
+
+    console.log("%c[Bunker URI] Success!", "color: green; font-weight: bold");
+
+    await completeBunkerLogin(bunker, localSecretKey, pubkey, pool, bunkerPointer);
+    resolve();
+
+  } catch (error) {
+    console.error("%c[Bunker URI] Failed:", "color: red", error);
+    
+    if (pool) {
+      pool.close(bunkerPointer?.relays || []);
+    }
+
+    let errorMsg = "Connection failed";
+    if (error.message.includes("TIMEOUT")) {
+      errorMsg = "Connection timed out. Is your bunker app running?";
+    } else if (error.message.includes("Invalid")) {
+      errorMsg = "Invalid bunker URI format";
+    } else {
+      errorMsg = error.message;
+    }
+
+    updateBunkerStatus(modal, "❌ " + errorMsg, true);
+
+    // Re-enable input
+    input.disabled = false;
+    input.value = "";
+    modal.querySelector("#connect-bunker-uri-btn").disabled = false;
+  }
 }
 
+function updateBunkerStatus(modal, message, isError = false) {
+  const statusEl = modal.querySelector("#bunker-status");
+  if (statusEl) {
+    statusEl.innerHTML = `<p class="${isError ? 'error-text' : ''}">${message}</p>`;
+  }
+}
+let activeQRConnection = null; // Track active connection attempt
+
+function initializeQRConnection(modal, resolve) {
+  console.log("%c[Bunker QR] Initializing QR connection", "color: blue");
+
+  try {
+    // Generate client keypair
+    const localSecretKey = window.NostrTools.generateSecretKey();
+    const clientPubkey = window.NostrTools.getPublicKey(localSecretKey);
+
+    // Generate connection secret
+    const connectionSecret = window.NostrTools.generateSecretKey();
+    const secretString = Array.from(connectionSecret)
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("")
+      .substring(0, 32);
+
+    const relays = [
+      "wss://relay.damus.io",
+      "wss://relay.primal.net",
+      "wss://nos.lol",
+    ];
+
+    const connectionUri = createNostrConnectURI({
+      clientPubkey,
+      relays,
+      secret: secretString,
+      name: "Vutr",
+    });
+
+    // Display QR code
+    const qrDisplay = modal.querySelector("#qr-display");
+    qrDisplay.innerHTML = generateQrCode(connectionUri);
+
+    // Copy button
+    modal.querySelector("#copy-client-uri-btn").addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(connectionUri);
+        const btn = modal.querySelector("#copy-client-uri-btn");
+        const originalText = btn.textContent;
+        btn.textContent = "✓ Copied!";
+        setTimeout(() => (btn.textContent = originalText), 2000);
+      } catch (err) {
+        console.error("Copy failed:", err);
+      }
+    });
+
+    // Start listening for connection (non-blocking)
+    activeQRConnection = {
+      localSecretKey,
+      connectionUri,
+      relays,
+      pool: new window.NostrTools.SimplePool(),
+      cancelled: false
+    };
+
+    waitForQRConnection(activeQRConnection, modal, resolve);
+
+  } catch (error) {
+    console.error("%c[Bunker QR] Setup failed:", "color: red", error);
+    updateBunkerStatus(modal, "❌ QR code generation failed", true);
+  }
+}
+
+async function waitForQRConnection(connection, modal, resolve) {
+  const statusEl = modal.querySelector("#bunker-status p");
+  statusEl.textContent = "⏳ Waiting for your bunker app to scan...";
+
+  try {
+    console.log("%c[Bunker QR] Listening for connection (60s)", "color: blue");
+
+    // Wait for connection with timeout
+    const signer = await Promise.race([
+      BunkerSigner.fromURI(connection.localSecretKey, connection.connectionUri, { 
+        pool: connection.pool 
+      }),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("QR_TIMEOUT")), 60000)
+      ),
+      // Add cancellation promise
+      new Promise((_, reject) => {
+        const checkCancelled = setInterval(() => {
+          if (connection.cancelled) {
+            clearInterval(checkCancelled);
+            reject(new Error("CANCELLED"));
+          }
+        }, 500);
+      })
+    ]);
+
+    if (connection.cancelled) return;
+
+    statusEl.textContent = "✅ Connected! Getting your public key...";
+
+    const pubkey = await Promise.race([
+      signer.getPublicKey(),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("PUBKEY_TIMEOUT")), 10000)
+      )
+    ]);
+
+    if (connection.cancelled) {
+      connection.pool.close(connection.relays);
+      return;
+    }
+
+    console.log("%c[Bunker QR] Success!", "color: green; font-weight: bold");
+
+    const bunkerPointer = signer.bp;
+    await completeBunkerLogin(
+      signer,
+      connection.localSecretKey,
+      pubkey,
+      connection.pool,
+      bunkerPointer
+    );
+    
+    activeQRConnection = null;
+    resolve();
+
+  } catch (error) {
+    if (connection.cancelled) {
+      console.log("%c[Bunker QR] Connection attempt cancelled", "color: orange");
+      return;
+    }
+
+    console.error("%c[Bunker QR] Failed:", "color: red", error);
+    connection.pool.close(connection.relays);
+    
+    if (error.message === "QR_TIMEOUT") {
+      updateBunkerStatus(modal, "⏱️ QR code expired. Please try again.", true);
+    } else {
+      updateBunkerStatus(modal, "❌ Connection failed: " + error.message, true);
+    }
+    
+    activeQRConnection = null;
+  }
+}
+
+function cleanupBunkerAttempt() {
+  console.log("%c[Bunker] Cleaning up active connection attempt", "color: orange");
+  
+  if (activeQRConnection) {
+    activeQRConnection.cancelled = true;
+    if (activeQRConnection.pool) {
+      activeQRConnection.pool.close(activeQRConnection.relays);
+    }
+    activeQRConnection = null;
+  }
+}
 async function initiateBunkerQRFlow(resolve) {
   console.log(
     "%c[Bunker QR] Starting QR flow",
@@ -950,76 +1235,54 @@ async function completeBunkerLogin(
 }
 
 async function attemptBunkerLogin() {
-  console.log(
-    "%c[Bunker Reconnect] Attempting to reconnect with saved data",
-    "color: cyan; font-weight: bold"
-  );
+  console.log("%c[Bunker Reconnect] Starting", "color: cyan; font-weight: bold");
 
   const savedBunkerData = localStorage.getItem("bunker_connection_data");
 
   if (!savedBunkerData) {
-    console.warn(
-      "%c[Bunker Reconnect] No saved bunker connection found",
-      "color: cyan"
-    );
-    throw new Error("No saved bunker connection");
+    throw new Error("NO_SAVED_DATA");
   }
 
-  const bunkerData = JSON.parse(savedBunkerData);
-
-  // Validate saved data
-  if (!bunkerData.localSk || !bunkerData.bunkerPointer) {
-    console.error(
-      "%c[Bunker Reconnect] Invalid saved bunker data",
-      "color: red"
-    );
+  let bunkerData;
+  try {
+    bunkerData = JSON.parse(savedBunkerData);
+  } catch (e) {
+    console.error("%c[Bunker Reconnect] Invalid JSON", "color: red");
     localStorage.removeItem("bunker_connection_data");
-    throw new Error("Invalid saved bunker data");
+    throw new Error("INVALID_SAVED_DATA");
+  }
+
+  // Validate structure
+  if (!bunkerData.localSk || !bunkerData.bunkerPointer?.pubkey || 
+      !bunkerData.bunkerPointer?.relays?.length) {
+    console.error("%c[Bunker Reconnect] Invalid structure", "color: red");
+    localStorage.removeItem("bunker_connection_data");
+    throw new Error("CORRUPTED_DATA");
   }
 
   const bp = bunkerData.bunkerPointer;
-  if (!bp.pubkey || !bp.relays || bp.relays.length === 0) {
-    console.error("%c[Bunker Reconnect] Invalid bunkerPointer", "color: red");
-    localStorage.removeItem("bunker_connection_data");
-    throw new Error("Invalid bunkerPointer structure");
-  }
-
-  console.log("%c[Bunker Reconnect] Restoring connection:", "color: cyan", {
-    remotePubkey: bp.pubkey.substring(0, 16) + "...",
-    relays: bp.relays,
-    hasSecret: !!bp.secret,
-  });
-
   const localSecretKey = new Uint8Array(bunkerData.localSk);
   const pool = new window.NostrTools.SimplePool();
 
-  const bunker = BunkerSigner.fromBunker(localSecretKey, bp, { pool });
-
-  console.log(
-    "%c[Bunker Reconnect] Signer created, verifying connection (15s timeout)",
-    "color: cyan"
-  );
-  
-  // Update spinner with more detailed message
-  showLoginSpinner("Verifying bunker connection...", true);
+  console.log("%c[Bunker Reconnect] Attempting connection", "color: cyan");
 
   try {
+    const bunker = BunkerSigner.fromBunker(localSecretKey, bp, { pool });
+
+    // Shorter timeout for reconnection
     const pubkey = await Promise.race([
       bunker.getPublicKey(),
       new Promise((_, reject) =>
-        setTimeout(
-          () => reject(new Error("Bunker verification timeout")),
-          15000
-        )
+        setTimeout(() => reject(new Error("RECONNECT_TIMEOUT")), 10000)
       ),
     ]);
 
     const npub = window.NostrTools.nip19.npubEncode(pubkey);
-    console.log(
-      "%c[Bunker Reconnect] ✅ Connection verified:",
-      "color: green; font-weight: bold",
-      npub
-    );
+    console.log("%c[Bunker Reconnect] ✅ Success", "color: green; font-weight: bold");
+
+    // Update last used
+    bunkerData.lastUsed = Date.now();
+    localStorage.setItem("bunker_connection_data", JSON.stringify(bunkerData));
 
     updateApp({
       isLoggedIn: true,
@@ -1034,17 +1297,20 @@ async function attemptBunkerLogin() {
       bunkerPool: pool,
     });
 
-    console.log(
-      "%c[Bunker Reconnect] ✅ Reconnected successfully",
-      "color: green; font-weight: bold"
-    );
   } catch (error) {
     console.error("%c[Bunker Reconnect] Failed:", "color: red", error);
     pool.close(bp.relays);
+    
+    // Clean up bad data on timeout
+    if (error.message === "RECONNECT_TIMEOUT") {
+      console.log("%c[Bunker Reconnect] Timeout - clearing data", "color: orange");
+      localStorage.removeItem("bunker_connection_data");
+      localStorage.removeItem("preferredLoginMethod");
+    }
+    
     throw error;
   }
 }
-
 async function signEventWithBunker(eventTemplate) {
   if (!app.bunkerSigner) {
     console.error("%c[Bunker Sign] Bunker signer not available", "color: red");
@@ -1216,6 +1482,85 @@ async function resetBunkerConnection() {
   }
 }
 
+/**
+ * Dedicated login modal system - completely separate from universal modals
+ * Only closes when login succeeds or user explicitly cancels
+ */
+function createLoginModal(title, content) {
+  // Remove any existing login modal first
+  removeLoginModal();
+  
+  const overlay = document.createElement("div");
+  overlay.id = "dedicated-login-overlay";
+  overlay.className = "login-modal-overlay";
+  
+  const modal = document.createElement("div");
+  modal.className = "login-modal";
+  modal.innerHTML = `
+    <h3 class="login-modal-title">${title}</h3>
+    <div class="login-modal-body">${content}</div>
+  `;
+  
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  
+  // CRITICAL: Prevent closing on overlay click
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) {
+      // Do nothing - login modal must stay open
+      console.log("%c[Login Modal] Overlay click prevented - login required", "color: orange");
+    }
+  });
+  
+  return modal;
+}
+
+function updateLoginModalContent(title, content) {
+  const modal = document.querySelector("#dedicated-login-overlay .login-modal");
+  if (modal) {
+    const titleEl = modal.querySelector(".login-modal-title");
+    const bodyEl = modal.querySelector(".login-modal-body");
+    
+    if (titleEl) titleEl.textContent = title;
+    if (bodyEl) bodyEl.innerHTML = content;
+  }
+}
+
+function removeLoginModal() {
+  const overlay = document.getElementById("dedicated-login-overlay");
+  if (overlay) {
+    overlay.remove();
+  }
+}
+
+function showLoginSpinner(message = "Connecting...", showResetButton = false) {
+  const resetButtonHtml = showResetButton ? `
+    <button id="reset-bunker-btn" class="btn-secondary" style="margin-top: 20px;">
+      🔄 Reset Bunker Connection
+    </button>
+  ` : '';
+  
+  updateLoginModalContent("Authenticating", `
+    <div class="connecting-status">
+      <div class="login-spinner"></div>
+      <p>${message}</p>
+      ${resetButtonHtml}
+    </div>
+  `);
+  
+  // Add event listener if button was added
+  if (showResetButton) {
+    setTimeout(() => {
+      const resetBtn = document.getElementById("reset-bunker-btn");
+      if (resetBtn) {
+        resetBtn.addEventListener("click", async () => {
+          console.log("%c[Bunker Reset] User requested bunker reset", "color: orange; font-weight: bold");
+          await resetBunkerConnection();
+        });
+      }
+    }, 100);
+  }
+}
 ///////////
 
 async function handleSignOut() {

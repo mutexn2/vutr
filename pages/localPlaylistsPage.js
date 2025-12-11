@@ -412,7 +412,7 @@ function truncateText(text, maxLength) {
 }
 
 function createPlaylist(title, description = "", image = "") {
-  const dTag = `vutr-${generateId()}`;
+  const dTag = `${generateId()}`;
   
   const playlist = {
     id: generateId(),

@@ -23,7 +23,7 @@ let config = {
         ["d", "asdasdaszxczcxzxzdadasdas"],
         ["title", "Fast"],
         ["relay", "wss://relay.damus.io"],
-        ["relay", "wss://relay.snort.social"],
+        ["relay", "wss://relay.primal.net"],
       ],
     },
     Nostrmom: {
@@ -32,6 +32,7 @@ let config = {
         ["d", "asdasdaszx123123czcxzxzdadasdas"],
         ["title", "Nostrmom"],
         ["relay", "wss://nostr.mom"],
+        ["relay", "wss://offchain.pub"],
       ],
     },
     Nostrlol: {
@@ -40,6 +41,7 @@ let config = {
         ["d", "asdasdaszxczcxzxzdadasdfgdfgddas"],
         ["title", "Nostrlol"],
         ["relay", "wss://nos.lol"],
+        ["relay", "wss://yabu.me"],
       ],
     },
     Robust: {
@@ -47,6 +49,7 @@ let config = {
       tags: [
         ["d", "asdasdaszxczcxzxzdazxczcxvbbbdasdas"],
         ["title", "Robust"],
+        ["relay", "wss://ditto.pub/relay"],
         ["relay", "wss://nos.lol"],
         ["relay", "wss://relay.nostr.band"],
         ["relay", "wss://relay.damus.io"],

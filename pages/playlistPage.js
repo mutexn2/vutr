@@ -908,10 +908,8 @@ function copyNetworkPlaylistToLocal(networkPlaylist) {
   const description = getValueFromTags(networkPlaylist, "description", "");
   const image = getValueFromTags(networkPlaylist, "image", "");
   
-  const dTag = `vutr-${generateId()}`;
+  const dTag = `${generateId()}`;
   
-  // OLD: const videoTags = networkPlaylist.tags.filter(tag => tag[0] === "a");
-  // NEW:
   const videoTags = networkPlaylist.tags.filter(tag => tag[0] === "e");
   
   const localPlaylist = {

@@ -1074,15 +1074,15 @@ async function extractCompleteVideoMetadata(blob, mimeType, fileSize) {
       const signedVideoEvent = await handleEventSigning(eventData);
       console.log("Event signed successfully!");
 
-      const shouldPublish = await confirmModal(
+/*       const shouldPublish = await confirmModal(
         "Published events can't be edited.",
         "Publish Kind-21 Event"
-      );
+      ); 
 
       if (!shouldPublish) {
         console.log("Publication cancelled by user");
         return;
-      }
+      }*/
 
       submitButton.textContent = "Publishing...";
       submitButton.disabled = true;

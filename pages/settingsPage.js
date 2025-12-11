@@ -939,7 +939,7 @@ function getActiveSearchRelay() {
 function setActiveSearchRelay(relayUrl) {
   localStorage.setItem("activeSearchRelay", relayUrl);
   console.log(`Set active search relay to: ${relayUrl}`);
-  location.reload();
+//  location.reload();
 }
 
 function addSearchRelay(relayUrl) {

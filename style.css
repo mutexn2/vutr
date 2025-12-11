@@ -3147,7 +3147,6 @@ nostr-picture::part(img) {
   padding: 4px;
   width: 100%;
   max-width: 720px;
-  margin-bottom: 8px;
 }
 
 .info-container:hover {
@@ -6150,10 +6149,6 @@ main {
 
   .container {
     padding: 10px;
-  }
-
-  .info-container {
-    margin-top: 10px;
   }
 
   .video-title {
@@ -11832,56 +11827,6 @@ noscript {
 }
 
 /******************************************************/
-/***************login modal*************************/
-.login-modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.7);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 10000;
-}
-
-.login-modal {
-  background: var(--background);
-  color: var(--text);
-  padding: 2rem;
-  border-radius: 12px;
-  max-width: 400px;
-  text-align: center;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-}
-
-.login-modal h3 {
-  margin-bottom: 1rem;
-  color: var(--primary);
-}
-
-.login-modal p {
-  margin-bottom: 1.5rem;
-  line-height: 1.5;
-}
-
-.login-buttons {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.login-buttons button,
-.bunker-login-modal button {
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 8px;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-  border: 1px solid var(--border);
-}
 
 /* .primary-btn {
   background: var(--background);
@@ -13664,6 +13609,59 @@ input[type="number"] {
   }
 }
 
+/***************login modal*************************/
+.login-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10000;
+}
+
+.login-modal {
+  background: var(--background);
+  color: var(--text);
+  padding: 2rem;
+  border-radius: 12px;
+  width: inherit;
+  max-width: 400px;
+  text-align: center;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  overflow-y: scroll;
+  height: inherit;
+}
+
+.login-modal h3 {
+  margin-bottom: 1rem;
+  color: var(--primary);
+}
+
+.login-modal p {
+  margin-bottom: 1.5rem;
+  line-height: 1.5;
+}
+
+.login-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.login-buttons button,
+.bunker-login-modal button {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  border: 1px solid var(--border);
+}
 
 /***********bunker***********/
 .bunker-login-modal {
@@ -13810,3 +13808,5 @@ input[type="number"] {
   cursor: pointer;
   color: var(--primary);
 }
+
+/***********************************************/

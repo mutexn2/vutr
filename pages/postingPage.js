@@ -260,7 +260,8 @@ function renderWizardForm() {
 
             <div class="form-group">
               <label>Event Discovery Relays</label>
-              <p class="help-text">Select specific relays to include in the event for discovery:</p>
+              <p class="help-text">Select relays to include in the event tags for discovery:</p>
+              <p>only select relays you are sure will accept the event</p>
               <div id="event-relay-selection" class="event-relay-selection"></div>
               <p class="relay-count-info"><span id="event-relay-count">0</span> relays selected</p>
             </div>

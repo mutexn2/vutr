@@ -223,49 +223,6 @@ function setupSettingsMenuEvents(menuElement) {
   });
 }
 
-async function handleSignOut() {
-  const confirmSignOut = confirm('Are you sure you want to sign out?');
-  
-  if (confirmSignOut) {
-    console.log("%c[Sign Out] User confirmed sign out", "color: red; font-weight: bold");
-    
-    // Clean up bunker connection if it exists
-    if (app.loginMethod === 'bunker') {
-      console.log("%c[Sign Out] Cleaning up bunker connection", "color: red");
-      await cleanupBunkerConnection();
-    }
-    
-    // Remove login preferences
-    localStorage.removeItem('preferredLoginMethod');
-    
-    // Only remove bunker data on logout (not guest data)
-    if (app.loginMethod === 'bunker') {
-      localStorage.removeItem('bunker_connection_data');
-    }
-    
-    // IMPORTANT: DO NOT remove guest data - preserve for reuse
-    // Guest keys stay in localStorage permanently unless explicitly deleted
-    console.log("%c[Sign Out] Guest keys preserved for future use", "color: blue");
-    
-    console.log("%c[Sign Out] Updating app state", "color: red");
-    updateApp({
-      isLoggedIn: false,
-      myPk: null,
-      myNpub: null,
-      isGuest: false,
-      guestSk: null,
-      loginMethod: null,
-      bunkerSigner: null,
-      bunkerLocalSk: null,
-      bunkerPointer: null,
-      bunkerPool: null
-    });
-    
-    console.log("%c[Sign Out] ✅ Sign out complete, reloading page", "color: red; font-weight: bold");
-    window.location.reload();
-  }
-}
-
 async function getAppVersion() {
   try {
     const cache = await self.caches.open('version-cache');

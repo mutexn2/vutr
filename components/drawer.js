@@ -430,7 +430,7 @@ function getSectionTwoItems() {
     { id: "localfollows", icon: "📺", text: "Following" },
     { id: "localplaylists", icon: "📒", text: "Local Playlists" },
     { id: "liked", icon: "👍", text: "liked" },
-    { id: "kind1follows", icon: "🫂", text: "friends" },
+    { id: "kind1follows", icon: "🫂", text: "kind:3" },
     { id: "singlerelay", icon: "🔭", text: "Relay" },    
   //  { id: "tag", icon: "🧩", text: "tags" },
   //  { id: "contact", icon: "💬", text: "Help" },

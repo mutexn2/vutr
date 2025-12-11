@@ -136,7 +136,10 @@
             }
             // Clear the flag before reload
             this.updateNotificationShown = false;
-            window.location.reload();
+          //  window.location.reload();
+            setTimeout(() => {
+              window.location.reload(true);
+            }, 1500);          
           });
       },
     };

@@ -712,11 +712,31 @@ function removeLoginModal() {
   }
 }
 
-function showLoginSpinner(message = "Connecting...") {
+function showLoginSpinner(message = "Connecting...", showResetButton = false) {
+  const resetButtonHtml = showResetButton ? `
+    <button id="reset-bunker-btn" class="btn-secondary" style="margin-top: 20px;">
+      🔄 Reset Bunker Connection
+    </button>
+  ` : '';
+  
   updateLoginModalContent("Authenticating", `
     <div class="connecting-status">
       <div class="login-spinner"></div>
       <p>${message}</p>
+      ${resetButtonHtml}
     </div>
   `);
+  
+  // Add event listener if button was added
+  if (showResetButton) {
+    setTimeout(() => {
+      const resetBtn = document.getElementById("reset-bunker-btn");
+      if (resetBtn) {
+        resetBtn.addEventListener("click", async () => {
+          console.log("%c[Bunker Reset] User requested bunker reset", "color: orange; font-weight: bold");
+          await resetBunkerConnection();
+        });
+      }
+    }, 100);
+  }
 }

@@ -23,7 +23,7 @@ async function followsFeedPageHandler() {
         <button class="source-tab-button ${
           pubkeySource === "friends" ? "active" : ""
         }" data-source="friends">
-          Friends (kind-3)
+          (kind:3)
         </button>
       </div>
 
@@ -136,7 +136,7 @@ async function followsFeedPageHandler() {
         if (!kindThreeEvents || kindThreeEvents.length === 0) {
           headerElement.innerHTML = `
       <h2>No Kind-3 Following List</h2>
-      <p>You don't have a kind-3 following list published. Visit the <a href="#kind1follows">Friends</a> page to see more details.</p>
+      <p>You don't have kind:3 following list published. Visit the <a href="#kind1follows">kind:3</a> page to see more details.</p>
     `;
           return null;
         }
@@ -151,13 +151,13 @@ async function followsFeedPageHandler() {
 
         if (!followedPubkeys || followedPubkeys.length === 0) {
           headerElement.innerHTML = `
-      <h2>No Friends Followed</h2>
-      <p>Your kind-3 following list exists but doesn't contain any followed users. Visit the <a href="#kind1follows">Friends</a> page to add some friends.</p>
+      <h2>No pubkeys Followed</h2>
+      <p>Your kind:3 following list exists but doesn't contain any followed users. Visit the <a href="#kind1follows">kind:3</a> page.</p>
     `;
           return null;
         }
 
-        sourceLabel = "Friends (kind-3)";
+        sourceLabel = "kind:3";
         return followedPubkeys;
       };
       // Start the retry process

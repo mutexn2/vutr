@@ -445,158 +445,170 @@ async function contactPageHandler() {
     this.style.height = Math.min(this.scrollHeight, 120) + "px";
   });
 
-  // Send functionality
-  sendButton.addEventListener("click", async () => {
-    if (messageInput.value.trim()) {
-      await sendChatMessage(messageInput.value.trim());
-      messageInput.value = "";
-      messageInput.style.height = "auto";
+  // Helper function to send message and reset UI
+  async function handleSendMessage() {
+    const content = messageInput.value.trim();
+    if (!content) return;
+
+    // Clear input immediately for better UX
+    messageInput.value = "";
+    messageInput.style.height = "auto";
+
+    try {
+      // Send with default POW (no options needed)
+      await sendChatMessage(content);
+      
+      // Scroll to bottom after successful send
       setTimeout(() => scrollToBottom(), 100);
+    } catch (error) {
+      // Error is already handled in sendChatMessage
+      // Optionally restore the message on error
+      console.error("Failed to send message:", error);
+      // messageInput.value = content; // Uncomment if you want to restore text on error
     }
-  });
+  }
+
+  // Send button click
+  sendButton.addEventListener("click", handleSendMessage);
 
   // Enter key to send
   messageInput.addEventListener("keydown", async (e) => {
-    const isMobile =
-      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+    if (e.key === "Enter") {
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
         navigator.userAgent
       );
 
-    if (e.key === "Enter") {
+      // On mobile or with Shift key, allow new line
       if (isMobile || e.shiftKey) {
         return;
-      } else {
-        e.preventDefault();
-        if (messageInput.value.trim()) {
-          await sendChatMessage(messageInput.value.trim());
-          messageInput.value = "";
-          messageInput.style.height = "auto";
-          setTimeout(() => scrollToBottom(), 100);
-        }
       }
+      
+      // On desktop without Shift, send message
+      e.preventDefault();
+      await handleSendMessage();
     }
   });
 
+  // Cancel reply button
   const cancelReplyBtn = document.getElementById("cancel-reply-btn");
   cancelReplyBtn?.addEventListener("click", () => {
     clearReplyState();
   });
 
-try {
-  app.chatPool = new window.NostrTools.SimplePool();
-  const existingEvents = new Set();
-  let isInitialLoad = true;
-  let initialLoadCount = 0;
+  try {
+    app.chatPool = new window.NostrTools.SimplePool();
+    const existingEvents = new Set();
+    let isInitialLoad = true;
+    let initialLoadCount = 0;
 
-  // STEP 1: Load cached messages from localStorage
-  const cachedMessages = chatStorage.loadMessages();
-  if (cachedMessages.length > 0) {
-    console.log(`Rendering ${cachedMessages.length} cached messages...`);
-    
-    cachedMessages.forEach(event => {
-      if (!existingEvents.has(event.id)) {
-        existingEvents.add(event.id);
-        eventManager.processEvent(event);
-        
-        const meetsPow = eventMeetsPowRequirement(event);
-        if (meetsPow) {
-          initialLoadCount++;
-          setTimeout(() => renderInitialEvent(event, messagesContainer), 0);
-        }
-      }
-    });
-
-    // Hide loading indicator and scroll after cached messages are rendered
-    setTimeout(() => {
-      hideLoadingIndicator();
-      scrollToBottom(false);
-    }, 100);
-  }
-
-  // STEP 2: Determine the timestamp to start fetching from
-  const lastCachedTimestamp = chatStorage.getLastMessageTimestamp();
-  const fetchSince = lastCachedTimestamp 
-    ? lastCachedTimestamp - 300 // Start 5 minutes before last cached message for safety
-    : undefined; // If no cache, fetch normally with limit
-
-  // STEP 3: Subscribe to new messages from relays
-  const subscriptionFilter = {
-    kinds: [42],
-    "#e": ["39c44dcdd67271483f1c5217bcfd214c8c34980fa55f0f6b834a3e253e296c15"],
-  };
-
-  // If we have cached messages, fetch only newer ones
-  if (fetchSince) {
-    subscriptionFilter.since = fetchSince;
-    console.log(`Fetching messages since ${new Date(fetchSince * 1000).toISOString()}`);
-  } else {
-    // No cache, fetch with limit as before
-    subscriptionFilter.limit = 21;
-    console.log('No cached messages, fetching recent messages with limit');
-  }
-
-  app.chatSubscription = app.chatPool.subscribe(
-    app.chatRelays,
-    subscriptionFilter,
-    {
-      onevent(event) {
-        console.log("got event:", event);
-
-        if (existingEvents.has(event.id)) {
-          return;
-        }
-        existingEvents.add(event.id);
-
-        // Process through event manager
-        eventManager.processEvent(event);
-
-        // Check PoW requirement
-        const meetsPow = eventMeetsPowRequirement(event);
-        
-        if (meetsPow) {
-          if (isInitialLoad) {
+    // STEP 1: Load cached messages from localStorage
+    const cachedMessages = chatStorage.loadMessages();
+    if (cachedMessages.length > 0) {
+      console.log(`Rendering ${cachedMessages.length} cached messages...`);
+      
+      cachedMessages.forEach(event => {
+        if (!existingEvents.has(event.id)) {
+          existingEvents.add(event.id);
+          eventManager.processEvent(event);
+          
+          const meetsPow = eventMeetsPowRequirement(event);
+          if (meetsPow) {
             initialLoadCount++;
             setTimeout(() => renderInitialEvent(event, messagesContainer), 0);
-          } else {
-            appendNewMessage(event, messagesContainer);
           }
-        } else {
-          const eventPow = getEventPow(event);
-          console.log(`Filtered out event with PoW ${eventPow} (required: ${POW_DIFFICULTY})`);
         }
-      },
+      });
 
-oneose() {
-  console.log("End of stored events reached, got", initialLoadCount, "events");
-  isInitialLoad = false;
-  
-  if (cachedMessages.length === 0) {
-    hideLoadingIndicator();
-    setTimeout(() => scrollToBottom(false), 100);
-  }
-
-  chatStorage.saveMessages(eventManager.allEvents);
-
-  setTimeout(() => {
-    autoFetchMissingReferences();
-    loadAllVisibleReactions(); // Add this line
-    setTimeout(() => scrollToBottom(false), 300);
-  }, 500);
-},
-
-      onclose() {
-        console.log("Chat subscription closed");
-        // Save messages one last time when subscription closes
-        chatStorage.saveMessages(eventManager.allEvents);
-      },
+      // Hide loading indicator and scroll after cached messages are rendered
+      setTimeout(() => {
+        hideLoadingIndicator();
+        scrollToBottom(false);
+      }, 100);
     }
-  );
-} catch (error) {
-  console.error("Error setting up chat:", error);
-  showError(error);
-}
-}
 
+    // STEP 2: Determine the timestamp to start fetching from
+    const lastCachedTimestamp = chatStorage.getLastMessageTimestamp();
+    const fetchSince = lastCachedTimestamp 
+      ? lastCachedTimestamp - 300 // Start 5 minutes before last cached message for safety
+      : undefined; // If no cache, fetch normally with limit
+
+    // STEP 3: Subscribe to new messages from relays
+    const subscriptionFilter = {
+      kinds: [42],
+      "#e": ["39c44dcdd67271483f1c5217bcfd214c8c34980fa55f0f6b834a3e253e296c15"],
+    };
+
+    // If we have cached messages, fetch only newer ones
+    if (fetchSince) {
+      subscriptionFilter.since = fetchSince;
+      console.log(`Fetching messages since ${new Date(fetchSince * 1000).toISOString()}`);
+    } else {
+      // No cache, fetch with limit as before
+      subscriptionFilter.limit = 21;
+      console.log('No cached messages, fetching recent messages with limit');
+    }
+
+    app.chatSubscription = app.chatPool.subscribe(
+      app.chatRelays,
+      subscriptionFilter,
+      {
+        onevent(event) {
+          console.log("got event:", event);
+
+          if (existingEvents.has(event.id)) {
+            return;
+          }
+          existingEvents.add(event.id);
+
+          // Process through event manager
+          eventManager.processEvent(event);
+
+          // Check PoW requirement
+          const meetsPow = eventMeetsPowRequirement(event);
+          
+          if (meetsPow) {
+            if (isInitialLoad) {
+              initialLoadCount++;
+              setTimeout(() => renderInitialEvent(event, messagesContainer), 0);
+            } else {
+              appendNewMessage(event, messagesContainer);
+            }
+          } else {
+            const eventPow = getEventPow(event);
+            console.log(`Filtered out event with PoW ${eventPow} (required: ${POW_DIFFICULTY})`);
+          }
+        },
+
+        oneose() {
+          console.log("End of stored events reached, got", initialLoadCount, "events");
+          isInitialLoad = false;
+          
+          if (cachedMessages.length === 0) {
+            hideLoadingIndicator();
+            setTimeout(() => scrollToBottom(false), 100);
+          }
+
+          chatStorage.saveMessages(eventManager.allEvents);
+
+          setTimeout(() => {
+            autoFetchMissingReferences();
+            loadAllVisibleReactions();
+            setTimeout(() => scrollToBottom(false), 300);
+          }, 500);
+        },
+
+        onclose() {
+          console.log("Chat subscription closed");
+          // Save messages one last time when subscription closes
+          chatStorage.saveMessages(eventManager.allEvents);
+        },
+      }
+    );
+  } catch (error) {
+    console.error("Error setting up chat:", error);
+    showError(error);
+  }
+}
 function renderInitialEvent(event, container) {
   const messageElement = createMessageElement(event);
   eventManager.insertMessageInChronologicalOrder(messageElement, event);
@@ -1384,12 +1396,11 @@ function copyToClipboard(text, buttonElement) {
       console.error("Failed to copy:", err);
     });
 }
-
-async function sendChatMessage(content) {
-  if (!app.isLoggedIn || (!app.myPk && !app.guestSk)) {
-    showTemporaryNotification("❌ Please log in to send messages");
-    return;
-  }
+async function sendChatMessage(content, options = {}) {
+  const { 
+    powDifficulty = POW_DIFFICULTY, // Default to global POW_DIFFICULTY
+    minePow = true // Option to enable/disable POW mining
+  } = options;
 
   const sendButton = document.getElementById("send-button");
 
@@ -1406,9 +1417,7 @@ async function sendChatMessage(content) {
       created_at: Math.floor(Date.now() / 1000),
       content: content,
       tags: [],
-      pubkey: app.loginMethod === 'guest' 
-        ? window.NostrTools.getPublicKey(app.guestSk) 
-        : app.myPk
+      pubkey: app.myPk // Use app.myPk directly - works for all login methods
     };
 
     // Add tags
@@ -1422,56 +1431,66 @@ async function sendChatMessage(content) {
       messageEvent.tags = [["e", chatRoomId, relayHint, "root"]];
     }
 
-    // ALWAYS mine PoW (relay requires nonce tag even for difficulty 0)
-    console.log(`Mining PoW ${POW_DIFFICULTY}...`);
-    const eventToSign = window.NostrTools.nip13.minePow(messageEvent, POW_DIFFICULTY);
-    const minedPow = window.NostrTools.nip13.getPow(eventToSign.id);
-    console.log(`PoW mined: ${minedPow}`);
-    console.log("Event with nonce:", eventToSign);
+    // Mine PoW if enabled
+    let eventToSign = messageEvent;
+    if (minePow) {
+      console.log(`Mining PoW ${powDifficulty}...`);
+      eventToSign = window.NostrTools.nip13.minePow(messageEvent, powDifficulty);
+      const minedPow = window.NostrTools.nip13.getPow(eventToSign.id);
+      console.log(`PoW mined: ${minedPow}`);
+      console.log("Event with nonce:", eventToSign);
+    }
 
-    // Sign the mined event
+    // Sign the event using centralized signing function
     let signedMessageEvent;
-    if (app.loginMethod === 'guest') {
-      signedMessageEvent = window.NostrTools.finalizeEvent(eventToSign, app.guestSk);
-    } else if (app.loginMethod === 'extension') {
-      signedMessageEvent = await window.nostr.signEvent(eventToSign);
+    try {
+      signedMessageEvent = await handleEventSigning(eventToSign);
+    } catch (signingError) {
+      console.error("Signing error:", signingError);
       
-      // Verify extension didn't recalculate the ID
-      if (signedMessageEvent.id !== eventToSign.id) {
-        console.warn("Extension recalculated event ID, PoW was lost!");
-        showTemporaryNotification("⚠️ Your extension doesn't preserve PoW. Try guest mode.");
-        throw new Error("Extension doesn't support PoW mining");
+      // Special handling for extension + POW
+      if (app.loginMethod === 'extension' && minePow) {
+        // Check if extension recalculated the ID (losing PoW)
+        if (signedMessageEvent && signedMessageEvent.id !== eventToSign.id) {
+          console.warn("Extension recalculated event ID, PoW was lost!");
+          showTemporaryNotification("⚠️ Your extension doesn't preserve PoW. Try guest mode.");
+          throw new Error("Extension doesn't support PoW mining");
+        }
       }
-    } else {
-      throw new Error('Unknown login method');
+      throw signingError;
     }
 
     console.log("Final signed event:", signedMessageEvent);
     
-    // Verify nonce tag exists
-    const hasNonce = signedMessageEvent.tags.some(t => t[0] === 'nonce');
-    console.log("Has nonce tag:", hasNonce);
-    
-    if (!hasNonce) {
-      throw new Error("Event missing nonce tag!");
+    // Verify nonce tag exists if POW was mined
+    if (minePow) {
+      const hasNonce = signedMessageEvent.tags.some(t => t[0] === 'nonce');
+      console.log("Has nonce tag:", hasNonce);
+      
+      if (!hasNonce) {
+        throw new Error("Event missing nonce tag!");
+      }
+    }
+
+    // Validate event before publishing
+    console.log("Validating event before publish...");
+    const calculatedId = window.NostrTools.getEventHash(signedMessageEvent);
+    console.log("Calculated ID:", calculatedId);
+    console.log("Event ID:", signedMessageEvent.id);
+    console.log("IDs match:", calculatedId === signedMessageEvent.id);
+
+    const isValidSig = window.NostrTools.verifyEvent(signedMessageEvent);
+    console.log("Signature valid:", isValidSig);
+
+    if (!isValidSig) {
+      throw new Error("Event signature validation failed");
     }
 
     // Publish
     if (!app.chatRelays || app.chatRelays.length === 0) {
       throw new Error("No chat relays configured");
     }
-// Add this validation right before publishing
-console.log("Validating event before publish...");
 
-// Verify the event ID is correctly calculated
-const calculatedId = window.NostrTools.getEventHash(signedMessageEvent);
-console.log("Calculated ID:", calculatedId);
-console.log("Event ID:", signedMessageEvent.id);
-console.log("IDs match:", calculatedId === signedMessageEvent.id);
-
-// Verify the signature
-const isValidSig = window.NostrTools.verifyEvent(signedMessageEvent);
-console.log("Signature valid:", isValidSig);
     const result = await publishEvent(signedMessageEvent, app.chatRelays, {
       successMessage: "Message published successfully",
       errorMessage: "Failed to publish message",
@@ -1487,12 +1506,13 @@ console.log("Signature valid:", isValidSig);
     
   } catch (error) {
     console.error("Error sending message:", error);
-    showTemporaryNotification("❌ Failed to send: " + error.message);
+    showTemporaryNotification("✖ Failed to send: " + error.message);
   } finally {
     sendButton.disabled = false;
     sendButton.textContent = "Send";
   }
 }
+
 function setReplyState(event) {
   replyState.isReplying = true;
   replyState.replyToEvent = event;
@@ -1529,8 +1549,18 @@ function clearReplyState() {
   }
 }
 
+// Send with default POW
+/* await sendChatMessage("Hello world");
 
+// Send without POW
+await sendChatMessage("Hello world", { minePow: false });
 
+// Send with custom POW difficulty
+await sendChatMessage("Hello world", { powDifficulty: 20 });
+
+// Send with custom POW and difficulty
+await sendChatMessage("Hello world", { minePow: true, powDifficulty: 25 });
+ */
 ///////////////////////////
 // Check if event meets PoW requirements
 function eventMeetsPowRequirement(event) {

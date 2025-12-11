@@ -503,19 +503,16 @@ function signEventAsGuest(eventTemplate) {
     throw new Error("Guest login not available");
   }
 
-  if (confirm("Sign event with guest key?")) {
-    // If event already has an id (from mining), just sign it
-    const signedEvent = window.NostrTools.finalizeEvent(
-      eventTemplate,
-      app.guestSk
-    );
-    console.log(
-      "%c Signed Event as Guest",
-      "font-weight: bold; color: blue;",
-      JSON.stringify(signedEvent, null, 2)
-    );
-    return signedEvent;
-  }
+  const signedEvent = window.NostrTools.finalizeEvent(
+    eventTemplate,
+    app.guestSk
+  );
+  console.log(
+    "%c Signed Event as Guest",
+    "font-weight: bold; color: blue;",
+    JSON.stringify(signedEvent, null, 2)
+  );
+  return signedEvent;
 }
 
 /////////////////////
@@ -529,7 +526,7 @@ async function showBunkerLoginFlow(resolve) {
 
   if (savedBunkerData) {
     console.log("%c[Bunker] Reconnecting with saved data", "color: purple");
-    showLoginSpinner("Reconnecting to bunker...");
+    showLoginSpinner("Reconnecting to bunker...", true); // true enables reset button
     await attemptBunkerLogin();
     resolve();
     return;
@@ -970,7 +967,7 @@ async function attemptBunkerLogin() {
 
   const bunkerData = JSON.parse(savedBunkerData);
 
-  // Validate saved data - MUST have these fields
+  // Validate saved data
   if (!bunkerData.localSk || !bunkerData.bunkerPointer) {
     console.error(
       "%c[Bunker Reconnect] Invalid saved bunker data",
@@ -980,7 +977,6 @@ async function attemptBunkerLogin() {
     throw new Error("Invalid saved bunker data");
   }
 
-  // Validate bunkerPointer structure
   const bp = bunkerData.bunkerPointer;
   if (!bp.pubkey || !bp.relays || bp.relays.length === 0) {
     console.error("%c[Bunker Reconnect] Invalid bunkerPointer", "color: red");
@@ -997,18 +993,17 @@ async function attemptBunkerLogin() {
   const localSecretKey = new Uint8Array(bunkerData.localSk);
   const pool = new window.NostrTools.SimplePool();
 
-  // Create bunker signer using fromBunker (for reconnection)
-  // This is SYNCHRONOUS and sets up subscription immediately
   const bunker = BunkerSigner.fromBunker(localSecretKey, bp, { pool });
 
   console.log(
     "%c[Bunker Reconnect] Signer created, verifying connection (15s timeout)",
     "color: cyan"
   );
+  
+  // Update spinner with more detailed message
+  showLoginSpinner("Verifying bunker connection...", true);
 
   try {
-    // Verify connection by getting public key
-    // No need to call .connect() - fromBunker already set up subscription
     const pubkey = await Promise.race([
       bunker.getPublicKey(),
       new Promise((_, reject) =>
@@ -1026,7 +1021,6 @@ async function attemptBunkerLogin() {
       npub
     );
 
-    // Update app state
     updateApp({
       isLoggedIn: true,
       myPk: pubkey,
@@ -1045,7 +1039,6 @@ async function attemptBunkerLogin() {
       "color: green; font-weight: bold"
     );
   } catch (error) {
-    // Clean up pool on error
     console.error("%c[Bunker Reconnect] Failed:", "color: red", error);
     pool.close(bp.relays);
     throw error;
@@ -1190,6 +1183,87 @@ async function cleanupBunkerConnection() {
     "%c[Bunker Cleanup] ✅ Cleanup complete",
     "color: green; font-weight: bold"
   );
+}
+
+async function resetBunkerConnection() {
+  console.log("%c[Bunker Reset] Starting bunker reset", "color: orange; font-weight: bold");
+  
+  // Show confirmation
+  const confirmReset = confirm(
+    "This will remove your saved bunker connection and you'll need to reconnect. Continue?"
+  );
+  
+  if (!confirmReset) {
+    console.log("%c[Bunker Reset] User cancelled reset", "color: orange");
+    return;
+  }
+  
+  try {
+    // Clean up bunker connection
+    await cleanupBunkerConnection();
+    
+    // Remove preferred login method
+    localStorage.removeItem('preferredLoginMethod');
+    
+    console.log("%c[Bunker Reset] ✅ Bunker reset complete, reloading", "color: green; font-weight: bold");
+    
+    // Reload page to start fresh
+    window.location.reload(true);
+  } catch (error) {
+    console.error("%c[Bunker Reset] Error during reset:", "color: red", error);
+    alert("Error resetting bunker connection. Reloading page...");
+    window.location.reload(true);
+  }
+}
+
+///////////
+
+async function handleSignOut() {
+  const confirmSignOut = confirm('Are you sure you want to sign out?');
+  
+  if (confirmSignOut) {
+    console.log("%c[Sign Out] User confirmed sign out", "color: red; font-weight: bold");
+    
+    // Clean up bunker connection if it exists
+    if (app.loginMethod === 'bunker') {
+      console.log("%c[Sign Out] Cleaning up bunker connection", "color: red");
+      await cleanupBunkerConnection();
+    }
+    
+    // Remove login preferences
+    localStorage.removeItem('preferredLoginMethod');
+    
+    // Only remove bunker data on logout (not guest data)
+    if (app.loginMethod === 'bunker') {
+      localStorage.removeItem('bunker_connection_data');
+    }
+    
+    // IMPORTANT: DO NOT remove guest data - preserve for reuse
+    // Guest keys stay in localStorage permanently unless explicitly deleted
+    console.log("%c[Sign Out] Guest keys preserved for future use", "color: blue");
+    
+    console.log("%c[Sign Out] Updating app state", "color: red");
+    updateApp({
+      isLoggedIn: false,
+      myPk: null,
+      myNpub: null,
+      isGuest: false,
+      guestSk: null,
+      loginMethod: null,
+      bunkerSigner: null,
+      bunkerLocalSk: null,
+      bunkerPointer: null,
+      bunkerPool: null
+    });
+    
+    console.log("%c[Sign Out] ✅ Sign out complete, reloading page", "color: red; font-weight: bold");
+  //  window.location.reload();
+ //window.location.href = window.location.href + '?forceReload=' + Date.now();
+            setTimeout(() => {
+              window.location.reload(true);
+            }, 1500);
+
+  }
 }
 
 

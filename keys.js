@@ -1470,7 +1470,6 @@ async function resetBunkerConnection() {
     
     // Remove preferred login method
     localStorage.removeItem('preferredLoginMethod');
-    
     console.log("%c[Bunker Reset] ✅ Bunker reset complete, reloading", "color: green; font-weight: bold");
     
     // Reload page to start fresh
@@ -1600,7 +1599,8 @@ async function handleSignOut() {
       bunkerPointer: null,
       bunkerPool: null
     });
-    
+        showTemporaryNotification(`✅ Sign out complete, reloading page.`);
+
     console.log("%c[Sign Out] ✅ Sign out complete, reloading page", "color: red; font-weight: bold");
   //  window.location.reload();
  //window.location.href = window.location.href + '?forceReload=' + Date.now();

@@ -14421,3 +14421,135 @@ input[type="number"] {
   background-color: var(--border);
   cursor: not-allowed;
 }
+
+.blob-search-form {
+  display: flex;
+  gap: 10px;
+  margin: 15px 0;
+}
+
+.blob-check-summary {
+  padding: 15px;
+  background: rgba(59, 130, 246, 0.1);
+  border-radius: 5px;
+  margin: 15px 0;
+}
+
+.blob-check-summary code {
+  word-break: break-all;
+  display: block;
+  margin-top: 5px;
+}
+
+.blob-check-list {
+  margin: 15px 0;
+}
+
+.blob-check-row {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.blob-check-status {
+  flex: 1;
+  font-weight: 500;
+}
+
+.blob-preview-content {
+  margin: 15px 0;
+  padding: 15px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 5px;
+}
+
+#blobPreview h4 {
+  margin-bottom: 10px;
+}
+
+/* Auth controls - replaces inline styles */
+.auth-controls {
+  margin-top: 15px;
+  padding: 10px;
+  border-radius: 5px;
+  background-color: var(--surface);
+}
+
+.auth-controls-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.auth-controls-label input[type="checkbox"] {
+  width: auto;
+  cursor: pointer;
+}
+
+.auth-controls-description {
+  font-size: 0.85em;
+  margin: 5px 0 0 25px;
+  color: var(--text-secondary);
+}
+
+/* Current pubkey display */
+.blossom-current-pubkey {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin: 10px 0;
+}
+
+.blossom-current-pubkey code {
+  background: var(--background);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  color: var(--primary);
+}
+
+/* Blob publishers */
+.blob-publishers {
+  margin-top: 15px;
+  padding: 10px;
+  background: var(--background);
+  border-radius: 5px;
+  border: 1px solid var(--border);
+}
+
+.blob-publishers p {
+  margin: 5px 0;
+}
+
+.publisher-item {
+  display: inline-block;
+  margin: 2px;
+  padding: 2px 6px;
+  background: var(--surface);
+  border-radius: 3px;
+  font-size: 0.85em;
+}
+
+.publisher-item code {
+  color: var(--primary);
+}
+
+/* Modal auth status boxes - replaces inline styles */
+.server-auth-active {
+  padding: 10px;
+  border-radius: 5px;
+  margin: 10px 0;
+  background-color: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.server-auth-required {
+  padding: 10px;
+  border-radius: 5px;
+  margin: 10px 0;
+  background-color: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}

@@ -47,30 +47,30 @@ async function blossomPageHandler() {
 
     const targetNpub = getProfileNpub(targetPubkey);
 
-    blossomPageContainer.innerHTML = `
-      <div class="blossom-container">
-        <div class="blossom-header">
-          <h1>🌸 Blossom Servers</h1>
+blossomPageContainer.innerHTML = `
+<div class="blossom-container">
+  <div class="blossom-header">
+    <h1>🌸 Blossom Servers</h1>
+    <p class="blossom-current-pubkey">Current User: <code>${getProfileNpub(targetPubkey).substring(0, 16)}...${getProfileNpub(targetPubkey).slice(-8)}</code></p>
           
-          ${
-            app.isLoggedIn
-              ? `
-          <div class="auth-controls" style="margin-top: 15px; padding: 10px; border-radius: 5px;">
-            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-              <input type="checkbox" id="autoAuthToggle" ${
-                blossomAuthStore.getAutoAuth() ? "checked" : ""
-              } style="width: auto;">
-              <span>🔐 Auto-authenticate with servers (when required)</span>
-            </label>
-            <p style="font-size: 0.85em; margin: 5px 0 0 25px;">
-              When enabled, automatically sign and send auth events to servers that require authentication.
-            </p>
-          </div>
-          `
-              : ""
-          }
-          
-          <div class="blossom-pubkey-input" style="margin-top: 15px;">
+${
+  app.isLoggedIn
+    ? `
+<div class="auth-controls">
+  <label class="auth-controls-label">
+    <input type="checkbox" id="autoAuthToggle" ${
+      blossomAuthStore.getAutoAuth() ? "checked" : ""
+    }>
+    <span>🔐 Auto-authenticate with servers (when required)</span>
+  </label>
+  <p class="auth-controls-description">
+    When enabled, automatically sign and send auth events to servers that require authentication.
+  </p>
+</div>
+`
+    : ""
+}
+<div class="blossom-pubkey-input">
             <input type="text" id="blossomPubkeyInput" placeholder="Enter npub or hex pubkey..." class="url-input">
             <button id="blossomPubkeyGoBtn" class="btn-small">Go</button>
           </div>
@@ -176,7 +176,7 @@ async function initializeBlossomPage(targetPubkey, isCurrentUser) {
   let serverList = [];
 
   setupPubkeyInput();
-  setupAutoAuthToggle(); // Add this
+  setupAutoAuthToggle();
 
   if (isCurrentUser) {
     serverList = loadLocalServerList();
@@ -208,9 +208,11 @@ async function initializeBlossomPage(targetPubkey, isCurrentUser) {
     setupAddAllToMyListButton(serverList);
   }
 
+  // Add blob hash search feature
+  setupBlobHashSearch(serverList, isCurrentUser);
+  
   setupLoadFilesButton(serverList, targetPubkey, isCurrentUser);
 }
-
 // Add this new function
 function setupAutoAuthToggle() {
   const toggle = document.getElementById("autoAuthToggle");
@@ -330,7 +332,7 @@ function createServerRow(server, index, isCurrentUser, targetPubkey) {
     enableBtn.className = "btn-tiny enable-btn";
     enableBtn.dataset.index = index;
     enableBtn.textContent = server.enabled ? "Disable" : "Enable";
-    enableBtn.style.backgroundColor = server.enabled ? "#ef4444" : "#22c55e";
+    enableBtn.style.borderColor = server.enabled ? "#ef4444" : "#22c55e";
     serverActions.appendChild(enableBtn);
   }
 
@@ -613,26 +615,26 @@ async function showServerInfo(server) {
             : ""
         }
         
-        ${
-          authData
-            ? `
-        <div style="padding: 10px; border-radius: 5px; margin: 10px 0;">
-          <p><strong>🔓 Authentication Status:</strong> Active</p>
-          <p style="font-size: 0.9em;">
-            ${authData.message || "Authenticated"}<br>
-            Expires: ${new Date(authData.expiresAt * 1000).toLocaleString()}
-          </p>
-        </div>
-        `
-            : info.capabilities.requiresAuth
-            ? `
-        <div style="padding: 10px; border-radius: 5px; margin: 10px 0;">
-          <p><strong>🔒 Authentication:</strong> Required but not authenticated</p>
-          <p style="font-size: 0.9em;">Use the Auth button to authenticate with this server</p>
-        </div>
-        `
-            : ""
-        }
+${
+  authData
+    ? `
+<div class="server-auth-active">
+  <p><strong>🔓 Authentication Status:</strong> Active</p>
+  <p>
+    ${authData.message || "Authenticated"}<br>
+    Expires: ${new Date(authData.expiresAt * 1000).toLocaleString()}
+  </p>
+</div>
+`
+    : info.capabilities.requiresAuth
+    ? `
+<div class="server-auth-required">
+  <p><strong>🔒 Authentication:</strong> Required but not authenticated</p>
+  <p>Use the Auth button to authenticate with this server</p>
+</div>
+`
+    : ""
+}
         
         <h3>Capabilities</h3>
         <ul>
@@ -1623,4 +1625,411 @@ function extractSha256FromUrl(url) {
     return null;
   }
 }
+
+
+////
+/**
+ * Check if a blob exists on a server
+ * @param {string} serverUrl - The server URL
+ * @param {string} sha256 - The blob hash
+ * @returns {Promise<Object>} Result with exists status and metadata
+ */
+async function checkBlobOnServer(serverUrl, sha256) {
+  try {
+    const authData = blossomAuthStore.get(serverUrl);
+    const autoAuth = blossomAuthStore.getAutoAuth();
+
+    let response;
+
+    // Try with auth if available
+    if (authData) {
+      response = await authenticatedBlossomRequest(
+        `${serverUrl}/${sha256}`,
+        { method: "HEAD" },
+        authData.authEvent
+      );
+
+      // If auth failed and auto-auth is enabled, clear and retry
+      if (
+        (response.status === 401 || response.status === 403) &&
+        autoAuth &&
+        app.isLoggedIn
+      ) {
+        blossomAuthStore.set(serverUrl, null);
+        authData = null;
+      }
+    }
+
+    // Try without auth
+    if (!authData) {
+      response = await fetch(`${serverUrl}/${sha256}`, { method: "HEAD" });
+    }
+
+    // Auto-authenticate if needed
+    if (
+      (response.status === 401 || response.status === 403) &&
+      autoAuth &&
+      app.isLoggedIn
+    ) {
+      try {
+        const authResult = await authenticateWithBlossomServer(serverUrl, "get");
+        blossomAuthStore.set(serverUrl, authResult);
+        
+        response = await authenticatedBlossomRequest(
+          `${serverUrl}/${sha256}`,
+          { method: "HEAD" },
+          authResult.authEvent
+        );
+      } catch (authError) {
+        console.error(`Auto-auth failed for ${serverUrl}:`, authError);
+      }
+    }
+
+    const result = {
+      serverUrl,
+      exists: false,
+      status: response.status,
+      error: null,
+      metadata: {}
+    };
+
+    if (response.ok) {
+      result.exists = true;
+      result.metadata = {
+        contentType: response.headers.get("Content-Type"),
+        contentLength: response.headers.get("Content-Length"),
+        acceptRanges: response.headers.get("Accept-Ranges"),
+      };
+    } else if (response.status === 401 || response.status === 403) {
+      result.error = response.headers.get("X-Reason") || "Authentication required";
+    } else if (response.status === 402) {
+      result.error = response.headers.get("X-Reason") || "Payment required";
+    } else if (response.status === 404) {
+      result.exists = false;
+      result.error = "Blob not found";
+    } else {
+      result.error = response.headers.get("X-Reason") || `HTTP ${response.status}`;
+    }
+
+    return result;
+  } catch (error) {
+    return {
+      serverUrl,
+      exists: false,
+      status: null,
+      error: error.message,
+      metadata: {}
+    };
+  }
+}
+
+/**
+ * Check a blob across multiple servers
+ * @param {string} sha256 - The blob hash
+ * @param {Array<Object>} servers - Array of server objects with url property
+ * @returns {Promise<Array>} Array of check results
+ */
+async function checkBlobAcrossServers(sha256, servers) {
+  const results = await Promise.all(
+    servers.map(server => checkBlobOnServer(server.url, sha256))
+  );
+  return results;
+}
+
+/**
+ * Render blob check results in the UI
+ * @param {string} sha256 - The blob hash
+ * @param {Array} results - Array of check results
+ */
+function renderBlobCheckResults(sha256, results) {
+  const container = document.getElementById("blobCheckResults");
+  if (!container) return;
+
+  container.innerHTML = "";
+
+  // Summary
+  const foundServers = results.filter(r => r.exists);
+  const summaryDiv = document.createElement("div");
+  summaryDiv.className = "blob-check-summary";
+  summaryDiv.innerHTML = `
+    <h4>Blob Check Results</h4>
+    <p><strong>Hash:</strong> <code>${sha256}</code></p>
+    <p><strong>Found on:</strong> ${foundServers.length} / ${results.length} server(s)</p>
+    <div id="blobPublishers" class="blob-publishers">
+      <p><em>Searching for publishers...</em></p>
+    </div>
+  `;
+  container.appendChild(summaryDiv);
+
+  // Find and display publishers
+  findBlobPublishers(sha256).then(pubkeys => {
+    const publishersDiv = document.getElementById("blobPublishers");
+    if (!publishersDiv) return;
+
+    if (pubkeys.length === 0) {
+      publishersDiv.innerHTML = `<p><strong>Publishers:</strong> <em>None found on relays</em></p>`;
+    } else {
+      const publishersList = pubkeys.map(pk => {
+        const npub = getProfileNpub(pk);
+        return `<span class="publisher-item"><code>${npub.substring(0, 16)}...${npub.slice(-8)}</code></span>`;
+      }).join(", ");
+      
+      publishersDiv.innerHTML = `<p><strong>Publishers (${pubkeys.length}):</strong> ${publishersList}</p>`;
+    }
+  });
+
+  // Individual results
+  const resultsDiv = document.createElement("div");
+  resultsDiv.className = "blob-check-list";
+
+  results.forEach(result => {
+    const resultRow = document.createElement("div");
+    resultRow.className = "blob-check-row";
+
+    const serverSpan = document.createElement("span");
+    serverSpan.className = "server-url";
+    serverSpan.textContent = new URL(result.serverUrl).hostname;
+    serverSpan.title = result.serverUrl;
+    resultRow.appendChild(serverSpan);
+
+    const statusSpan = document.createElement("span");
+    statusSpan.className = "blob-check-status";
+    
+    if (result.exists) {
+      statusSpan.innerHTML = "✓ Found";
+      statusSpan.style.color = "#22c55e";
+      statusSpan.title = `${result.metadata.contentType || 'unknown type'} - ${formatBytes(parseInt(result.metadata.contentLength) || 0)}`;
+    } else if (result.error) {
+      if (result.status === 401 || result.status === 403) {
+        statusSpan.innerHTML = "🔐 Auth Required";
+        statusSpan.style.color = "#3b82f6";
+      } else if (result.status === 402) {
+        statusSpan.innerHTML = "💰 Payment Required";
+        statusSpan.style.color = "#f59e0b";
+      } else {
+        statusSpan.innerHTML = "✗ " + result.error;
+        statusSpan.style.color = "#ef4444";
+      }
+      statusSpan.title = result.error;
+    }
+    
+    resultRow.appendChild(statusSpan);
+
+    // Add open button if blob exists
+    if (result.exists) {
+      const openBtn = document.createElement("a");
+      openBtn.href = `${result.serverUrl}/${sha256}`;
+      openBtn.target = "_blank";
+      openBtn.className = "btn-tiny";
+      openBtn.textContent = "Open";
+      openBtn.style.marginLeft = "10px";
+      resultRow.appendChild(openBtn);
+    }
+
+    resultsDiv.appendChild(resultRow);
+  });
+
+  container.appendChild(resultsDiv);
+
+  // If blob was found, try to render it
+  const firstFound = foundServers[0];
+  if (firstFound) {
+    renderBlobPreview(sha256, firstFound);
+  }
+}
+
+/**
+ * Render a preview of the blob
+ * @param {string} sha256 - The blob hash
+ * @param {Object} result - The check result with metadata
+ */
+function renderBlobPreview(sha256, result) {
+  const previewContainer = document.getElementById("blobPreview");
+  if (!previewContainer) return;
+
+  const contentType = result.metadata.contentType || "";
+  const blobUrl = `${result.serverUrl}/${sha256}`;
+
+  previewContainer.innerHTML = `<h4>Blob Preview</h4>`;
+
+  const previewDiv = document.createElement("div");
+  previewDiv.className = "blob-preview-content";
+
+  if (contentType.startsWith("image/")) {
+    const img = document.createElement("img");
+    img.src = blobUrl;
+    img.alt = "Blob preview";
+    img.style.maxWidth = "100%";
+    img.style.maxHeight = "500px";
+    previewDiv.appendChild(img);
+  } else if (contentType.startsWith("video/")) {
+    const video = document.createElement("video");
+    video.src = blobUrl;
+    video.controls = true;
+    video.style.maxWidth = "100%";
+    video.style.maxHeight = "500px";
+    previewDiv.appendChild(video);
+  } else if (contentType.startsWith("audio/")) {
+    const audio = document.createElement("audio");
+    audio.src = blobUrl;
+    audio.controls = true;
+    audio.style.width = "100%";
+    previewDiv.appendChild(audio);
+  } else if (contentType === "application/pdf") {
+    const embed = document.createElement("embed");
+    embed.src = blobUrl;
+    embed.type = "application/pdf";
+    embed.style.width = "100%";
+    embed.style.height = "500px";
+    previewDiv.appendChild(embed);
+  } else if (contentType.startsWith("text/")) {
+    const pre = document.createElement("pre");
+    pre.textContent = "Loading...";
+    previewDiv.appendChild(pre);
+    
+    fetch(blobUrl)
+      .then(r => r.text())
+      .then(text => {
+        pre.textContent = text.substring(0, 5000); // Limit text preview
+        if (text.length > 5000) {
+          pre.textContent += "\n\n... (truncated)";
+        }
+      })
+      .catch(err => {
+        pre.textContent = `Failed to load: ${err.message}`;
+      });
+  } else {
+    const info = document.createElement("p");
+    info.innerHTML = `
+      <strong>Type:</strong> ${contentType || "Unknown"}<br>
+      <strong>Size:</strong> ${formatBytes(parseInt(result.metadata.contentLength) || 0)}<br>
+      <a href="${blobUrl}" target="_blank" class="btn-small">Download</a>
+    `;
+    previewDiv.appendChild(info);
+  }
+
+  previewContainer.appendChild(previewDiv);
+}
+
+/**
+ * Setup the blob hash search UI and handlers
+ * @param {Array} serverList - The server list
+ * @param {boolean} isCurrentUser - Whether viewing own servers
+ */
+function setupBlobHashSearch(serverList, isCurrentUser) {
+  const searchContainer = document.createElement("div");
+  searchContainer.className = "blossom-section";
+  searchContainer.innerHTML = `
+    <h3>Search Blob by Hash</h3>
+    <p class="tab-description">
+      Check if a specific blob exists on ${isCurrentUser ? "your enabled" : "these"} servers.
+    </p>
+    <div class="blob-search-form">
+      <input 
+        type="text" 
+        id="blobHashInput" 
+        placeholder="Enter 64-character SHA-256 hash..." 
+        class="url-input"
+        pattern="[a-fA-F0-9]{64}"
+        maxlength="64"
+      >
+      <button id="checkBlobBtn" class="btn-small">Check Blob</button>
+    </div>
+    <div id="blobCheckResults"></div>
+    <div id="blobPreview"></div>
+  `;
+
+  const filesSection = document.getElementById("filesSection");
+  if (filesSection) {
+    filesSection.parentNode.insertBefore(searchContainer, filesSection);
+  }
+
+  const input = document.getElementById("blobHashInput");
+  const checkBtn = document.getElementById("checkBlobBtn");
+
+  const checkBlob = async () => {
+    const hash = input.value.trim().toLowerCase();
+    
+    if (!hash) {
+      showTemporaryNotification("Please enter a blob hash");
+      return;
+    }
+
+    if (!/^[a-f0-9]{64}$/.test(hash)) {
+      showTemporaryNotification("Invalid hash format (must be 64 hex characters)");
+      return;
+    }
+
+    checkBtn.disabled = true;
+    checkBtn.textContent = "Checking...";
+
+    const resultsContainer = document.getElementById("blobCheckResults");
+    const previewContainer = document.getElementById("blobPreview");
+    resultsContainer.innerHTML = '<div class="loading-indicator">Checking servers...</div>';
+    previewContainer.innerHTML = "";
+
+    try {
+      const serversToCheck = isCurrentUser 
+        ? serverList.filter(s => s.enabled)
+        : serverList;
+
+      if (serversToCheck.length === 0) {
+        resultsContainer.innerHTML = '<p class="placeholder-text">No servers to check.</p>';
+        return;
+      }
+
+      const results = await checkBlobAcrossServers(hash, serversToCheck);
+      renderBlobCheckResults(hash, results);
+
+      const foundCount = results.filter(r => r.exists).length;
+      showTemporaryNotification(
+        foundCount > 0 
+          ? `✓ Blob found on ${foundCount} server(s)`
+          : "Blob not found on any server"
+      );
+    } catch (error) {
+      console.error("Error checking blob:", error);
+      resultsContainer.innerHTML = `<p class="error-text">Error: ${error.message}</p>`;
+      showTemporaryNotification("❌ Failed to check blob");
+    } finally {
+      checkBtn.disabled = false;
+      checkBtn.textContent = "Check Blob";
+    }
+  };
+
+  checkBtn.addEventListener("click", checkBlob);
+  input.addEventListener("keypress", (e) => {
+    if (e.key === "Enter") checkBlob();
+  });
+}
+
+/**
+ * Find publishers of a specific blob by searching for kind 1063 events
+ * @param {string} sha256 - The blob hash
+ * @returns {Promise<Array>} Array of pubkeys
+ */
+async function findBlobPublishers(sha256) {
+  try {
+    const allRelays = [...app.globalRelays];
+    const pool = new window.NostrTools.SimplePool();
+    const filter = {
+      kinds: [1063], // Media events
+      "#x": [sha256],
+      limit: 50
+    };
+
+    const events = await pool.querySync(allRelays, filter);
+    pool.close(allRelays);
+
+    // Extract unique pubkeys
+    const pubkeys = [...new Set(events.map(e => e.pubkey))];
+    console.log(`Found ${pubkeys.length} publisher(s) for blob ${sha256}`);
+    
+    return pubkeys;
+  } catch (error) {
+    console.error("Error finding blob publishers:", error);
+    return [];
+  }
+}
+
 console.log("🌸 Blossom page loaded with enhanced capabilities");

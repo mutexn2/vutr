@@ -12,7 +12,7 @@ async function relaySetsDiscoveryPageHandler() {
   // Parse URL parameters for tab selection
   const currentHash = window.location.hash;
   const urlParams = new URLSearchParams(currentHash.split('?')[1] || '');
-  const pubkeySource = urlParams.get('source') || 'latest'; // 'latest', 'local', or 'friends'
+  const pubkeySource = urlParams.get('source') || 'latest'; // 'latest', 'local', or 'kind3'
 
   mainContent.innerHTML = `
     <h1>Discovering Relay sets</h1>
@@ -24,8 +24,8 @@ async function relaySetsDiscoveryPageHandler() {
         <button class="source-tab-button ${pubkeySource === 'local' ? 'active' : ''}" data-source="local">
           Subscriptions
         </button>
-        <button class="source-tab-button ${pubkeySource === 'friends' ? 'active' : ''}" data-source="friends">
-          Friends (kind-3)
+        <button class="source-tab-button ${pubkeySource === 'kind3' ? 'active' : ''}" data-source="kind3">
+          (kind-3)
         </button>
       </div>
       
@@ -81,7 +81,7 @@ async function relaySetsDiscoveryPageHandler() {
       return;
     }
     sourceLabel = 'Subscriptions';
-  } else if (pubkeySource === 'friends') {
+  } else if (pubkeySource === 'kind3') {
     // Get kind-3 pubkeys with retry logic
     let retries = 0;
     const maxRetries = 3;
@@ -93,7 +93,7 @@ async function relaySetsDiscoveryPageHandler() {
     }
     
     if (!app.myPk) {
-      showTabContentMessage('Login Required', 'You need to be logged in to view your friends\' relay sets. Please <a href="#login">log in</a> first.');
+      showTabContentMessage('Login Required', 'You need to be logged in to view your kind3s\' relay sets. Please <a href="#login">log in</a> first.');
       return;
     }
 
@@ -108,7 +108,7 @@ async function relaySetsDiscoveryPageHandler() {
     });
     
     if (!kindThreeEvents || kindThreeEvents.length === 0) {
-      showTabContentMessage('No Kind-3 Following List', 'You don\'t have a kind-3 following list published. Visit the <a href="#kind1follows">Friends</a> page to see more details.');
+      showTabContentMessage('No Kind-3 Following List', 'You don\'t have a kind-3 following list published. Visit the <a href="#kind1follows">kind:3</a> page to see more details.');
       return;
     }
     
@@ -121,11 +121,11 @@ async function relaySetsDiscoveryPageHandler() {
       .map(tag => tag[1]);
     
     if (!followedPubkeys || followedPubkeys.length === 0) {
-      showTabContentMessage('No Friends Followed', 'Your kind-3 following list exists but doesn\'t contain any followed users. Visit the <a href="#kind1follows">Friends</a> page to add some friends.');
+      showTabContentMessage('No pubkeys Followed', 'Your kind-3 following list exists but doesn\'t contain any followed users. Visit the <a href="#kind1follows">kind:3</a> page to add some.');
       return;
     }
     
-    sourceLabel = 'Friends (kind-3)';
+    sourceLabel = '(kind-3)';
   }
 
   const rSets = document.querySelector('.videos-listview');
@@ -183,7 +183,7 @@ async function relaySetsDiscoveryPageHandler() {
     // Build the filter
     const filter = { kinds: [30002], limit: 100 };
     
-    // Add authors filter for local/friends mode
+    // Add authors filter for local/kind3 mode
     if (followedPubkeys) {
       filter.authors = followedPubkeys;
       console.log(`Subscribing to kind:30002 events from ${followedPubkeys.length} followed pubkeys on ${relaysToUse.length} relays`);

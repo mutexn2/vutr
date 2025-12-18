@@ -13875,7 +13875,7 @@ input[type="number"] {
   color: var(--text);
 }
 
-.tab-description {
+.blossom-container .tab-description {
   color: var(--text);
   margin-bottom: 20px;
   font-size: 0.95rem;
@@ -13997,7 +13997,7 @@ input[type="number"] {
 }
 
 /* Buttons */
-.btn {
+.blossom-container .btn {
   padding: 10px 20px;
   background: var(--background);
   color: var(--text);
@@ -14009,23 +14009,23 @@ input[type="number"] {
   transition: all 0.2s ease;
 }
 
-.btn:hover {
+.blossom-container .btn:hover {
   background: var(--surface);
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-.btn:active {
+.blossom-container .btn:active {
   transform: translateY(0);
 }
 
-.btn:disabled {
+.blossom-container .btn:disabled {
   background: var(--border);
   cursor: not-allowed;
   transform: none;
 }
 
-.btn-small {
+.blossom-container .btn-small {
   padding: 8px 16px;
   background: var(--background);
   color: var(--text);
@@ -14036,11 +14036,11 @@ input[type="number"] {
   transition: background 0.2s ease;
 }
 
-.btn-small:hover {
+.blossom-container .btn-small:hover {
   background: var(--surface);
 }
 
-.btn-tiny {
+.blossom-container .btn-tiny {
   padding: 4px 10px;
   background: var(--background);
   color: var(--text);
@@ -14052,18 +14052,18 @@ input[type="number"] {
   white-space: nowrap;
 }
 
-.btn-tiny:hover {
+.blossom-container .btn-tiny:hover {
   background: var(--surface);
   border-color: var(--primary);
 }
 
-.remove-btn {
+.blossom-container .remove-btn {
   background: var(--background);
   color: #c00;
   border-color: var(--border);
 }
 
-.remove-btn:hover {
+.blossom-container .remove-btn:hover {
   background: var(--surface);
   border-color: red;
 }

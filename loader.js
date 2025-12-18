@@ -180,10 +180,6 @@
       // 9-2025
       "lib/nostr-web-components.js",
 
-      //"https://unpkg.com/window.nostr.js/dist/window.nostr.js",
-      // not used - will apply directly from nostr-tools or find something better
-      //"lib/window.nostr.js",
-
       // - visit https://github.com/danielgjackson/qrcodejs - direct download as a .js file
       "lib/qrcode.js",
 
@@ -228,13 +224,11 @@
       "pages/playlistPage.js",
       "pages/playlistHistoryPage.js",
       "pages/playlistsPage.js",
-      //  "pages/queueHistoryPage.js",
       "pages/localPlaylistsPage.js",
       "pages/localPlaylistPage.js",
       "pages/profilePage.js",
       "pages/profileEditPage.js",
       "pages/notifyPage.js",
-      "pages/listPage.js",
       "pages/likedPage.js",
       "pages/kind1FollowsPage.js",
       "pages/kindOnesHomePage.js",
@@ -247,7 +241,6 @@
       "pages/nakPage.js",
       "pages/shortsPage.js",
       "pages/homePage.js",
-      //     "pages/newHomePage.js",
       "pages/offlinePage.js",
       "pages/aboutPage.js",
       "nostr.js",

@@ -158,9 +158,7 @@ let app = {
 
 let routes = {
   "#home": homePageHandler,
-  //  "#newhome": newHomePageHandler,
   "#shorts": shortsPageHandler,
-  "#list": listPageHandler,
   "#liked": likedPageHandler,
   "#saved": bookmarksPageHandler,
   "#bookmarkedplaylists": bookmarkedListsPageHandler,
@@ -178,7 +176,6 @@ let routes = {
   "#localplaylists": localPlaylistsPageHandler,
   "#playlist": playlistPageHandler,
   "#playlists": playlistsPageHandler,
-  //"#queue": queueHistoryPageHandler,
   "#post": postingPageHandler,
   "#singlerelay": singleRelayPageHandler,
   "#contact": contactPageHandler,

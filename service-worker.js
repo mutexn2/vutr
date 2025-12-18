@@ -1,4 +1,4 @@
-const CACHE_VERSION = "vutr-v0.000214402";
+const CACHE_VERSION = "vutr-v0.000214409";
 
 const BASE_PATH = self.location.pathname.replace("service-worker.js", "");
 
@@ -15,7 +15,6 @@ const APP_SHELL_PATHS = [
   "/lib/nostr-gadgets.js",
   "/lib/purify.min.js",
   "/lib/nostr-web-components.js",
-  //"lib/window.nostr.js",
   "/lib/qrcode.js",
   "/lib/blurhash.js",
   "/loader.js",
@@ -50,7 +49,6 @@ const APP_SHELL_PATHS = [
   "/pages/playlistPage.js",
   "/pages/playlistHistoryPage.js",
   "/pages/playlistsPage.js",
- // "/pages/queueHistoryPage.js",
   "/pages/localPlaylistsPage.js",
   "/pages/localPlaylistPage.js",
   "/pages/postingPage.js",
@@ -63,7 +61,6 @@ const APP_SHELL_PATHS = [
   "/pages/profilePage.js",
   "/pages/profileEditPage.js",
   "/pages/notifyPage.js",
-  "/pages/listPage.js",
   "/pages/likedPage.js",
   "/pages/kind1FollowsPage.js",
   "/pages/kindOnesHomePage.js",
@@ -76,7 +73,6 @@ const APP_SHELL_PATHS = [
   "/pages/nakPage.js",
   "/pages/shortsPage.js",
   "/pages/homePage.js",
-//  "/pages/newHomePage.js",
   "/pages/offlinePage.js",
   "/pages/aboutPage.js",
   "/nostr.js",

@@ -21,8 +21,8 @@ async function followsFeedPageHandler() {
           Local Subscriptions
         </button>
         <button class="source-tab-button ${
-          pubkeySource === "friends" ? "active" : ""
-        }" data-source="friends">
+          pubkeySource === "kind3" ? "active" : ""
+        }" data-source="kind3">
           (kind:3)
         </button>
       </div>
@@ -102,7 +102,7 @@ async function followsFeedPageHandler() {
     let followedPubkeys;
     let sourceLabel;
 
-    if (pubkeySource === "friends") {
+    if (pubkeySource === "kind3") {
       // Get kind-3 pubkeys with retry logic for app.myPk
       let retries = 0;
       const maxRetries = 3;
@@ -122,7 +122,7 @@ async function followsFeedPageHandler() {
           } else {
             headerElement.innerHTML = `
         <h2>Login Required</h2>
-        <p>You need to be logged in to view your friends feed. Please <a href="#login">log in</a> first.</p>
+        <p>You need to be logged in to view your kind:3 feed. Please <a href="#login">log in</a> first.</p>
       `;
             return null;
           }
@@ -181,8 +181,8 @@ async function followsFeedPageHandler() {
     // Final check if we have pubkeys
     if (!followedPubkeys || followedPubkeys.length === 0) {
       const linkTarget =
-        pubkeySource === "friends" ? "#kind1follows" : "#follows";
-      const linkText = pubkeySource === "friends" ? "Friends" : "Following";
+        pubkeySource === "kind3" ? "#kind1follows" : "#follows";
+      const linkText = pubkeySource === "kind3" ? "Kind3" : "Following";
       headerElement.innerHTML = `
         <h2>No Followed Channels</h2>
         <p>You haven't followed any channels yet. Visit the <a href="${linkTarget}">${linkText}</a> page to start following channels!</p>

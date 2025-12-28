@@ -215,9 +215,6 @@ async function fetchVideoDataProgressive(urlParams) {
   return createNotFoundVideoPlaceholder(videoId);
 }
 
-
-
-
 function showError(message) {
 showTemporaryNotification(message);
 }
@@ -286,75 +283,84 @@ function renderVideoPage(video, videoId, pageHash, shouldAutoplay = false) {
       </div>
     </div>
 
-    <div class="info-containers">
-      <div class="info-container social-info">
-        <details>
-          <summary class="video-title">
-            <span class="arrow">!</span>
-          </summary>
-          <div class="video-content">
-            <div class="social-data">
-              <div class="content-section">
-                <h4>Description:</h4>
-                <p class="video-description"></p>
-              </div>
-              <div class="tags-section">
-                <h4>Tags:</h4>
-                <p class="video-tags"></p>
-              </div>
-              <div class="relays-section">
-                <h4>Originally published on:</h4>
-                <p class="video-relays"></p>
-              </div>
-              <div class="time-section">
-                <h4>Published:</h4>
-                <p class="video-time"></p>
-              </div>
-            </div>
-          </div>
-        </details>
-      </div>
-
-      <div class="info-container technical-info">
-        <details>
-          <summary class="technical-title">
-            <span class="technical-summary"></span>
-            <span class="arrow">!</span>
-          </summary>
-          <div class="technical-content">
-            <div class="technical-data">
-              <div class="url-section">
-                <h4>Direct URL:</h4>
-                <p class="technical-url"></p>
-              </div>
-              <div class="filename-section">
-                <h4>File Name:</h4>
-                <p class="technical-filename"></p>
-              </div>
-              <div class="hash-section">
-                <h4>Content Hash (x tag):</h4>
-                <p class="technical-hash"></p>
-              </div>
-              <div class="validation-section">
-                <button class="validate-blossom-btn">Validate Blossom</button>
-                <button class="full-check-btn" style="display: none;">Full Metadata Check</button>
-                <div id="validationResults" class="validation-results"></div>
-              </div>
-            </div>
-          </div>
-        </details>
-      </div>
-
-      <div class="info-container comments-info">
-        <details id="comments-details">
-          <summary class="comments-summary">
-            <span class="comments-summary-text">Comments (<span id="comment-count">0</span>)</span>
-            <span class="arrow">!</span>
-          </summary>
-          <div class="comments-container"></div>
-        </details>
+<div class="info-tabs-wrapper">
+  <div class="info-tabs-header">
+    <button class="info-tab-button active" data-tab="social-info">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+      </svg>
+      About
+    </button>
+    <button class="info-tab-button" data-tab="technical-info">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+      </svg>
+      Blob
+    </button>
+    <button class="info-tab-button" data-tab="comments-info">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.76c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.076-4.076a1.526 1.526 0 011.037-.443 48.282 48.282 0 005.68-.494c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
+      </svg>
+      Comments (<span id="comment-count">0</span>)
+    </button>
+  </div>
+  
+  <div class="info-tabs-content">
+    <div class="info-tab-panel active" data-panel="social-info">
+      <div class="social-data">
+        <div class="video-title-header">
+          <h3 class="video-title-text"></h3>
+        </div>
+        <div class="content-section">
+          <h4>Description:</h4>
+          <p class="video-description"></p>
+        </div>
+        <div class="tags-section">
+          <h4>Tags:</h4>
+          <p class="video-tags"></p>
+        </div>
+        <div class="relays-section">
+          <h4>Originally published on:</h4>
+          <p class="video-relays"></p>
+        </div>
+        <div class="time-section">
+          <h4>Published:</h4>
+          <p class="video-time"></p>
+        </div>
       </div>
     </div>
+
+    <div class="info-tab-panel" data-panel="technical-info">
+      <div class="technical-data">
+        <div class="technical-summary-header">
+          <h3 class="technical-summary"></h3>
+        </div>
+        <div class="url-section">
+          <h4>Direct URL:</h4>
+          <p class="technical-url"></p>
+        </div>
+        <div class="filename-section">
+          <h4>File Name:</h4>
+          <p class="technical-filename"></p>
+        </div>
+        <div class="hash-section">
+          <h4>Content Hash (x tag):</h4>
+          <p class="technical-hash"></p>
+        </div>
+        <div class="validation-section">
+          <button class="validate-blossom-btn">Validate Blossom</button>
+          <button class="full-check-btn" style="display: none;">Full Metadata Check</button>
+          <div id="validationResults" class="validation-results"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="info-tab-panel" data-panel="comments-info">
+      <div class="comments-container"></div>
+    </div>
+  </div>
+</div>
   </div>
 </div>
   `;
@@ -370,8 +376,6 @@ function renderVideoPage(video, videoId, pageHash, shouldAutoplay = false) {
 
   updateVideoPagePlaylistInfo();
 }
-
-
 
 function setupVideoPageContent(video, videoId, title, content, relativeTime, pubkey, mimeType, url) {
   const pageKey = app.currentPageCleanupKey || 'videoPage_default';
@@ -404,39 +408,13 @@ function setupVideoPageContent(video, videoId, title, content, relativeTime, pub
     window.location.hash = `#profile/${pubkey}`;
   }, pageKey);
 
-  // Social info
-  let videoTitle = mainContent.querySelector(".video-title");
-  let titleSpan = document.createElement("span");
-  titleSpan.textContent = title;
-  videoTitle.insertBefore(titleSpan, videoTitle.querySelector(".arrow"));
-
+  // Social info - using new tab structure
+  mainContent.querySelector(".video-title-text").textContent = title;
   mainContent.querySelector(".video-description").textContent = content;
   mainContent.querySelector(".video-time").textContent = relativeTime;
 
-/*   // Setup tags, technical info, action buttons
-  setupVideoTags(video, pageKey);
-  setupTechnicalInfo(video, url, pageKey);
-  setupActionButtons(video, videoId, title, url, mimeType, content, relativeTime, pubkey, pageKey);
- */
-
-
-
   let videoTags = mainContent.querySelector(".video-tags");
   let videoRelays = mainContent.querySelector(".video-relays");
-
-
-  // Technical info references
-  let technicalSummary = mainContent.querySelector(".technical-summary");
-  let technicalUrl = mainContent.querySelector(".technical-url");
-  let technicalFilename = mainContent.querySelector(".technical-filename");
-  let technicalHash = mainContent.querySelector(".technical-hash");
-
-
-
-
-
-
-
 
   // Extract and display tags (make them clickable)
   const tTags = video.tags.filter(tag => tag[0] === 't').map(tag => tag[1]);
@@ -572,24 +550,14 @@ function setupVideoPageContent(video, videoId, title, content, relativeTime, pub
     if (isBlossomUrl) {
       validateBtn.textContent = 'Validate Blossom';
     } else {
-      validateBtn.textContent = 'Full Metada44k';
+      validateBtn.textContent = 'Full Metadata Check';
     }
 
-// Setup auto-validation when video is sufficiently loaded
-/* if (isBlossomUrl && !cachedValidation) {
-  // Check if auto-validation is enabled
-  const autoValidationEnabled = localStorage.getItem("autoBlossomValidation") !== "false";
-  
-  if (autoValidationEnabled) {
-    setupAutoBlossomValidation(directUrl, filename, technicalSummary, validationResults, fileExtension, dimensions, fileSize, pageKey);
-  }
-}
- */
     // Validate button handler - tracked
     const validateBtnHandler = async () => {
       if (!isBlossomUrl) {
         // Not a Blossom URL, go to full check page
-      //  window.location.hash = `#blob/${encodeURIComponent(directUrl)}`;
+        window.location.hash = `#blob/${encodeURIComponent(directUrl)}`;
         return;
       }
       
@@ -658,7 +626,7 @@ function setupVideoPageContent(video, videoId, title, content, relativeTime, pub
 
     // Full check button handler - tracked
     const fullCheckBtnHandler = () => {
-     // window.location.hash = `#blob/${encodeURIComponent(directUrl)}`;
+     window.location.hash = `#blob/${encodeURIComponent(directUrl)}`;
     };
     addTrackedEventListener(fullCheckBtn, 'click', fullCheckBtnHandler, pageKey);
     
@@ -675,9 +643,9 @@ function setupVideoPageContent(video, videoId, title, content, relativeTime, pub
     technicalHash.textContent = 'N/A';
     
     let validateBtn = mainContent.querySelector(".validate-blossom-btn");
-    validateBtn.textContent = '123';
+    validateBtn.textContent = 'Full Metadata Check';
     const validateBtnHandler = () => {
-    //  window.location.hash = `#blob/${encodeURIComponent(url)}`;
+      window.location.hash = `#blob/${encodeURIComponent(url)}`;
     };
     addTrackedEventListener(validateBtn, 'click', validateBtnHandler, pageKey);
   }
@@ -823,11 +791,17 @@ function setupVideoPageContent(video, videoId, title, content, relativeTime, pub
     addTrackedEventListener(likeBtn, 'click', likeLoginHandler, pageKey);
   }
 
-let commentBtn = mainContent.querySelector("#action-comment-btn");
-const commentBtnHandler = () => {
-  openCommentModal(videoId, video);
-};
-addTrackedEventListener(commentBtn, 'click', commentBtnHandler, pageKey);
+  let commentBtn = mainContent.querySelector("#action-comment-btn");
+  const commentBtnHandler = () => {
+    // Switch to comments tab
+    const commentsTabButton = document.querySelector('[data-tab="comments-info"]');
+    if (commentsTabButton) {
+      commentsTabButton.click();
+    }
+    // Open comment modal
+    openCommentModal(videoId, video);
+  };
+  addTrackedEventListener(commentBtn, 'click', commentBtnHandler, pageKey);
   
   // Bookmark button handler - tracked
   const bookmarkBtnHandler = () => {
@@ -913,17 +887,36 @@ addTrackedEventListener(commentBtn, 'click', commentBtnHandler, pageKey);
   };
   addTrackedEventListener(moreBtn, 'click', moreBtnHandler, pageKey);
 
-
+  // Setup info tabs
+  setupInfoTabs();
 }
 
+function setupInfoTabs() {
+  const pageKey = app.currentPageCleanupKey || 'videoPage_default';
+  const tabButtons = document.querySelectorAll('.info-tab-button');
+  const tabPanels = document.querySelectorAll('.info-tab-panel');
 
+  tabButtons.forEach(button => {
+    const tabClickHandler = () => {
+      const targetTab = button.dataset.tab;
+      
+      // Remove active class from all buttons and panels
+      tabButtons.forEach(btn => btn.classList.remove('active'));
+      tabPanels.forEach(panel => panel.classList.remove('active'));
+      
+      // Add active class to clicked button and corresponding panel
+      button.classList.add('active');
+      const targetPanel = document.querySelector(`[data-panel="${targetTab}"]`);
+      if (targetPanel) {
+        targetPanel.classList.add('active');
+      }
+    };
+    
+    addTrackedEventListener(button, 'click', tabClickHandler, pageKey);
+  });
+}
 //////////////////////////
 ////////////////////////////
-
-
-
-//////////
-// Helper function to extract hostname from URL
 function extractHostname(url) {
   try {
     const urlObj = new URL(url);
@@ -1331,22 +1324,14 @@ function addVideoToBookmarks(video, videoId) {
       };
     }
 
-    // OLD: const aTag = ["a", `${video.kind}:${videoId}`];
-    // NEW:
     const eTag = ["e", videoId];
 
-    // OLD: const existingIndex = app.bookmarkedVideos.tags.findIndex(
-    //   (tag) => tag[0] === "a" && tag[1] === aTag[1]
-    // );
-    
-    // NEW:
     const existingIndex = app.bookmarkedVideos.tags.findIndex(
       (tag) => tag[0] === "e" && tag[1] === videoId
     );
 
     if (existingIndex === -1) {
-      // OLD: app.bookmarkedVideos.tags.push(aTag);
-      // NEW:
+
       app.bookmarkedVideos.tags.push(eTag);
 
       localStorage.setItem(
@@ -1371,11 +1356,6 @@ function removeVideoFromBookmarks(videoId) {
 
     const initialLength = app.bookmarkedVideos.tags.length;
 
-    // OLD: app.bookmarkedVideos.tags = app.bookmarkedVideos.tags.filter(
-    //   (tag) => !(tag[0] === "a" && tag[1].includes(videoId))
-    // );
-    
-    // NEW:
     app.bookmarkedVideos.tags = app.bookmarkedVideos.tags.filter(
       (tag) => !(tag[0] === "e" && tag[1] === videoId)
     );
@@ -1398,11 +1378,6 @@ function removeVideoFromBookmarks(videoId) {
 function isVideoBookmarked(videoId) {
   if (!app.bookmarkedVideos) return false;
 
-  // OLD: return app.bookmarkedVideos.tags.some(
-  //   (tag) => tag[0] === "a" && tag[1].includes(videoId)
-  // );
-  
-  // NEW:
   return app.bookmarkedVideos.tags.some(
     (tag) => tag[0] === "e" && tag[1] === videoId
   );
@@ -1724,17 +1699,8 @@ async function setupPlaylistIfNeeded(playlistPubkey, playlistDTag, currentVideoI
     return;
   }
 
-  // OLD: const videoTags = playlist.tags.filter(tag => tag[0] === "a");
-  // NEW:
   const videoTags = playlist.tags.filter(tag => tag[0] === "e");
   
-  // OLD: const videoIndex = videoTags.findIndex(tag => {
-  //   const videoRef = tag[1];
-  //   const [kind, id] = videoRef.split(':');
-  //   return id === currentVideoId;
-  // });
-  
-  // NEW:
   const videoIndex = videoTags.findIndex(tag => tag[1] === currentVideoId);
 
   if (videoIndex === -1) {

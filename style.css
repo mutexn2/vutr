@@ -2708,69 +2708,13 @@ main {
  */
 
 /****************************************/
-.imeta-options-container {
-  padding: 15px;
-  background: var(--background);
-  border-bottom: 1px solid var(--border);
-}
-
-.imeta-option-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.imeta-options-header {
-  margin-bottom: 8px;
-}
-
-.imeta-options-header label {
-  font-weight: 600;
-  font-size: 14px;
-  color: var(--text);
-}
-
-.imeta-options-buttons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.imeta-option-btn {
-  padding: 8px 16px;
-  background: var(--background);
-  border: 2px solid var(--border);
-  border-radius: 6px;
-  color: var(--text);
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-}
-
-.imeta-option-btn:hover {
-  background: var(--surface);
-  border-color: var(--primary);
-}
-
-.imeta-option-btn.active {
-  background: var(--surface);
-  border-color: var(--[--primary]);
-  color: var(--text);
-  font-weight: 600;
-}
-
-.imeta-option-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
 /***video actions***/
 
 .video-action-tab-button {
   background: var(--background);
   border: 1px solid var(--background);
   border-radius: 4px;
-  padding: 12px 20px;
+  padding: 6px 10px;
   cursor: pointer;
   color: var(--text);
   font-size: 14px;
@@ -2795,18 +2739,19 @@ main {
 }
 
 /* Mobile optimizations */
-@media (max-width: 769px) {
+/* @media (max-width: 769px) {
   .video-action-tab-button {
-    padding: 8px 12px;
     font-size: 13px;
   }
  
-}
+} */
 
 @media (max-width: 480px) {
   .channel-info {
     height: 50px;
   }
+
+
 }
 
 .video-action-tab-button.saved svg {
@@ -2843,18 +2788,11 @@ main {
   align-items: center;
   max-width: 720px;
   background-color: var(--background);
-  padding: 8px;
+  padding: 0;
   border-top: 1px solid var(--primary);
   color: var(--text);
-  gap: 8px;
+  gap: 0;
 }
-
-/* .video-info-bar svg {
-  width: 24px;
-  height: 24px;
-  fill: var(--text);
-  stroke: var(--primary);
-} */
 
 .channel-info {
   display: flex;
@@ -2867,6 +2805,10 @@ main {
   color: var(--text);
   margin-top: 0;
   padding: 0;
+}
+
+.video-page-layout .channel-info {
+  height: inherit;
 }
 
 .channel-info .creator-image,
@@ -2898,6 +2840,11 @@ nostr-picture::part(img) {
   margin: 0;
   padding: 0;
   background-color: var(--surface);
+}
+
+.video-page-layout nostr-picture::part(img) {
+  width: 40px;
+  height: 40px;
 }
 
 .channel-name {
@@ -2972,14 +2919,7 @@ nostr-picture::part(img) {
   display: none;
 }
 
-.info-containers {
-  width: 100%;
-  max-width: 720px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-bottom: 8px;
-}
+
 
 .social-info .video-content {
   padding: 4px;
@@ -3141,17 +3081,7 @@ nostr-picture::part(img) {
   color: var(--text);
 }
 
-.info-container {
-  border: 1px solid var(--surface);
-  border-radius: 8px;
-  padding: 4px;
-  width: 100%;
-  max-width: 720px;
-}
 
-.info-container:hover {
-  border: 1px solid var(--primary);
-}
 .video-title {
   cursor: pointer;
   font-size: 1.2rem;
@@ -3164,14 +3094,6 @@ nostr-picture::part(img) {
   color: var(--text);
 }
 
-.arrow {
-  font-size: 1.2rem;
-  transition: transform 0.3s;
-}
-
-details[open] .arrow {
-  transform: rotate(180deg);
-}
 
 .video-content {
   padding: 1rem 0;
@@ -3184,14 +3106,162 @@ details[open] .arrow {
   margin-bottom: 20px;
 }
 
-.video-stats {
-  font-size: 14px;
-  color: var(--text);
-  margin-bottom: 20px;
+/* Info Tabs Wrapper */
+.info-tabs-wrapper {
+  width: 100%;
+  max-width: 720px;
+  display: flex;
+  flex-direction: column;
+  
+  min-height: 400px;
+  margin-bottom: 8px;
 }
 
-.video-stats span {
-  margin-right: 10px;
+/* Tab Header */
+.info-tabs-header {
+  display: flex;
+  gap: 4px;
+  background: var(--background);
+  border-bottom: 2px solid var(--border);
+  padding: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.info-tabs-header::-webkit-scrollbar {
+  height: 0;
+}
+
+.info-tabs-header::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
+
+/* Tab Buttons */
+.info-tab-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  background: var(--surface);
+  border: 1px solid var(--background);
+  border-radius: 8px 8px 0 0;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.info-tab-button svg {
+  width: 18px;
+  height: 18px;
+}
+
+.info-tab-button:hover {
+  background: var(--background);
+  border-color: var(--primary);
+}
+
+.info-tab-button.active {
+  background: var(--background);
+  color: var(--primary);
+  border: 1px solid var(--background);
+}
+
+/* Tab Content */
+.info-tabs-content {
+  flex: 1;
+  overflow-y: auto;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  
+}
+
+/* Tab Panels */
+.info-tab-panel {
+  display: none;
+  padding: 8px;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.info-tab-panel.active {
+  display: block;
+}
+
+/* Video Title Header in Social Tab */
+.video-title-header {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.video-title-text {
+  margin: 0;
+  font-size: 20px;
+  font-weight: bold;
+  color: var(--text);
+  word-break: break-word;
+}
+
+/* Technical Summary Header */
+.technical-summary-header {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.technical-summary-header h3 {
+  margin: 0;
+  font-size: 16px;
+  color: var(--primary);
+}
+
+/* Social Data Sections */
+.social-data > div,
+.technical-data > div {
+  margin-bottom: 16px;
+}
+
+.social-data {
+  word-break: normal;
+}
+
+.technical-data {
+
+word-break: break-all;
+}
+
+.social-data h4,
+.technical-data h4 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  font-weight: bold;
+  color: var(--primary);
+}
+
+.social-data p,
+.technical-data p {
+  margin: 0;
+  color: var(--text);
+  word-break: break-word;
+}
+
+/* Comments in Tab */
+.info-tab-panel[data-panel="comments-info"] {
+  padding: 0;
+}
+
+.info-tab-panel[data-panel="comments-info"] .comments-container {
+  max-height: none;
+  height: 100%;
+  padding: 16px;
 }
 
 /********************************************/
@@ -3201,33 +3271,6 @@ details[open] .arrow {
 
 .video-page-layout .comments-container {
   padding: 0;
-}
-
-
-
-.video-page-layout .comment-expand-button {
-  display: none;
-  width: 100%;
-  padding: 12px 16px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 14px;
-  color: var(--text);
-  transition: background 0.2s ease;
-  align-items: center;
-  gap: 8px;
-}
-
-.video-page-layout .comment-expand-button svg {
-  width: 20px;
-  height: 20px;
-}
-
-.video-page-layout .comment-expand-button:hover {
-  background: var(--background);
-  border: 1px solid var(--primary);
 }
 
 .comments-info {
@@ -3342,10 +3385,6 @@ details[open] .arrow {
   border-radius: 6px;
 }
 
-/* Remove reference header styles since we don't use them anymore */
-.video-page-layout .message-reference {
-  display: none;
-}
 
 
 
@@ -3407,41 +3446,8 @@ details[open] .arrow {
   max-width: 450px;
 }
 
-.video-page-layout .chat-input-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-  padding: 0 4px;
-}
 
-.video-page-layout .chat-input-title {
-  font-weight: 500;
-  font-size: 14px;
-  color: var(--text-primary);
-}
 
-.video-page-layout .comment-collapse-button {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  transition: background-color 0.2s;
-}
-
-.video-page-layout .comment-collapse-button:hover {
-  background-color: var(--hover-bg, rgba(0, 0, 0, 0.05));
-}
-
-.video-page-layout .comment-collapse-button svg {
-  width: 20px;
-  height: 20px;
-  color: var(--text-secondary);
-}
 /*****************************/
 .video-page-playlist {
   position: sticky;
@@ -3535,6 +3541,7 @@ details[open] .arrow {
     height: 28px;
     font-size: 12px;
   }
+
 }
 /*********************************************/
 /* Cross-browser thin scrollbar with dynamic color */
@@ -5511,7 +5518,7 @@ main {
 
 .video-action-tabs {
   width: 100%;
-  margin: 4px;
+  
 }
 .tab-scroll-container {
   display: flex;
@@ -10202,7 +10209,7 @@ noscript {
   border: none;
 }
 
-.video-page-layout .message-content {
+.video-page-layout .message-content>.message-content {
   pointer-events: none;
 }
 

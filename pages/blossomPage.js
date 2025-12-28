@@ -1387,7 +1387,7 @@ async function decodePubkeyParam(pubkeyParam) {
   return pubkey;
 }
 
-// Add these helper functions first
+// helper functions
 
 /**
  * Creates a Blossom auth event for a specific action

@@ -2977,7 +2977,7 @@ nostr-picture::part(img) {
   max-width: 720px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
   margin-bottom: 8px;
 }
 
@@ -3270,6 +3270,86 @@ details[open] .arrow {
   color: var(--text-secondary);
   font-style: italic;
 }
+
+
+/* Comment Thread Styles */
+.video-page-layout .comment-thread {
+  background: var(--background);
+  border-radius: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.video-page-layout .comment-thread > .comment-card {
+  margin-bottom: 0;
+}
+
+/* Expand Replies Button */
+.video-page-layout .expand-replies-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin: 0;
+  background: var(--background);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+  width: fit-content;
+}
+
+.video-page-layout .expand-replies-button:hover {
+  background: var(--surface);
+  color: var(--primary);
+}
+
+.video-page-layout .expand-replies-button .expand-icon {
+  width: 16px;
+  height: 16px;
+  transition: transform 0.2s ease;
+}
+
+.video-page-layout .expand-replies-button .expand-icon.rotate {
+  transform: rotate(180deg);
+}
+
+/* Replies Container */
+.video-page-layout .replies-container {
+  margin-top: 12px;
+  margin-left: 24px;
+  padding-left: 16px;
+  border-left: 2px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 2000px;
+  overflow: hidden;
+  transition: max-height 0.3s ease, opacity 0.3s ease;
+  opacity: 1;
+}
+
+.video-page-layout .replies-container.collapsed {
+  max-height: 0;
+  opacity: 0;
+  margin-top: 0;
+}
+
+.video-page-layout .reply-comment {
+  background: var(--background);
+  padding: 0;
+  border-radius: 6px;
+}
+
+/* Remove reference header styles since we don't use them anymore */
+.video-page-layout .message-reference {
+  display: none;
+}
+
+
+
+
 
 /* Comment Modal Styles */
 .comment-modal .modal-body {
@@ -6320,7 +6400,27 @@ main {
   padding: 2px;
   text-align: center;
 }
+.copy-version-btn {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 8px;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+  vertical-align: middle;
+}
 
+.copy-version-btn:hover {
+  opacity: 1;
+}
+
+.copy-version-btn svg {
+  color: var(--text-secondary);
+}
 .temp-notification {
   position: fixed;
   top: 30px;
@@ -9983,7 +10083,6 @@ noscript {
   display: flex;
   flex-direction: column;
   background: var(--background);
-  border-bottom: 1px solid #7272722d;
   border-radius: 0;
   margin-top: 8px;
   padding: 0;
@@ -10094,13 +10193,17 @@ noscript {
 }
 
 .message-content {
-  margin: 0;
+  margin: 4px;
   padding-left: 16px;
   line-height: 1.5;
   color: var(--text);
   white-space: pre-wrap;
   word-wrap: break-word;
-  border: 1px solid #7272722d;
+  border: none;
+}
+
+.video-page-layout .message-content {
+  pointer-events: none;
 }
 
 .message-tags {
@@ -14553,3 +14656,4 @@ input[type="number"] {
   background-color: rgba(59, 130, 246, 0.1);
   border: 1px solid rgba(59, 130, 246, 0.3);
 }
+

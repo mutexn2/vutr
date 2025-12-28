@@ -5,7 +5,7 @@ async function settingsPageHandler() {
         <h1>Settings</h1>
         
         <!-- Account Section -->
-        <div class="settings-section strikethrough">
+        <div class="settings-section strikethrough" style="display: none;">
           <h2>Account</h2>
           <div class="settings-group">
             <div class="setting-item">
@@ -43,7 +43,7 @@ async function settingsPageHandler() {
 </div>
 
         <!-- Playback Section -->
-        <div class="settings-section strikethrough">
+        <div class="settings-section "strikethrough" style="display: none;">
           <h2>Playback</h2>
           <div class="settings-group">
 <div class="setting-item">
@@ -244,7 +244,7 @@ async function settingsPageHandler() {
 </div>    
 
         <!-- Notifications Section -->
-        <div class="settings-section strikethrough">
+        <div class="settings-section strikethrough" style="display: none;">
           <h2>Notifications</h2>
           <div class="settings-group">
             <div class="setting-item setting-toggle">

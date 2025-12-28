@@ -12,7 +12,7 @@ async function networkSettingsPageHandler() {
   <!-- Tab Navigation -->
   <div class="network-tab-nav">
     <button class="network-tab-button active" data-tab="active-set">
-      Active Set
+      Content relay sets
     </button>
     <button class="network-tab-button" data-tab="placeholder-1" style="display: none;">1</button>
     <button class="network-tab-button" data-tab="placeholder-2" style="display: none;">2</button>

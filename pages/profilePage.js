@@ -134,10 +134,8 @@ async function profilePageHandler() {
   `;
     populateProfileData(kindZeroContent, profile, profileNpub);
 
-    // Setup all event listeners
     setupAllProfileEventListeners(profile, kindZeroContent, extendedRelays);
 
-    // Load videos asynchronously with new interval-based logic
     loadProfileVideosWithIntervals(profile, extendedRelays).catch((error) => {
       console.error("Error loading profile videos:", error);
       handleVideoLoadError();
@@ -264,7 +262,7 @@ async function loadProfileVideosWithIntervals(profile, extendedRelays) {
     return false;
   }
 
-  // NEW: Simple request first (limit 100)
+  // Simple request first (limit 100)
   async function loadInitialBatch() {
     return new Promise((resolve) => {
       const events = [];
@@ -273,7 +271,7 @@ async function loadProfileVideosWithIntervals(profile, extendedRelays) {
       const filter = {
         kinds: [21, 22],
         authors: [profile],
-        limit: 100, // Request up to 100 events
+        limit: 100,
       };
 
       const sub = app.profileVideosPool.subscribe(
@@ -460,7 +458,7 @@ async function loadProfileVideosWithIntervals(profile, extendedRelays) {
     loadMoreEvents();
   });
 
-  // NEW: Try simple request first
+  // Try simple request first
   console.log("Attempting simple batch request (limit 100)...");
   const initialEvents = await loadInitialBatch();
   
@@ -568,7 +566,7 @@ async function loadProfileVideosWithIntervals(profile, extendedRelays) {
   videosContent.dataset.loaded = "true";
 }
 
-// NEW: Load profile playlists with intervals
+// Load profile playlists with intervals
 async function loadProfilePlaylistsWithIntervals(profile, extendedRelays) {
   const playlistsContent = document.getElementById("channelPlaylists");
   if (!playlistsContent) return;
@@ -769,6 +767,69 @@ async function loadProfilePlaylistsWithIntervals(profile, extendedRelays) {
     });
   }
 
+async function loadInitialPlaylistBatch() {
+  return new Promise((resolve) => {
+    const events = [];
+    let isComplete = false;
+
+    const filter = {
+      kinds: [30005],
+      authors: [profile],
+      limit: 100,
+    };
+
+    const sub = app.profilePlaylistsPool.subscribe(
+      allRelays,
+      filter,
+      {
+        onevent(event) {
+          const sanitizedEvent = sanitizeNostrEvent(event);
+          if (sanitizedEvent) {
+            const dtag = getDtag(sanitizedEvent);
+            
+            if (dtag) {
+              const existingEvent = scrollState.existingDtags.get(dtag);
+              if (!existingEvent || sanitizedEvent.created_at > existingEvent.created_at) {
+                if (existingEvent) {
+                  scrollState.existingEventIds.delete(existingEvent.id);
+                }
+                scrollState.existingDtags.set(dtag, sanitizedEvent);
+                scrollState.existingEventIds.add(sanitizedEvent.id);
+                events.push(sanitizedEvent);
+              }
+            } else if (!scrollState.existingEventIds.has(event.id)) {
+              scrollState.existingEventIds.add(sanitizedEvent.id);
+              events.push(sanitizedEvent);
+            }
+          }
+        },
+        oneose() {
+          if (!isComplete) {
+            isComplete = true;
+            sub.close();
+            resolve(events);
+          }
+        },
+        onclose() {
+          if (!isComplete) {
+            isComplete = true;
+            resolve(events);
+          }
+        },
+      }
+    );
+
+    setTimeout(() => {
+      if (!isComplete) {
+        isComplete = true;
+        sub.close();
+        resolve(events);
+      }
+    }, 5000);
+  });
+}
+
+
   async function loadMoreEvents() {
     if (scrollState.isLoading || !scrollState.hasMoreContent) {
       return;
@@ -873,7 +934,77 @@ async function loadProfilePlaylistsWithIntervals(profile, extendedRelays) {
     }
   });
 
+// Try simple request first
+console.log("Attempting simple batch request for playlists (limit 100)...");
+const initialPlaylists = await loadInitialPlaylistBatch();
+
+console.log(`Simple request returned ${initialPlaylists.length} playlist events`);
+
+if (initialPlaylists.length < 100) {
+  // Less than 100 events means we got everything
+  console.log("Profile has < 100 playlists, using simple approach");
+  
+  // Sort by newest first
+  initialPlaylists.sort((a, b) => b.created_at - a.created_at);
+  
+  // Render first 20
+  const toRender = initialPlaylists.slice(0, scrollState.eventsPerPage);
+  toRender.forEach(event => {
+    const card = createPlaylistCard(event);
+    card.setAttribute('data-dtag', getDtag(event) || '');
+    renderPlaylistImmediately(event);
+  });
+  
+  // Store remaining events for pagination
+  const remaining = initialPlaylists.slice(scrollState.eventsPerPage);
+  
+  if (remaining.length > 0) {
+    scrollState.hasMoreContent = true;
+    loadMoreBtn.style.display = 'block';
+    
+    const simpleLoadMore = async () => {
+      const nextBatch = remaining.splice(0, scrollState.eventsPerPage);
+      nextBatch.forEach(event => {
+        const card = createPlaylistCard(event);
+        card.setAttribute('data-dtag', getDtag(event) || '');
+        renderPlaylistImmediately(event);
+      });
+      
+      if (remaining.length === 0) {
+        scrollState.hasMoreContent = false;
+        loadMoreBtn.style.display = 'none';
+        loadMoreStatus.textContent = 'No more playlists to load';
+        loadMoreStatus.style.display = 'block';
+      }
+      
+      const headerP = playlistsContent.querySelector("h1 + p");
+      if (headerP) {
+        headerP.textContent = `Found ${scrollState.loadedEventsCount} playlist${scrollState.loadedEventsCount !== 1 ? 's' : ''}`;
+      }
+    };
+    
+    loadMoreBtn.removeEventListener('click', loadMoreEvents);
+    loadMoreBtn.addEventListener('click', simpleLoadMore);
+  } else {
+    scrollState.hasMoreContent = false;
+  }
+  
+  if (initialPlaylists.length > 0) {
+    scrollState.oldestTimestamp = initialPlaylists[initialPlaylists.length - 1].created_at;
+  }
+  
+} else {
+  // Got 100 events, there are probably more
+  console.log("Profile has >= 100 playlists, switching to interval-based approach");
+  
+  // Clear the simple batch
+  grid.innerHTML = '';
+  scrollState.existingEventIds.clear();
+  scrollState.existingDtags.clear();
+  scrollState.loadedEventsCount = 0;
+  
   await loadMoreEvents();
+}
 
   const headerP = playlistsContent.querySelector("h1 + p");
   if (headerP) {
@@ -944,6 +1075,221 @@ async function loadProfilePlaylistsWithIntervals(profile, extendedRelays) {
   playlistsContent.dataset.loaded = "true";
 }
 
+
+
+
+
+// Load profile relay sets
+async function loadProfileRelaySets(profile, extendedRelays) {
+  const relaySetsContent = document.getElementById("relay-sets-tab");
+  if (!relaySetsContent) return;
+
+  // Check if already loaded
+  if (relaySetsContent.dataset.loaded === "true") {
+    return;
+  }
+
+  const allRelays = [...new Set([...app.globalRelays, ...extendedRelays])];
+  
+  console.log(`Loading relay sets from ${allRelays.length} relays`);
+
+  app.profileRelaySetsPool = new window.NostrTools.SimplePool();
+
+  // Register cleanup for this tab
+  const cleanup = () => {
+    console.log("Cleaning up profile relay sets resources");
+    
+    if (app.profileRelaySetsSubscription) {
+      app.profileRelaySetsSubscription.close();
+      app.profileRelaySetsSubscription = null;
+    }
+    
+    if (app.profileRelaySetsPool) {
+      app.profileRelaySetsPool.close(allRelays);
+      app.profileRelaySetsPool = null;
+    }
+  };
+
+  profileTabState.cleanupFunctions['relay-sets'] = cleanup;
+  registerCleanup(cleanup);
+
+  relaySetsContent.innerHTML = `
+    <h1>Published Relay Sets</h1>
+    <p>Searching for relay sets...</p>
+    <div class="relay-sets-container"></div>
+  `;
+
+  const container = relaySetsContent.querySelector(".relay-sets-container");
+  const receivedEvents = new Map();
+
+  // Get d-tag from event
+  function getDtag(event) {
+    const dTag = event.tags?.find(tag => tag[0] === 'd');
+    return dTag ? dTag[1] : null;
+  }
+
+  try {
+    const filter = {
+      kinds: [30002],
+      authors: [profile],
+    };
+
+    const subscription = app.profileRelaySetsPool.subscribe(
+      allRelays,
+      filter,
+      {
+        onevent(event) {
+          const sanitizedEvent = sanitizeNostrEvent(event);
+          if (sanitizedEvent) {
+            const dtag = getDtag(sanitizedEvent);
+            const eventKey = `${sanitizedEvent.pubkey}:${dtag || ''}`;
+            
+            const existingEvent = receivedEvents.get(eventKey);
+            
+            if (!existingEvent || sanitizedEvent.created_at > existingEvent.created_at) {
+              receivedEvents.set(eventKey, sanitizedEvent);
+              
+              // Remove old card if exists
+              if (existingEvent) {
+                const oldCard = container.querySelector(`[data-event-id="${existingEvent.id}"]`);
+                if (oldCard) oldCard.remove();
+              }
+              
+              // Create and append new card
+              const card = createRelaySetCard(sanitizedEvent);
+              renderRelaySetCardContent(card, sanitizedEvent);
+              container.appendChild(card);
+            }
+          }
+        },
+        oneose() {
+          console.log('EOSE received for relay sets');
+          updateRelaySetsLoadingState();
+        }
+      }
+    );
+
+    app.profileRelaySetsSubscription = subscription;
+
+    function updateRelaySetsLoadingState() {
+      const headerP = relaySetsContent.querySelector("h1 + p");
+      if (headerP) {
+        if (receivedEvents.size === 0) {
+          headerP.textContent = 'No relay sets found';
+        } else {
+          headerP.textContent = `Found ${receivedEvents.size} relay set${receivedEvents.size !== 1 ? 's' : ''}`;
+        }
+      }
+    }
+
+    setTimeout(() => {
+      updateRelaySetsLoadingState();
+    }, 5000);
+
+  } catch (error) {
+    console.error("Error loading relay sets:", error);
+    const headerP = relaySetsContent.querySelector("h1 + p");
+    if (headerP) {
+      headerP.textContent = 'Error loading relay sets';
+    }
+  }
+
+  relaySetsContent.dataset.loaded = "true";
+}
+
+// Helper function to render relay set card content
+function renderRelaySetCardContent(card, event) {
+  const getValueFromTags = (tags, key, defaultValue = "") => {
+    const tag = tags?.find((t) => t[0] === key);
+    return tag ? tag[1] : defaultValue;
+  };
+
+  const wsUrls = extractWebSocketUrls(event);
+  const title = getValueFromTags(event.tags, "title");
+  const description = getValueFromTags(event.tags, "description");
+  
+  const titleHtml = title ? `<div class="relay-set-title">${escapeHtml(title)}</div>` : '';
+  const descriptionHtml = description ? `<div class="relay-set-description">${escapeHtml(description)}</div>` : '';
+
+  const npub = window.NostrTools.nip19.npubEncode(event.pubkey);
+  
+  card.innerHTML = `
+    ${titleHtml}
+    ${descriptionHtml}
+    <div class="relay-set-main">
+      <div class="relay-set-info">
+        <div class="relay-count">
+          <span class="relay-count-number">${wsUrls.length}</span>
+          <span class="relay-count-label">relays</span>
+        </div>
+        <div class="publish-time">${getRelativeTime(event.created_at)}</div>
+      </div>
+      <div class="relay-urls">
+        ${wsUrls.map((url, index) => {
+          const iconId = `profile-relay-icon-${event.id}-${index}`;
+          return `
+            <div class="relay-item" data-relay="${escapeHtml(url)}">
+              <div class="relay-url-text">
+                <img id="${iconId}" class="relay-icon" alt="" style="display: none; width: 20px; height: 20px; margin-right: 8px;">
+                <span class="relay-url">${escapeHtml(url)}</span>
+              </div>
+              <div class="relay-item-actions">
+                <button class="btn btn-sm btn-secondary relay-info-btn" title="Get relay info">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M12 16v-4"/>
+                    <circle cx="12" cy="8" r="1" fill="currentColor"/>
+                  </svg>
+                  <span>Info</span>
+                </button>
+                <button class="btn btn-sm btn-primary relay-add-to-set-btn" title="Add to local relay set">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 4.5v15m7.5-7.5h-15" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  <span>Add to Set</span>
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+  `;
+  
+  // Add event listeners for the buttons and load icons
+  const relayItems = card.querySelectorAll('.relay-item');
+  relayItems.forEach((item, index) => {
+    const relayUrl = item.dataset.relay;
+    const iconId = `profile-relay-icon-${event.id}-${index}`;
+    
+    // Load relay icon asynchronously
+    setTimeout(() => loadRelayIcon(relayUrl, iconId), 0);
+    
+    // Info button
+    const infoBtn = item.querySelector('.relay-info-btn');
+    if (infoBtn) {
+      infoBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        getRelayInfo(relayUrl);
+      });
+    }
+    
+    // Add to set button
+    const addBtn = item.querySelector('.relay-add-to-set-btn');
+    if (addBtn) {
+      addBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showRelaySetSelector(relayUrl);
+      });
+    }
+  });
+  
+  card.dataset.rendered = "true";
+}
+
+
+
+
 // Render new playlist at top (for real-time updates)
 function renderNewPlaylistAtTopProfilePage(playlist, grid) {
   let card = createPlaylistCard(playlist);
@@ -1007,8 +1353,6 @@ async function loadProfileWithRetry(profile, attempts = 0) {
     throw error;
   }
 }
-
-
 
 // Consolidated event listener setup
 function setupAllProfileEventListeners(profile, kindZeroContent, extendedRelays) {
@@ -1347,7 +1691,6 @@ function handleFollowClick(button, profile) {
   }
 }
 
-
 function setButtonIcon(iconContainer, svgString) {
   iconContainer.innerHTML = '';
   const svg = new DOMParser().parseFromString(svgString, 'image/svg+xml').documentElement;
@@ -1390,7 +1733,6 @@ function updateNip05Button(button, result, nip05Text) {
     }
   }
 }
-
 
 function handleLightningClick(lud16, pubkey) {
   // Create zap params
@@ -1517,6 +1859,7 @@ function createEditButton(profile, kindZeroContent) {
     clearInterval(checkInterval);
   }, 10000);
 }
+
 function handleProfileClicks(event) {
   const target = event.target;
   const card = target.closest(".video-card");
@@ -1537,31 +1880,6 @@ function handleProfileClicks(event) {
   }
 }
 
-
-function buildDiscoveryRelays(isExtendedTab, extendedRelays) {
-  let discoveryRelays = [];
-
-  if (isExtendedTab) {
-    // For extended tab: combine active and extended relays
-    const activeRelays = app.relays.slice(0, 2).map(cleanRelayUrl);
-    discoveryRelays.push(...activeRelays);
-
-    const extendedRelaysClean = extendedRelays.map(cleanRelayUrl);
-    const activeRelaysClean = app.relays.map(cleanRelayUrl);
-    const uniqueExtended = extendedRelaysClean.filter(
-      (relay) => !activeRelaysClean.includes(relay)
-    );
-    discoveryRelays.push(...uniqueExtended.slice(0, 2));
-  } else {
-    // For default tab: use active relays only
-    discoveryRelays = app.relays.slice(0, 2).map(cleanRelayUrl);
-  }
-
-  return [...new Set(discoveryRelays)];
-}
-
-
-
 function handleVideoLoadError() {
   const videosContent = document.getElementById("channelVideos");
   if (videosContent) {
@@ -1580,86 +1898,8 @@ function handleVideoLoadError() {
   }
 }
 
-async function loadProfileVideos(profile) {
-  try {
-    const kinds = [21];
-    const limit = 40;
-
-    const channelVideos = await fetchAndProcessVideos(profile, kinds, limit);
-
-    if (channelVideos.length === 0) {
-      renderNoVideosFound();
-      return;
-    }
-
-    channelVideos.sort((a, b) => b.created_at - a.created_at);
-
-    setTimeout(() => {
-      renderProfileVideos(channelVideos);
-    }, 1000);
-
-  } catch (error) {
-    console.error("Error loading profile videos:", error);
-    handleVideoLoadError();
-  }
-}
-
-async function fetchAndProcessVideos(profile, kinds, limit) {
-  const channelVideos = await NostrClient.getEvents({
-    kinds: kinds,
-    limit: limit,
-    author: profile,
-  });
-
-  const processedVideos = channelVideos
-    .map(sanitizeNostrEvent)
-    .filter((v) => v !== null);
-
-  console.log(
-    "Active relay search results:",
-    processedVideos.length,
-    "videos found"
-  );
-  return processedVideos;
-}
-
-function renderNoVideosFound() {
-  const videosContent = document.getElementById("channelVideos");
-  if (videosContent) {
-    videosContent.innerHTML = `
-      <h1>No Videos Found</h1>
-      <p>No kind-21 video events were found on the active relays.</p>
-    `;
-  }
-}
-
-
-function renderProfileVideos(channelVideos) {
-  const videosContent = document.getElementById("channelVideos");
-  if (!videosContent) return;
-
-  videosContent.innerHTML = `
-    <h1>published videos</h1>
-    <p>Found ${channelVideos.length} videos on active relays</p>
-    <div class="videos-grid"></div>
-  `;
-
-  const videosGrid = videosContent.querySelector(".videos-grid");
-  if (videosGrid) {
-    channelVideos.forEach((video) => {
-      const card = createVideoCard(video);
-      videosGrid.appendChild(card);
-    });
-  }
-}
-
 async function getExtendedRelaysForProfile(pk) {
   try {
-    const staticRelays = [
-      "wss://relay.nostr.band",
-      "wss://nos.lol",
-      "wss://nostr.mom",
-    ];
 
     let topRelayHints = [];
     try {
@@ -1685,7 +1925,6 @@ async function getExtendedRelaysForProfile(pk) {
     const allRelays = [
       ...topRelayHints.map(normalizeUrl),
       ...NostrClient.relays.map(normalizeUrl),
-      ...staticRelays.map(normalizeUrl),
     ];
 
 //    console.log("📡 All Relays:", 
@@ -1739,7 +1978,7 @@ function setupProfileTabEventListeners(profile, extendedRelays) {
             await loadProfileVideosWithIntervals(profile, extendedRelays);
           }
           break;
-        
+
         case "playlists":
           console.log("Playlists tab selected");
           const playlistsContent = document.getElementById("channelPlaylists");
@@ -1747,11 +1986,15 @@ function setupProfileTabEventListeners(profile, extendedRelays) {
             await loadProfilePlaylistsWithIntervals(profile, extendedRelays);
           }
           break;
-        
+
         case "relay-sets":
-          console.log("Relay sets tab selected (placeholder)");
+          console.log("Relay sets tab selected");
+          const relaySetsContent = document.getElementById("relay-sets-tab");
+          if (relaySetsContent && !relaySetsContent.dataset.loaded) {
+            await loadProfileRelaySets(profile, extendedRelays);
+          }
           break;
-        
+
         case "posts":
           console.log("Posts tab selected (placeholder)");
           break;
@@ -1782,10 +2025,6 @@ async function cleanupCurrentTab(tabName) {
     }
   }
 }
-
-
-
-
 
 async function populateTechnicalInfo(profile, profileNpub) {
   // Set profile identifiers
@@ -1840,15 +2079,12 @@ function populateRelayHints(relayHints) {
   }
 }
 
-
 function hideRelayHintsSection() {
   const relayHintsSection = document.querySelector(".relay-hints-section");
   if (relayHintsSection) {
     relayHintsSection.style.display = "none";
   }
 }
-
-
 
 function setupTechnicalInfoEventListeners() {
   // Toggle button event listener
@@ -1915,107 +2151,3 @@ document.addEventListener("click", (event) => {
   }
 });
 }
-
-////////////////////////////
-/* async function loadExtendedProfileVideos(profile, extendedRelays) {
-  const extendedVideosContent = document.getElementById(
-    "extendedChannelVideos"
-  );
-  if (!extendedVideosContent) return;
-
-  // Check if already loaded
-  if (extendedVideosContent.dataset.loaded === "true") {
-    return;
-  }
-
-  try {
-    extendedVideosContent.innerHTML = `
-      <h1>searching extended relays...</h1>
-      <p>Querying ${extendedRelays.length} relays for kind-21 events</p>
-    `;
-
-    const kinds = [21];
-    const limit = 40;
-
-    const channelVideos = await fetchAndProcessExtendedVideos(
-      profile,
-      extendedRelays,
-      kinds,
-      limit
-    );
-
-    if (channelVideos.length === 0) {
-      renderNoExtendedVideosFound(extendedVideosContent);
-      return;
-    }
-
-    channelVideos.sort((a, b) => b.created_at - a.created_at);
-
-    setTimeout(() => {
-      renderExtendedProfileVideos(channelVideos);
-      extendedVideosContent.dataset.loaded = "true";
-    }, 1000);
-  } catch (error) {
-    console.error("Error loading extended profile videos:", error);
-    renderExtendedVideosError(extendedVideosContent);
-  }
-}
-function renderExtendedProfileVideos(channelVideos) {
-  const videosContent = document.getElementById("extendedChannelVideos");
-  if (!videosContent) return;
-
-  videosContent.innerHTML = `
-    <h1>extended search results</h1>
-    <p>Found ${channelVideos.length} videos across all relays</p>
-    <div class="videos-grid"></div>
-  `;
-
-  const videosGrid = videosContent.querySelector(".videos-grid");
-  if (videosGrid) {
-    channelVideos.forEach((video) => {
-      const card = createVideoCard(video);
-      videosGrid.appendChild(card);
-    });
-  }
-}
-function renderNoExtendedVideosFound(container) {
-  container.innerHTML = `
-    <h1>No Additional Videos Found</h1>
-    <p>No additional kind-21 video events were found across the extended relay set.</p>
-  `;
-  container.dataset.loaded = "true";
-}
-
-function renderExtendedVideosError(container) {
-  container.innerHTML = `
-    <h1>Error Loading Extended Videos</h1>
-    <p>Failed to load videos from extended relay search.</p>
-  `;
-}
-
-async function fetchAndProcessExtendedVideos(
-  profile,
-  extendedRelays,
-  kinds,
-  limit
-) {
-  const channelVideos = await NostrClient.getEventsFromRelays(extendedRelays, {
-    kinds: kinds,
-    limit: limit,
-    author: profile,
-  });
-
-  const processedVideos = channelVideos
-    .map(sanitizeNostrEvent)
-    .filter((v) => v !== null);
-
-  console.log(
-    "Extended search results:",
-    processedVideos.length,
-    "videos found"
-  );
-  return processedVideos;
-}
-
-
- */

@@ -244,7 +244,7 @@ async function relaySetsDiscoveryPageHandler() {
         updateLoadingState(receivedEvents, rSets, sourceLabel, followedPubkeys?.length);
         enableRankingTab();
       }
-    }, 10000);
+    }, 5000);
 
     // Store timeout for cleanup
     app.currentRelaySetTimeout = timeoutId;

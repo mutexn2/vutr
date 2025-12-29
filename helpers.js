@@ -143,7 +143,7 @@ const notificationManager = {
   }
 };
 
-function showTemporaryNotification(message, duration = 4000) {
+function showTemporaryNotification(message, duration = 3000) {
   // Check if we should queue this notification
   const result = notificationManager.enqueue(message, duration);
   if (!result) {

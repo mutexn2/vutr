@@ -5747,6 +5747,99 @@ main {
   flex-shrink: 0;
   pointer-events: none;
 }
+/***/
+
+.profile-tab-content .relay-item {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.profile-tab-content .relay-url-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-tab-content .relay-item-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.profile-tab-content .btn-sm {
+  padding: 6px 12px;
+  font-size: 0.875rem;
+}
+
+.profile-tab-content .btn-sm svg {
+  width: 16px;
+  height: 16px;
+}
+
+
+.profile-tab-content .relay-sets-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: start;
+  align-items: start;
+  padding: 4px;
+  margin: 4px;
+  gap: 4px;
+  width: 100%;
+  flex-wrap: nowrap;
+}
+
+.profile-tab-content .relay-set-card {
+    display: flex;
+  flex-direction: column;
+  justify-content: start;
+  align-items: center;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 16px;
+  background: var(--background);
+  overflow: hidden;
+  padding: 4px;
+  width: 100%;
+  max-width: 550px;
+  box-sizing: border-box;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.profile-tab-content .relay-set-main {
+  width: inherit;
+}
+
+.profile-tab-content .relay-urls {
+  display: flex;
+  flex-direction: column;
+  width: inherit;
+   text-overflow: ellipsis;
+}
+
+.profile-tab-content .relay-set-title {
+  font-size: x-large;
+}
+
+.profile-tab-content .relay-url-text {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  width: 100%;
+}
+
+.profile-tab-content .relay-icon {
+  flex-shrink: 0;
+}
+
+.profile-tab-content .relay-url {
+  overflow: hidden;
+  
+  white-space: nowrap;
+  font-size: large;
+}
 
 /* Mobile and small screens */
 @media (max-width: 769px) {
@@ -6433,12 +6526,16 @@ main {
   top: 30px;
   left: 50%;
   transform: translateX(-50%);
+    display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
   background-color: var(--surface);
   color: var(--text);
   padding: 16px 30px;
   border-radius: 8px;
   border: 1px solid var(--border);
-  z-index: 1001;
+  z-index: 10001;
   font-size: 16px;
   box-shadow: 0px 4px 8px var(--background);
   transition: opacity 0.3s ease, top 0.3s ease;
@@ -6450,8 +6547,6 @@ main {
   word-wrap: break-word;
   white-space: normal;
   opacity: 0;
-  display: flex;
-  flex-direction: column;
   gap: 6px;
 }
 
@@ -8957,7 +9052,7 @@ noscript {
 }
 
 .relay-set-selector-modal .set-list {
-  max-height: 200px;
+  max-height: 350px;
   overflow-y: auto;
 }
 

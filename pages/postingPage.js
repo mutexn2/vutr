@@ -885,11 +885,13 @@ async function handleAddVideo() {
     const headResponse = await fetch(url, { method: "HEAD" });
     if (!headResponse.ok) throw new Error("Invalid URL or video not accessible");
 
-    const contentType = headResponse.headers.get("Content-Type") || "video/mp4";
-    if (!contentType.startsWith("video/")) {
-      throw new Error(`Expected video content, but received: ${contentType}`);
-    }
+const contentType = headResponse.headers.get("Content-Type") || "video/mp4";
+const isVideo = contentType.startsWith("video/");
+const isAudio = contentType.startsWith("audio/");
 
+if (!isVideo && !isAudio) {
+  throw new Error(`Expected video or audio content, but received: ${contentType}`);
+}
     const contentLength = parseInt(headResponse.headers.get("Content-Length") || "0");
 
     let metadata;
@@ -1017,18 +1019,31 @@ async function extractCompleteVideoMetadata(blob, mimeType, fileSize) {
     const file = event.target.files[0];
     if (!file) return;
 
-    const validTypes = [
-      "video/mp4",
-      "video/webm",
-      "video/ogg",
-      "video/quicktime",
-      "video/x-msvideo",
-    ];
-    
-    if (!validTypes.includes(file.type)) {
-      alert("Please select a valid video file");
-      return;
-    }
+const validTypes = [
+  // Video formats
+  "video/mp4",
+  "video/webm",
+  "video/ogg",
+  "video/quicktime",
+  "video/x-msvideo",
+  "video/x-matroska",
+  "video/mpeg",
+  "video/3gpp",
+  // Audio formats
+  "audio/mpeg",
+  "audio/mp3",
+  "audio/wav",
+  "audio/ogg",
+  "audio/aac",
+  "audio/flac",
+  "audio/webm",
+  "audio/x-m4a",
+];
+
+if (!validTypes.includes(file.type)) {
+  alert("Please select a valid video or audio file");
+  return;
+}
 
     const button = document.getElementById("upload-video");
     setButtonLoading(button, true, "Processing...");

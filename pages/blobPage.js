@@ -318,16 +318,12 @@ async function generateImetaTag(videoData) {
 
 function isValidVideoUrl(url) {
   try {
-    const parsedUrl = new URL(url);
-    const validExtensions = ['.mp4', '.webm', '.ogg', '.mov'];
-    return validExtensions.some(ext => 
-      parsedUrl.pathname.toLowerCase().endsWith(ext)
-    );
+    new URL(url); // Just validate it's a proper URL
+    return true; // Accept any valid URL, let the HEAD request determine if it's valid media
   } catch {
     return false;
   }
 }
-
 
 async function checkVideoAccessibility(url) {
   try {

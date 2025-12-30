@@ -8,6 +8,11 @@ if ! command -v python3 &> /dev/null; then
 fi
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Clean up any leftover files from previous runs
+rm -f "$PROJECT_DIR/custom_server.py" 2>/dev/null
+rm -f "$PROJECT_DIR/prod_server.py" 2>/dev/null
+
 PORT=8000
 
 # Create a minimal custom server for service worker cache-busting
@@ -39,7 +44,7 @@ echo "Press Ctrl+C to stop"
 cleanup() {
     echo -e "\nShutting down server..."
     kill $SERVER_PID 2>/dev/null || true
-    rm "$PROJECT_DIR/prod_server.py" 2>/dev/null || true
+    rm -f "$PROJECT_DIR/prod_server.py"
     exit 0
 }
 

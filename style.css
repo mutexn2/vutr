@@ -5349,7 +5349,7 @@ main {
   cursor: pointer;
   transition: all 0.2s ease;
   text-decoration: none;
-  white-space: nowrap;
+  word-break: normal;
 }
 
 .profile-links-row .profile-btn:hover {
@@ -5393,8 +5393,8 @@ main {
 .profile-links-row .profile-btn.nip05-btn.verified svg {
   /*   width: 48px;
   height: 48px; */
-  fill: green;
-  stroke: var(--background);
+  fill: var(--background);
+  stroke: green;
   background-color: transparent;
 }
 

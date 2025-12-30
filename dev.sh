@@ -19,6 +19,10 @@ fi
 # Determine the absolute path of the project directory
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Clean up any leftover files from previous runs
+rm -f "$PROJECT_DIR/custom_server.py" 2>/dev/null
+rm -f "$PROJECT_DIR/prod_server.py" 2>/dev/null
+
 # Service worker file path
 SERVICE_WORKER_FILE="service-worker.js"
 
@@ -57,23 +61,23 @@ update_version() {
     # Replace the old line with the new one
     sed -i "s/0\.$DECIMAL_PART/0.$NEW_DECIMAL_PART/" "$SERVICE_WORKER_FILE"
 
-    echo -e "${GREEN}Version updated: 0.$DECIMAL_PART → 0.$NEW_DECIMAL_PART${NC}"
+    echo -e "${GREEN}Version updated: 0.$DECIMAL_PART \u2192 0.$NEW_DECIMAL_PART${NC}"
 }
 
 # Function to start file watcher
 start_file_watcher() {
     echo -e "${BLUE}== File Watcher Started ==${NC}"
-    echo -e "${YELLOW}Watching all files except: $SERVICE_WORKER_FILE | .git/ ${NC}"
+    echo -e "${YELLOW}Watching all files except: $SERVICE_WORKER_FILE | .git/ | *.py ${NC}"
     echo -e "${YELLOW}Press Ctrl+C to stop both server and watcher${NC}"
     echo ""
 
     # Watch for file changes (suppress inotifywait setup messages)
     while true; do
-        inotifywait -e close_write -r . --exclude="$SERVICE_WORKER_FILE|.git/" -q
-        echo -e "${YELLOW}File change detected → updating version...${NC}"
+        inotifywait -e close_write -r . --exclude="($SERVICE_WORKER_FILE|\.git/|.*\.py$)" -q
+        echo -e "${YELLOW}File change detected \u2192 updating version...${NC}"
         update_version
         echo -e "${YELLOW}http://localhost:8081${NC}"
-        echo -e "${BLUE}Refresh the app${NC}"
+        echo -e "${BLUE}Refresh the app (or wait for auto-reload if service worker detects it)${NC}"
     done
 }
 
@@ -121,7 +125,7 @@ cleanup() {
     echo "Stopping local server and file watcher..."
     kill $SERVER_PID 2>/dev/null || true
     kill $WATCHER_PID 2>/dev/null || true
-    rm "$PROJECT_DIR/custom_server.py"
+    rm -f "$PROJECT_DIR/custom_server.py"
     exit 0
 }
 
@@ -150,6 +154,9 @@ echo -e "${GREEN}Development environment is running!${NC}"
 echo -e "${YELLOW}Server PID: $SERVER_PID${NC}"
 echo -e "${YELLOW}File watcher PID: $WATCHER_PID${NC}"
 echo -e "${YELLOW}Both processes will be stopped when you press Ctrl+C${NC}"
+echo ""
+echo -e "${BLUE}Note: Your service worker will auto-detect version changes.${NC}"
+echo -e "${BLUE}You may see an 'Update Available' notification in the app.${NC}"
 
 # Wait for both processes
 wait $SERVER_PID $WATCHER_PID

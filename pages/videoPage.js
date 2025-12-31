@@ -1271,9 +1271,7 @@ function setupShareMenuEvents(menuElement, video, videoId, url) {
   
   menuElement.querySelector('.share-nostr')?.addEventListener('click', () => {
     console.log('Share on Nostr clicked');
-    const embedUrl = `https://vutr.space/embed.html?v=${encodeURIComponent(url)}&id=${videoId}&author=${video.pubkey}`;
-    navigator.clipboard.writeText(embedUrl);
-    alert('Embed link copied!');    
+ 
     shareMenuControls?.close();
   });
   

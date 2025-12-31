@@ -156,7 +156,6 @@ echo -e "${YELLOW}File watcher PID: $WATCHER_PID${NC}"
 echo -e "${YELLOW}Both processes will be stopped when you press Ctrl+C${NC}"
 echo ""
 echo -e "${BLUE}Note: Your service worker will auto-detect version changes.${NC}"
-echo -e "${BLUE}You may see an 'Update Available' notification in the app.${NC}"
 
 # Wait for both processes
 wait $SERVER_PID $WATCHER_PID

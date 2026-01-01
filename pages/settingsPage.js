@@ -910,7 +910,7 @@ function renderSearchRelaySettings(container) {
 // Updated search relay management functions
 function getSearchRelays() {
   const relays = localStorage.getItem("searchRelays");
-  const defaultRelays = ["wss://relay.nostr.band"]; // Default relay
+  const defaultRelays = ["wss://index.hzrd149.com"]; // Default relay
 
   if (!relays) {
     // Initialize with default relay if none exist
@@ -928,7 +928,7 @@ function getActiveSearchRelay() {
   if (!activeRelay) {
     const relays = getSearchRelays();
     const defaultRelay =
-      relays.length > 0 ? relays[0] : "wss://relay.nostr.band";
+      relays.length > 0 ? relays[0] : "wss://index.hzrd149.com";
     setActiveSearchRelay(defaultRelay);
     return defaultRelay;
   }
@@ -983,7 +983,7 @@ function removeSearchRelay(relayUrl) {
         setActiveSearchRelay(searchRelays[0]);
       } else {
         // Add back the default relay if list becomes empty
-        const defaultRelay = "wss://relay.nostr.band";
+        const defaultRelay = "wss://index.hzrd149.com";
         searchRelays.push(defaultRelay);
         localStorage.setItem("searchRelays", JSON.stringify(searchRelays));
         setActiveSearchRelay(defaultRelay);

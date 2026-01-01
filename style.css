@@ -2475,7 +2475,7 @@ main {
   height: 24px;
 }
 
-.video-time {
+.player-video-time {
   color: white;
   font-size: 14px;
   font-family: monospace;
@@ -2537,7 +2537,7 @@ main {
     gap: 8px;
   }
   
-  .video-time {
+  .player-video-time {
     font-size: 12px;
   }
   
@@ -2556,7 +2556,7 @@ main {
 /* Base miniplayer styles */
 .miniplayer {
   position: fixed;
-  width: 350px;
+  width: 370px;
   background: #000;
   border-radius: 8px;
   overflow: hidden;

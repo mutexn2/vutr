@@ -647,10 +647,10 @@ function createCustomVideoControls(videoElement) {
             <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
           </svg>
         </button>
-        <div class="video-time">
-          <span class="current-time">0:00</span>
+        <div class="player-video-time">
+          <span class="player-current-time">0:00</span>
           <span class="time-separator">/</span>
-          <span class="duration-time">0:00</span>
+          <span class="player-duration-time">0:00</span>
         </div>
         <div class="video-volume-control">
           <button class="video-control-btn volume-btn" aria-label="Mute/Unmute">
@@ -686,8 +686,8 @@ function createCustomVideoControls(videoElement) {
   const playPauseBtn = controls.querySelector('.play-pause-btn');
   const playIcon = controls.querySelector('.play-icon');
   const pauseIcon = controls.querySelector('.pause-icon');
-  const currentTimeEl = controls.querySelector('.current-time');
-  const durationTimeEl = controls.querySelector('.duration-time');
+  const currentTimeEl = controls.querySelector('.player-current-time');
+  const durationTimeEl = controls.querySelector('.player-duration-time');
   const progressBar = controls.querySelector('.video-progress-bar');
   const progressFilled = controls.querySelector('.video-progress-filled');
   const volumeBtn = controls.querySelector('.volume-btn');

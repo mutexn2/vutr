@@ -1417,10 +1417,10 @@ function populateProfileData(kindZeroContent, profile, profileNpub) {
     if (bannerImg) {
       bannerImg.src =
         kindZeroContent.banner ||
-        "https://nostpic.com/media/df17934d47fbf9b26c360708f6413204e2a68bd9cc4057fc8c12eccfc59d7313/a82cbba16d74b6b64ff24c675abebed834b912e5e2b102ff2bf585c239482a78.webp";
+        "https://image.nostr.build/477d78313a37287eb5613424772a14f051288ad1cbf2cdeec60e1c3052a839d4.jpg";
       bannerImg.onerror = () => {
         bannerImg.src =
-          "https://nostpic.com/media/df17934d47fbf9b26c360708f6413204e2a68bd9cc4057fc8c12eccfc59d7313/a82cbba16d74b6b64ff24c675abebed834b912e5e2b102ff2bf585c239482a78.webp";
+          "https://image.nostr.build/477d78313a37287eb5613424772a14f051288ad1cbf2cdeec60e1c3052a839d4.jpg";
       };
     }
 

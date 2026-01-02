@@ -704,7 +704,7 @@ function setupVideoPageContent(video, videoId, title, content, relativeTime, pub
         return;
       }
 
-      const confirmed = await confirmModal(
+/*       const confirmed = await confirmModal(
         "Likes are public and permanent. Once published, they cannot be undone.",
         "Publish Kind-7 Event"
       );
@@ -712,7 +712,7 @@ function setupVideoPageContent(video, videoId, title, content, relativeTime, pub
       if (!confirmed) {
         console.log("User canceled the like action");
         return;
-      }
+      } */
 
       try {
         likeBtn.disabled = true;

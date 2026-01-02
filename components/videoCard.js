@@ -96,7 +96,7 @@ function createVideoCard(video) {
   if (!thumbnailSrc) {
     thumbnailSrc =
       blurhashDataUrl ||
-      "https://image.nostr.build/662cb74c106987b87d85e3d55baf066049db91b03f866346677b11dc16b0c986.gif";
+      "https://image.nostr.build/477d78313a37287eb5613424772a14f051288ad1cbf2cdeec60e1c3052a839d4.jpg";
   }
 
   let originalThumbnailSrc = sanitizeUrl(thumbnailSrc);

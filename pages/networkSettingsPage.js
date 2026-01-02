@@ -369,13 +369,13 @@ function generateLimitationBadges(relayDoc) {
   
   // Add limitation badges
   if (relayDoc.limitation?.auth_required) {
-    badges.push('<span class="badge badge-warning">Auth</span>');
+    badges.push('<span class="badge badge-warning">🔐 Auth Required</span>');
   }
   if (relayDoc.limitation?.payment_required) {
-    badges.push('<span class="badge badge-warning">Paid</span>');
+    badges.push('<span class="badge badge-warning">💰 Payment Required</span>');
   }
   if (relayDoc.limitation?.restricted_writes) {
-    badges.push('<span class="badge badge-warning">Restricted</span>');
+    badges.push('<span class="badge badge-warning">✏️ Restricted Writes</span>');
   }
   
   return badges;

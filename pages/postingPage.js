@@ -1219,7 +1219,7 @@ if (!validTypes.includes(file.type)) {
   }
 
   async function generatePlaceholderThumbnail() {
-    return "https://i.postimg.cc/wB2qSW-MM/tn.jpg";
+    return "https://image.nostr.build/477d78313a37287eb5613424772a14f051288ad1cbf2cdeec60e1c3052a839d4.jpg";
   }
 
   async function generateHash(input) {

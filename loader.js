@@ -174,7 +174,7 @@
       "lib/purify.min.js",
 
       // no url, doing it custom from npm to single js
-      // @nostr/gadgets@0.0.39 | latest: 0.0.39 | versions: 38
+      // npm:@jsr/nostr__gadgets@^0.0.46
       "lib/nostr-gadgets.js",
 
       //"https://cdn.jsdelivr.net/npm/nostr-web-components/dist/index.js",

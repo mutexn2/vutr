@@ -126,6 +126,34 @@ window.addEventListener('popstate', (event) => {
   }
 });
 
+// ESC key handler for closing modals
+window.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' || event.keyCode === 27) {
+    // Close regular modal if open
+    if (app.modal?.element) {
+      closeModal();
+    }
+    // Close QR modal if open
+    else if (app.qrModal?.element) {
+      // Use the same closing logic as QR modal
+      if (app.qrModal.hasHistoryEntry && history.state?.modal) {
+        history.back();
+      }
+      
+      document.body.classList.remove('modal-open');
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+      window.scrollTo(0, originalScrollY);
+      
+      if (app.qrModal.element && document.body.contains(app.qrModal.element)) {
+        app.qrModal.element.remove();
+      }
+      
+      app.qrModal = null;
+    }
+  }
+});
 /////////////////////////
 // modal
 function openQrModal(options = {}) {

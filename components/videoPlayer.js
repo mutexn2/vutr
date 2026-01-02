@@ -663,6 +663,40 @@ function createCustomVideoControls(videoElement) {
           </button>
           <input type="range" class="volume-slider" min="0" max="1" step="0.01" value="1">
         </div>
+        
+        <!-- Playback Speed Button -->
+        <div class="video-settings-container">
+          <button class="video-control-btn speed-btn" aria-label="Playback Speed">
+            <span class="speed-label">1x</span>
+          </button>
+          <div class="speed-menu video-menu">
+            <div class="speed-option" data-speed="0.25">0.25x</div>
+            <div class="speed-option" data-speed="0.5">0.5x</div>
+            <div class="speed-option" data-speed="0.75">0.75x</div>
+            <div class="speed-option active" data-speed="1">Normal</div>
+            <div class="speed-option" data-speed="1.25">1.25x</div>
+            <div class="speed-option" data-speed="1.5">1.5x</div>
+            <div class="speed-option" data-speed="1.75">1.75x</div>
+            <div class="speed-option" data-speed="2">2x</div>
+          </div>
+        </div>
+
+        <!-- Quality Button (Placeholder) -->
+        <div class="video-settings-container">
+          <button class="video-control-btn quality-btn" aria-label="Quality">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M15 8v8H5V8h10m1-2H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4V7c0-.55-.45-1-1-1z"/>
+            </svg>
+          </button>
+          <div class="quality-menu video-menu">
+            <div class="quality-option">Auto</div>
+            <div class="quality-option">1080p</div>
+            <div class="quality-option">720p</div>
+            <div class="quality-option">480p</div>
+            <div class="quality-option">360p</div>
+          </div>
+        </div>
+
         <button class="video-control-btn fullscreen-btn" aria-label="Fullscreen">
           <svg class="fullscreen-icon" viewBox="0 0 24 24" fill="currentColor">
             <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
@@ -697,6 +731,15 @@ function createCustomVideoControls(videoElement) {
   const fullscreenBtn = controls.querySelector('.fullscreen-btn');
   const fullscreenIcon = controls.querySelector('.fullscreen-icon');
   const exitFullscreenIcon = controls.querySelector('.exit-fullscreen-icon');
+  
+  // New controls
+  const speedBtn = controls.querySelector('.speed-btn');
+  const speedLabel = controls.querySelector('.speed-label');
+  const speedMenu = controls.querySelector('.speed-menu');
+  const speedOptions = controls.querySelectorAll('.speed-option');
+  const qualityBtn = controls.querySelector('.quality-btn');
+  const qualityMenu = controls.querySelector('.quality-menu');
+  const qualityOptions = controls.querySelectorAll('.quality-option');
 
   let controlsTimeout;
   let isSeeking = false;
@@ -748,6 +791,11 @@ function createCustomVideoControls(videoElement) {
     const newVolume = Math.max(0, Math.min(1, videoElement.volume + delta));
     setVolume(videoElement, newVolume);
     showControls();
+  }
+
+  function closeAllMenus() {
+    speedMenu.classList.remove('show');
+    qualityMenu.classList.remove('show');
   }
 
   // Play/Pause button
@@ -823,6 +871,59 @@ function createCustomVideoControls(videoElement) {
     e.stopPropagation();
   });
 
+  // Playback Speed controls
+  speedBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    qualityMenu.classList.remove('show');
+    speedMenu.classList.toggle('show');
+  });
+
+  speedOptions.forEach(option => {
+    option.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const speed = parseFloat(option.dataset.speed);
+      videoElement.playbackRate = speed;
+      
+      // Update UI
+      speedOptions.forEach(opt => opt.classList.remove('active'));
+      option.classList.add('active');
+      
+      // Update button label
+      if (speed === 1) {
+        speedLabel.textContent = '1x';
+      } else {
+        speedLabel.textContent = speed + 'x';
+      }
+      
+      speedMenu.classList.remove('show');
+      showControls();
+    });
+  });
+
+  // Quality controls (placeholder)
+  qualityBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    speedMenu.classList.remove('show');
+    qualityMenu.classList.toggle('show');
+  });
+
+  qualityOptions.forEach(option => {
+    option.addEventListener('click', (e) => {
+      e.stopPropagation();
+      console.log('Quality selected:', option.textContent);
+      // Placeholder - actual quality switching would go here
+      qualityMenu.classList.remove('show');
+      showControls();
+    });
+  });
+
+  // Close menus when clicking outside
+  wrapper.addEventListener('click', (e) => {
+    if (!e.target.closest('.video-settings-container')) {
+      closeAllMenus();
+    }
+  });
+
   // Fullscreen
   fullscreenBtn.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -846,12 +947,14 @@ function createCustomVideoControls(videoElement) {
     if (!videoElement.paused) {
       controls.classList.remove('visible');
     }
+    closeAllMenus();
   });
 
   // Click on video to play/pause
   videoElement.addEventListener('click', (e) => {
     e.stopPropagation();
     togglePlayPause(videoElement);
+    closeAllMenus();
   });
 
   // Keyboard shortcuts
@@ -882,11 +985,11 @@ function createCustomVideoControls(videoElement) {
         break;
       case 'ArrowUp':
         e.preventDefault();
-        adjustVolume(0.05); // Increase volume by 5%
+        adjustVolume(0.05);
         break;
       case 'ArrowDown':
         e.preventDefault();
-        adjustVolume(-0.05); // Decrease volume by 5%
+        adjustVolume(-0.05);
         break;
     }
   });

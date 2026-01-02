@@ -350,18 +350,50 @@ function saveRelayLists() {
   localStorage.setItem("activeRelayList", app.activeRelayList);
 }
 
+
+function generateLimitationBadges(relayDoc) {
+  if (!relayDoc) return [];
+  
+  const badges = [];
+  
+  // Add ALL NIP badges from the relay document
+  if (relayDoc.supported_nips?.length > 0) {
+    // Sort NIPs numerically for better display
+    const sortedNips = [...relayDoc.supported_nips].sort((a, b) => a - b);
+    
+    // Show all NIPs with tooltips
+    sortedNips.forEach(nip => {
+      badges.push(`<span class="badge badge-info" title="NIP-${nip}">NIP-${nip}</span>`);
+    });
+  }
+  
+  // Add limitation badges
+  if (relayDoc.limitation?.auth_required) {
+    badges.push('<span class="badge badge-warning">Auth</span>');
+  }
+  if (relayDoc.limitation?.payment_required) {
+    badges.push('<span class="badge badge-warning">Paid</span>');
+  }
+  if (relayDoc.limitation?.restricted_writes) {
+    badges.push('<span class="badge badge-warning">Restricted</span>');
+  }
+  
+  return badges;
+}
 function createRelayItemHTML(relayUrl, index, relayDoc) {
   const domain = extractDomainName(relayUrl);
   const name = relayDoc?.name || domain;
   const description = relayDoc?.description || "Loading relay information...";
   
   // Check if this relay is blocked
-const isBlocked = window.WebSocketManager && window.WebSocketManager.isURLBlocked(relayUrl);  
-  // Basic info from relay document
-  const supportedNips = relayDoc?.supported_nips?.length || 0;
-  const software = relayDoc?.software ? extractSoftwareName(relayDoc.software) : "";
-  const authRequired = relayDoc?.limitation?.auth_required || false;
-  const paymentRequired = relayDoc?.limitation?.payment_required || false;
+  const isBlocked = window.WebSocketManager && window.WebSocketManager.isURLBlocked(relayUrl);  
+  
+  // Generate all badges including NIPs and limitations
+  const badges = generateLimitationBadges(relayDoc);
+  
+  // Add software badge separately if present
+  const softwareBadge = relayDoc?.software ? 
+    `<span class="badge badge-info">${extractSoftwareName(relayDoc.software)}</span>` : '';
   
   return `
     <div class="relay-item" data-relay="${relayUrl}" data-index="${index}">
@@ -381,12 +413,10 @@ const isBlocked = window.WebSocketManager && window.WebSocketManager.isURLBlocke
         
         <div class="relay-description">${truncateText(description, 120)}</div>
         
-        ${(supportedNips > 0 || software || authRequired || paymentRequired) ? `
+        ${(badges.length > 0 || softwareBadge) ? `
           <div class="relay-badges">
-            ${supportedNips > 0 ? `<span class="badge badge-info">NIPs: ${supportedNips}</span>` : ''}
-            ${software ? `<span class="badge badge-info">${software}</span>` : ''}
-            ${authRequired ? '<span class="badge badge-warning">Auth Required</span>' : ''}
-            ${paymentRequired ? '<span class="badge badge-warning">Payment Required</span>' : ''}
+            ${badges.join('')}
+            ${softwareBadge}
           </div>
         ` : ''}
       </div>
@@ -713,127 +743,99 @@ async function performDetailedAnalysis(relayUrl, index, statusElement) {
     }
 }
 
-// Minimal approach - use nostr-tools only for utilities
 async function performTechnicalCheck(relayUrl) {
-    return new Promise((resolve, reject) => {
-        const startTime = performance.now();
-        const ws = new WebSocket(relayUrl);
-        
-        let result = {
-            status: 'offline',
-            responseTime: null,
-            hasVideoEvents: false,
-            hasTextEvents: false,
-            authRequired: false,
-            canAccess: false,
-            error: null
-        };
-
-        const timeout = setTimeout(() => {
-            ws.close();
-            reject(new Error('Connection timeout'));
-        }, 8000);
-
-        ws.onopen = () => {
-            result.status = 'online';
-            
-            // Use a simple random ID instead of nostr-tools for subscription ID
-            const subId1 = Math.random().toString(36).substring(7);
-            const subId2 = Math.random().toString(36).substring(7);
-            
-            const videoReq = JSON.stringify([
-                "REQ", subId1, { kinds: [21, 22], limit: 1 }
-            ]);
-            
-            const textReq = JSON.stringify([
-                "REQ", subId2, { kinds: [1], limit: 1 }
-            ]);
-            
-            ws.send(videoReq);
-            ws.send(textReq);
-            
-            setTimeout(() => {
-                ws.close();
-                clearTimeout(timeout);
-                resolve(result);
-            }, 4000);
-        };
-
-        ws.onmessage = (event) => {
-            if (!result.responseTime) {
-                result.responseTime = Math.round(performance.now() - startTime);
-            }
-
-            try {
-                const message = JSON.parse(event.data);
-                if (Array.isArray(message)) {
-                    const [type, subscriptionId, ...args] = message;
-                    
-                    switch (type) {
-                        case 'EVENT':
-                            result.canAccess = true;
-                            const eventData = args[0];
-                            if (eventData && eventData.kind) {
-                                if (eventData.kind === 21 || eventData.kind === 22) {
-                                    result.hasVideoEvents = true;
-                                } else if (eventData.kind === 1) {
-                                    result.hasTextEvents = true;
-                                }
-                            }
-                            break;
-                            
-                        case 'AUTH':
-                            result.authRequired = true;
-                            break;
-                            
-                        case 'NOTICE':
-                            const notice = args[0] || '';
-                            if (detectAuthFromNotice(notice).required) {
-                                result.authRequired = true;
-                            }
-                            break;
-                            
-                        case 'CLOSED':
-                            const reason = args[1] || '';
-                            if (reason.toLowerCase().includes('auth')) {
-                                result.authRequired = true;
-                            }
-                            break;
-                    }
-                }
-            } catch (e) {
-                // Invalid JSON, ignore
-            }
-        };
-
-        ws.onclose = (event) => {
-            clearTimeout(timeout);
-            if (event.code === 4000 || event.code === 4004) {
-                result.authRequired = true;
-            }
-            resolve(result);
-        };
-
-        ws.onerror = () => {
-            clearTimeout(timeout);
-            result.status = 'offline';
-            result.error = 'Connection failed';
-            reject(result);
-        };
-    });
-}
-
-function detectAuthFromNotice(notice) {
-    const lowerNotice = notice.toLowerCase();
-    const authKeywords = [
-        'auth', 'restricted', 'login', 'unauthorized', 
-        'requires authentication', 'authentication required',
-        'please authenticate', 'auth required', 'authentication needed'
-    ];
+  return new Promise((resolve, reject) => {
+    const startTime = performance.now();
+    const ws = new WebSocket(relayUrl);
     
-    const required = authKeywords.some(keyword => lowerNotice.includes(keyword));
-    return { required, notice };
+    let result = {
+      status: 'offline',
+      responseTime: null,
+      hasVideoEvents: false,
+      hasTextEvents: false,
+      canAccess: false,
+      error: null
+      // No authRequired field
+    };
+
+
+    const timeout = setTimeout(() => {
+      ws.close();
+      reject(new Error('Connection timeout'));
+    }, 8000);
+
+    ws.onopen = () => {
+      result.status = 'online';
+      
+      // Use a simple random ID instead of nostr-tools for subscription ID
+      const subId1 = Math.random().toString(36).substring(7);
+      const subId2 = Math.random().toString(36).substring(7);
+      
+      const videoReq = JSON.stringify([
+        "REQ", subId1, { kinds: [21, 22], limit: 1 }
+      ]);
+      
+      const textReq = JSON.stringify([
+        "REQ", subId2, { kinds: [1], limit: 1 }
+      ]);
+      
+      ws.send(videoReq);
+      ws.send(textReq);
+      
+      setTimeout(() => {
+        ws.close();
+        clearTimeout(timeout);
+        resolve(result);
+      }, 4000);
+    };
+
+    ws.onmessage = (event) => {
+      if (!result.responseTime) {
+        result.responseTime = Math.round(performance.now() - startTime);
+      }
+
+      try {
+        const message = JSON.parse(event.data);
+        if (Array.isArray(message)) {
+          const [type, subscriptionId, ...args] = message;
+          
+          switch (type) {
+            case 'EVENT':
+              result.canAccess = true;
+              const eventData = args[0];
+              if (eventData && eventData.kind) {
+                if (eventData.kind === 21 || eventData.kind === 22) {
+                  result.hasVideoEvents = true;
+                } else if (eventData.kind === 1) {
+                  result.hasTextEvents = true;
+                }
+              }
+              break;
+              
+            // Removed AUTH and NOTICE handling for authentication
+            // Authentication is now only determined from relay document limitations
+          }
+        }
+      } catch (e) {
+        // Invalid JSON, ignore
+      }
+    };
+
+    ws.onclose = (event) => {
+      clearTimeout(timeout);
+      // Removed auth detection from close codes
+      resolve(result);
+    };
+
+    ws.onerror = () => {
+      clearTimeout(timeout);
+      result.status = 'offline';
+      result.error = 'Connection failed';
+      reject(result);
+    };
+  });
 }
+
 
 
 function updateDetailedStatusWithInfo(statusElement, relayInfo, techResult, relayUrl) {
@@ -855,70 +857,65 @@ function updateDetailedStatusWithInfo(statusElement, relayInfo, techResult, rela
 }
 
 function createTechnicalAnalysis(techResult) {
-    const analysis = document.createElement('div');
-    analysis.className = 'technical-analysis';
-    
-    const analysisHeader = document.createElement('div');
-    analysisHeader.className = 'analysis-header';
-    
-    const statusSpan = document.createElement('span');
-    const isOnline = techResult.status === 'online';
-    statusSpan.className = isOnline ? 'status-online' : 'status-offline';
-    statusSpan.textContent = isOnline ? '✅ Online' : '❌ Offline';
-    analysisHeader.appendChild(statusSpan);
-    
-    const details = document.createElement('div');
-    details.className = 'analysis-details';
-    
-    // Response time
-    if (techResult.responseTime) {
-        const perfItem = createAnalysisItem(
-            '⚡ Response Time:',
-            getPerformanceText(techResult.responseTime),
-            getPerformanceClass(techResult.responseTime)
-        );
-        details.appendChild(perfItem);
-    }
-    
-    // Content analysis
-    let contentStatus = '❌ No Content';
-    let contentClass = 'status-no';
-    
-    if (techResult.hasVideoEvents) {
-        contentStatus = '🎥 Has Videos';
-        contentClass = 'status-yes';
-    } else if (techResult.hasTextEvents) {
-        contentStatus = '📝 Text Only';
-        contentClass = 'status-warning';
-    }
-    
-    const contentItem = createAnalysisItem('📺 Content:', contentStatus, contentClass);
-    details.appendChild(contentItem);
-    
-    // Access status
-    const accessStatus = techResult.canAccess ? '✅ Accessible' : '❌ No Access';
-    const accessClass = techResult.canAccess ? 'status-yes' : 'status-no';
-    const accessItem = createAnalysisItem('🔓 Access:', accessStatus, accessClass);
-    details.appendChild(accessItem);
-    
-    // Auth status
-    if (techResult.authRequired) {
-        const authItem = createAnalysisItem('🔐 Auth:', 'Auth Required', 'status-warning');
-        details.appendChild(authItem);
-    }
-    
-    // Error
-    if (techResult.error) {
-        const errorItem = createAnalysisItem('❌ Issue:', techResult.error, 'error');
-        details.appendChild(errorItem);
-    }
-    
-    analysis.appendChild(analysisHeader);
-    analysis.appendChild(details);
-    
-    return analysis;
+  const analysis = document.createElement('div');
+  analysis.className = 'technical-analysis';
+  
+  const analysisHeader = document.createElement('div');
+  analysisHeader.className = 'analysis-header';
+  
+  const statusSpan = document.createElement('span');
+  const isOnline = techResult.status === 'online';
+  statusSpan.className = isOnline ? 'status-online' : 'status-offline';
+  statusSpan.textContent = isOnline ? '✅ Online' : '❌ Offline';
+  analysisHeader.appendChild(statusSpan);
+  
+  const details = document.createElement('div');
+  details.className = 'analysis-details';
+  
+  // Response time
+  if (techResult.responseTime) {
+    const perfItem = createAnalysisItem(
+      '⚡ Response Time:',
+      getPerformanceText(techResult.responseTime),
+      getPerformanceClass(techResult.responseTime)
+    );
+    details.appendChild(perfItem);
+  }
+  
+  // Content analysis
+  let contentStatus = '❌ No Content';
+  let contentClass = 'status-no';
+  
+  if (techResult.hasVideoEvents) {
+    contentStatus = '🎥 Has Videos';
+    contentClass = 'status-yes';
+  } else if (techResult.hasTextEvents) {
+    contentStatus = '📝 Text Only';
+    contentClass = 'status-warning';
+  }
+  
+  const contentItem = createAnalysisItem('📺 Content:', contentStatus, contentClass);
+  details.appendChild(contentItem);
+  
+  // Access status
+  const accessStatus = techResult.canAccess ? '✅ Accessible' : '❌ No Access';
+  const accessClass = techResult.canAccess ? 'status-yes' : 'status-no';
+  const accessItem = createAnalysisItem('🔓 Access:', accessStatus, accessClass);
+  details.appendChild(accessItem);
+  
+  // No auth status display
+  
+  // Error
+  if (techResult.error) {
+    const errorItem = createAnalysisItem('❌ Issue:', techResult.error, 'error');
+    details.appendChild(errorItem);
+  }
+  
+  analysis.appendChild(analysisHeader);
+  analysis.appendChild(details);
+  
+  return analysis;
 }
-
 
 function createAnalysisItem(label, value, valueClass = '') {
     const item = document.createElement('div');
@@ -978,12 +975,7 @@ function createRelayHeader(relayInfo, relayUrl) {
     if (relayInfo.software) {
       infoParts.push(extractSoftwareName(relayInfo.software));
     }
-    if (relayInfo.limitation?.payment_required) {
-      infoParts.push('Paid');
-    }
-    if (relayInfo.limitation?.auth_required) {
-      infoParts.push('Auth Required');
-    }
+    // Removed auth_required and payment_required from here since they're in badges
     
     if (infoParts.length > 0) {
       additionalInfo.textContent = infoParts.join(' • ');
@@ -1132,7 +1124,6 @@ async function fetchRelayInfo(relayUrl) {
 
 
 /////////////////////////////////////////
-// New function to create an empty set automatically
 function createNewEmptySet() {
   // Generate a unique placeholder name
   let counter = 1;
@@ -1308,7 +1299,6 @@ function buildRelaySetEventData(setData) {
 
 let currentEditingSet = null;
 
-// Modified to edit metadata (name + description)
 async function editSetMetadata(setName) {
   if (isGlobalSet(setName)) {
     showTemporaryNotification("Cannot edit the global relay set");
@@ -1478,7 +1468,6 @@ function updateAllNetworkUI() {
 
 const GLOBAL_SET_NAME = "🌐 All Relays (Global)";
 
-// Helper function to generate the global relay set
 function generateGlobalRelaySet() {
   const allRelays = new Set();
   

@@ -79,12 +79,7 @@ function renderWizardForm() {
                 <input type="text" id="video-url" placeholder="Enter video URL (mp4, webm, etc.)">
                 <button type="button" id="add-video">Add Video</button>
               </div>
-              <div class="validation-options" style="display: none;">
-                <label>
-                  <input type="checkbox" id="lightweight-mode">
-                  Skip blossom validation (faster, less accurate)
-                </label>
-              </div>
+
               <div id="video-progress" class="progress-container" style="display: none;"></div>
             </div>
 
@@ -877,80 +872,55 @@ async function handleAddVideo() {
   setButtonLoading(button, true, "Processing...");
 
   try {
-    const lightweightCheckbox = document.getElementById("lightweight-mode");
-    const isLightweightMode = lightweightCheckbox.checked;
-
-    // Step 1: Check accessibility first (lightweight HEAD request)
-    showVideoProgress("Checking video accessibility...");
+    // Step 1: Check accessibility
+    showVideoProgress("Checking media accessibility...");
     const headResponse = await fetch(url, { method: "HEAD" });
-    if (!headResponse.ok) throw new Error("Invalid URL or video not accessible");
+    if (!headResponse.ok) throw new Error("Invalid URL or media not accessible");
 
-const contentType = headResponse.headers.get("Content-Type") || "video/mp4";
-const isVideo = contentType.startsWith("video/");
-const isAudio = contentType.startsWith("audio/");
+    const contentType = headResponse.headers.get("Content-Type") || "video/mp4";
+    const isVideo = contentType.startsWith("video/");
+    const isAudio = contentType.startsWith("audio/");
 
-if (!isVideo && !isAudio) {
-  throw new Error(`Expected video or audio content, but received: ${contentType}`);
-}
-    const contentLength = parseInt(headResponse.headers.get("Content-Length") || "0");
-
-    let metadata;
-
-    if (isLightweightMode) {
-      // Lightweight mode: minimal data, no download
-      showVideoProgress("Creating metadata (lightweight mode)...");
-      metadata = {
-        url,
-        type: contentType,
-        size: contentLength,
-        hash: generateRandomHash(),
-        blobHash: null,
-        isHashValid: false,
-        dimensions: "1920x1080", // Default
-        width: 1920,
-        height: 1080,
-        duration: Math.max(60, contentLength / 1000000), // Estimate
-        uploaded: Math.floor(Date.now() / 1000),
-        isLightweight: true,
-      };
-    } else {
-      // Full mode: download once and extract everything
-      const videoBlob = await fetchVideoWithProgress(url, (progress) => {
-        if (progress.indeterminate) {
-          showVideoProgress("Downloading video...", { indeterminate: true });
-        } else {
-          showVideoProgress("Downloading video...", progress);
-        }
-      });
-
-      showVideoProgress("Extracting complete metadata...");
-      
-      // Extract ALL metadata from the blob in one pass
-      const fullMetadata = await extractCompleteVideoMetadata(videoBlob, contentType, contentLength);
-      
-      // Generate and validate hash
-      showVideoProgress("Validating hash...");
-      const blobHash = await generateSHA256Hash(videoBlob);
-      const hashValidation = validateHashAgainstUrl(url, blobHash);
-      
-      metadata = {
-        url,
-        type: contentType,
-        size: contentLength,
-        hash: hashValidation.isValid ? blobHash : generateRandomHash(),
-        blobHash,
-        isHashValid: hashValidation.isValid,
-        ...fullMetadata, // Spread all extracted metadata
-        uploaded: Math.floor(Date.now() / 1000),
-        isLightweight: false,
-      };
+    if (!isVideo && !isAudio) {
+      throw new Error(`Expected video or audio content, but received: ${contentType}`);
     }
 
-    metadata.index = metadataIndex++;
+    const contentLength = parseInt(headResponse.headers.get("Content-Length") || "0");
 
-    // Generate thumbnail (this is separate and won't re-download)
+    // Step 2: Download media
+    const mediaBlob = await fetchVideoWithProgress(url, (progress) => {
+      if (progress.indeterminate) {
+        showVideoProgress("Downloading media...", { indeterminate: true });
+      } else {
+        showVideoProgress("Downloading media...", progress);
+      }
+    });
+
+    // Step 3: Extract metadata
+    showVideoProgress("Extracting metadata...");
+    const fullMetadata = await extractCompleteVideoMetadata(mediaBlob, contentType, contentLength);
+    
+    // Step 4: Generate hash (always actual hash)
+    showVideoProgress("Generating SHA-256 hash...");
+    const blobHash = await generateSHA256Hash(mediaBlob);
+    
+    // Step 5: Validate hash against URL
+    const hashValidation = validateHashAgainstUrl(url, blobHash);
+    
+    const metadata = {
+      url,
+      type: contentType,
+      size: contentLength,
+      hash: blobHash, // Always actual hash, never random
+      isHashValid: hashValidation.isValid,
+      ...fullMetadata,
+      uploaded: Math.floor(Date.now() / 1000),
+      index: metadataIndex++
+    };
+
+    // Step 6: Generate thumbnail
     showVideoProgress("Generating thumbnail...");
-    metadata.thumbnail = await extractThumbnail(url);
+    metadata.thumbnail = isVideo ? await extractThumbnail(url) : await generatePlaceholderThumbnail();
 
     window.videoMetadataList.push(metadata);
     addVideoToUI(metadata);
@@ -959,19 +929,13 @@ if (!isVideo && !isAudio) {
     saveFormDataToStorage();
     hideVideoProgress();
   } catch (error) {
-    console.error("Error fetching video metadata:", error);
+    console.error("Error fetching media metadata:", error);
     hideVideoProgress();
-
-    if (error.message.includes("Expected video content")) {
-      alert(`❌ ${error.message}\n\nPlease ensure the URL points to a video file.`);
-    } else {
-      alert(`Failed to fetch video metadata: ${error.message}`);
-    }
+    alert(`Failed to fetch media metadata: ${error.message}`);
   } finally {
     setButtonLoading(button, false, "Add Video");
   }
 }
-
 async function extractCompleteVideoMetadata(blob, mimeType, fileSize) {
   return new Promise((resolve, reject) => {
     const video = document.createElement('video');
@@ -1154,69 +1118,7 @@ if (!validTypes.includes(file.type)) {
     };
   }
 
-  async function extractThumbnail(videoUrl) {
-    return new Promise((resolve, reject) => {
-      const video = document.createElement("video");
-      video.crossOrigin = "anonymous";
-      video.muted = true;
 
-      video.onloadedmetadata = () => {
-        video.currentTime = 0.1;
-      };
-
-      video.onseeked = () => {
-        const canvas = document.createElement("canvas");
-        const ctx = canvas.getContext("2d");
-
-        const thumbnailWidth = 240;
-        const thumbnailHeight = 135;
-
-        canvas.width = thumbnailWidth;
-        canvas.height = thumbnailHeight;
-
-        ctx.fillStyle = "#000000";
-        ctx.fillRect(0, 0, thumbnailWidth, thumbnailHeight);
-
-        const videoWidth = video.videoWidth;
-        const videoHeight = video.videoHeight;
-        const videoAspectRatio = videoWidth / videoHeight;
-        const containerAspectRatio = thumbnailWidth / thumbnailHeight;
-
-        let drawWidth, drawHeight, offsetX, offsetY;
-
-        if (videoAspectRatio > containerAspectRatio) {
-          drawWidth = thumbnailWidth;
-          drawHeight = thumbnailWidth / videoAspectRatio;
-          offsetX = 0;
-          offsetY = (thumbnailHeight - drawHeight) / 2;
-        } else {
-          drawHeight = thumbnailHeight;
-          drawWidth = thumbnailHeight * videoAspectRatio;
-          offsetX = (thumbnailWidth - drawWidth) / 2;
-          offsetY = 0;
-        }
-
-        ctx.drawImage(video, offsetX, offsetY, drawWidth, drawHeight);
-
-        canvas.toBlob(
-          (blob) => {
-            if (blob) {
-              const reader = new FileReader();
-              reader.onload = () => resolve(reader.result);
-              reader.readAsDataURL(blob);
-            } else {
-              resolve(canvas.toDataURL("image/jpeg", 0.7));
-            }
-          },
-          "image/webp",
-          0.8
-        );
-      };
-
-      video.onerror = () => resolve(generatePlaceholderThumbnail());
-      video.src = videoUrl;
-    });
-  }
 
   async function generatePlaceholderThumbnail() {
     return "https://image.nostr.build/477d78313a37287eb5613424772a14f051288ad1cbf2cdeec60e1c3052a839d4.jpg";

@@ -39,6 +39,12 @@ async function videoPageHandler() {
     // Determine autoplay
     const shouldAutoplay = !!app.currentPlaylist;
     
+    if (!app.currentPlaylist) {
+      addVideoToHistory(video);
+    }
+
+
+
     // Render video page
     renderVideoPage(video, urlParams.videoId, window.location.hash, shouldAutoplay);
     
@@ -161,20 +167,26 @@ async function fetchVideoDataProgressive(urlParams) {
     }
   }
 
-  // Strategy 2: Try with author's extended relays (if author pubkey provided)
-  if (authorPubkey) {
-    console.log(`Trying author relays for: ${authorPubkey.slice(0, 8)}...`);
-    try {
-      const extendedRelays = await getExtendedRelaysForProfile(authorPubkey);
+// Strategy 2: Try with author's extended relays (if author pubkey provided)
+if (authorPubkey) {
+  console.log(`Trying author relays for: ${authorPubkey.slice(0, 8)}...`);
+  try {
+    const extendedRelays = await getExtendedRelaysForProfile(authorPubkey);
+    
+    // Skip if no relays found
+    if (extendedRelays && extendedRelays.length > 0) {
       const video = await NostrClient.getEventsFromRelays(extendedRelays, filter);
       if (video) {
         console.log("✓ Found video via author relays");
         return sanitizeNostrEvent(video);
       }
-    } catch (error) {
-      console.warn("Error fetching from author relays:", error);
+    } else {
+      console.log("⊘ No author relays found, skipping strategy 2");
     }
+  } catch (error) {
+    console.warn("Error fetching from author relays:", error);
   }
+}
 
   // Strategy 3: Try with app relays only (if not already tried with discovery)
   if (discoveryRelays.length === 0) {
@@ -1732,26 +1744,29 @@ function addPlaylistToHistory(playlist) {
   const history = app.playlistHistory || [];
   const identifier = `${playlist.pubkey}:${getValueFromTags(playlist, "d", "")}`;
   
-  // Don't add if already in history (check last 10)
-  const recentHistory = history.slice(-10);
-  const alreadyInRecent = recentHistory.some(p => 
+  // Check if playlist already exists in history
+  const existingIndex = history.findIndex(p => 
     `${p.pubkey}:${getValueFromTags(p, "d", "")}` === identifier
   );
   
-  if (!alreadyInRecent) {
-    history.push({
-      ...playlist,
-      addedToHistoryAt: Math.floor(Date.now() / 1000)
-    });
-    
-    // Keep only last 50 playlists in history
-    if (history.length > 50) {
-      history.splice(0, history.length - 50);
-    }
-    
-    app.playlistHistory = history;
-    localStorage.setItem("playlistHistory", JSON.stringify(history));
+  if (existingIndex !== -1) {
+    // Remove the existing entry
+    history.splice(existingIndex, 1);
   }
+  
+  // Add playlist with new timestamp
+  history.push({
+    ...playlist,
+    addedToHistoryAt: Math.floor(Date.now() / 1000)
+  });
+  
+  // Keep only last 50 playlists in history
+  if (history.length > 50) {
+    history.splice(0, history.length - 50);
+  }
+  
+  app.playlistHistory = history;
+  localStorage.setItem("playlistHistory", JSON.stringify(history));
 }
 
 function updateVideoPagePlaylistInfo() {

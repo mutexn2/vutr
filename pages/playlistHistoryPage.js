@@ -26,7 +26,7 @@ async function historyListsPageHandler() {
     }
 
     // Sort by most recent first
-    historyPlaylists.sort((a, b) => b.created_at - a.created_at);
+    historyPlaylists.sort((a, b) => (b.addedToHistoryAt || b.created_at) - (a.addedToHistoryAt || a.created_at));
     
     pageContainer.innerHTML = `
       <div class="playlists-header">

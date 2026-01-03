@@ -247,6 +247,7 @@ let config = {
         { name: "kind1home", displayName: "Kind 1s", icon: "⚙️" },
         { name: "localmuted", displayName: "Muted", icon: "⚙️" },
         { name: "historyplaylists", displayName: "Playlist history", icon: "📒" },
+        { name: "history", displayName: "history", icon: "📒" },
         { name: "shorts", displayName: "Shorts", icon: "⚙️" },
         { name: "relaysetsdiscover", displayName: "Relay Sets", icon: "⚙️" },
         { name: "faq", displayName: "faq", icon: "❓" },

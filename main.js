@@ -45,6 +45,7 @@ let app = {
     localStorage.getItem("bookmarkedPlaylists") || "[]"
   ),
   playlistHistory: JSON.parse(localStorage.getItem("playlistHistory") || "[]"),
+  history: JSON.parse(localStorage.getItem("history") || "[]"),
 
   mediaServerWhitelist: JSON.parse(
     localStorage.getItem("mediaServerWhitelist") || "[]"
@@ -163,6 +164,7 @@ let routes = {
   "#saved": bookmarksPageHandler,
   "#bookmarkedplaylists": bookmarkedListsPageHandler,
   "#historyplaylists": historyListsPageHandler,
+  "#history": historyPageHandler,
   "#localfollows": localFollowsPageHandler,
   "#localmuted": localMutedPageHandler,
   "#kind1follows": kind1FollowsPageHandler,

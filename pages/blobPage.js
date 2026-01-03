@@ -2,52 +2,44 @@ async function blobPageHandler() {
   try {
     mainContent.innerHTML = `
       <div class="blobing-container">
-        <h1>Video Metadata Extractor for Kind-21</h1>
+        <h1>Media Metadata Generator</h1>
+        <p class="subtitle">Generate imeta tags for direct media URLs (video/audio)</p>
         
         <div class="url-input-section">
-          <h2>Enter Video URL</h2>
-          <input type="url" id="videoUrl" placeholder="https://example.com/video.mp4" class="url-input">
-          <button id="processVideoBtn" class="btn">Process Video</button>
+          <input type="url" id="mediaUrl" placeholder="https://example.com/video.mp4" class="url-input">
+          <button id="processMediaBtn" class="btn">Process Media</button>
           <div id="processingStatus" class="result-section"></div>
         </div>
 
-        <div class="steps-container" id="stepsContainer" style="display: none;">
-          <div class="step">
-            <h3>Basic Video Information</h3>
-            <div id="basicInfo" class="step-content"></div>
-            <button id="nextStep1" class="btn" disabled>Continue to Hash Check</button>
+        <div id="resultsContainer" style="display: none;">
+          <div class="media-info-section">
+            <h3>Media Information</h3>
+            <div id="mediaInfo" class="info-content"></div>
           </div>
 
-          <div class="step">
-            <h3>Hash Validation (Optional)</h3>
-            <div id="hashInfo" class="step-content"></div>
-            <button id="generateImeta" class="btn" disabled>Generate imeta Tag</button>
+          <div class="imeta-section">
+            <h3>Generated imeta Tag</h3>
+            <pre id="imetaOutput" class="code-block"></pre>
+            <button id="copyImeta" class="btn-small" style="display: none;">Copy imeta Tag</button>
           </div>
 
-          <div class="step">
-            <h3>Final imeta Tag</h3>
-            <div id="imetaOutput" class="step-content"></div>
+          <div class="media-preview-section">
+            <h3>Media Preview</h3>
+            <div id="mediaPreview"></div>
           </div>
-        </div>
-
-        <div class="video-preview" id="videoPreview" style="display: none;">
-          <h3>Video Preview</h3>
-          <div id="previewContainer"></div>
         </div>
       </div>
     `;
 
-    // Extract video URL from hash if present
+    // Extract URL from hash if present
     const currentHash = window.location.hash;
     let prefilledUrl = '';
     
     if (currentHash.startsWith('#blob/')) {
-      prefilledUrl = currentHash.substring(6); // Remove '#blob/' prefix
-      // Decode in case the URL was encoded
-      prefilledUrl = decodeURIComponent(prefilledUrl);
+      prefilledUrl = decodeURIComponent(currentHash.substring(6));
     }
 
-    initializeVideoProcessor(prefilledUrl);
+    initializeMediaProcessor(prefilledUrl);
 
   } catch (error) {
     console.error("Error rendering blob page:", error);
@@ -55,292 +47,208 @@ async function blobPageHandler() {
   }
 }
 
-function initializeVideoProcessor(prefilledUrl = '') {
-  const videoUrlInput = document.getElementById('videoUrl');
-  const processVideoBtn = document.getElementById('processVideoBtn');
-  const stepsContainer = document.getElementById('stepsContainer');
+function initializeMediaProcessor(prefilledUrl = '') {
+  const mediaUrlInput = document.getElementById('mediaUrl');
+  const processMediaBtn = document.getElementById('processMediaBtn');
   
-  // Pre-fill the input field if URL was provided
   if (prefilledUrl) {
-    videoUrlInput.value = prefilledUrl;
+    mediaUrlInput.value = prefilledUrl;
   }
-  
-  let videoData = {
-    url: '',
-    blob: null,
-    hash: null,
-    metadata: {},
-    isHashValid: false
-  };
 
-  processVideoBtn.addEventListener('click', async () => {
-    const url = videoUrlInput.value.trim();
+  processMediaBtn.addEventListener('click', async () => {
+    const url = mediaUrlInput.value.trim();
     if (!url) {
-      showStatus('Please enter a video URL', 'error');
+      showStatus('Please enter a media URL', 'error');
       return;
     }
 
+    await processMediaUrl(url);
+  });
+}
 
-    videoData.url = url;
-    await processStep1(videoData);
+async function processMediaUrl(url) {
+  try {
+    // Step 1: Check accessibility
+    showStatus('Checking media accessibility...', 'loading');
+    const headResponse = await fetch(url, { method: 'HEAD' });
+    if (!headResponse.ok) {
+      throw new Error('Media not accessible');
+    }
+
+    const contentType = headResponse.headers.get('Content-Type') || '';
+    const isVideo = contentType.startsWith('video/');
+    const isAudio = contentType.startsWith('audio/');
+
+    if (!isVideo && !isAudio) {
+      throw new Error(`Expected video or audio content, but received: ${contentType}`);
+    }
+
+    const contentLength = parseInt(headResponse.headers.get('Content-Length') || '0');
+
+    // Step 2: Download media with progress
+    const mediaBlob = await fetchVideoWithProgress(url, (progress) => {
+      if (progress.indeterminate) {
+        showStatus('Downloading media...', 'loading', { indeterminate: true });
+      } else {
+        showStatus('Downloading media...', 'loading', progress);
+      }
+    });
+
+    // Step 3: Generate hash (always actual hash, never random)
+    showStatus('Generating SHA-256 hash...', 'loading');
+    const blobHash = await generateSHA256Hash(mediaBlob);
+
+    // Step 4: Validate hash against URL (blossom check)
+    const hashValidation = validateHashAgainstUrl(url, blobHash);
+
+    // Step 5: Extract metadata
+    showStatus('Extracting metadata...', 'loading');
+    const metadata = await extractCompleteMediaMetadata(mediaBlob, contentType, isVideo, isAudio);
+
+    // Step 6: Generate thumbnail (for video only)
+    let thumbnail = null;
+    if (isVideo) {
+      showStatus('Generating thumbnail...', 'loading');
+      thumbnail = await extractThumbnail(url);
+    }
+
+    // Step 7: Build and display results
+    const mediaData = {
+      url,
+      type: contentType,
+      size: contentLength,
+      hash: blobHash, // Always the actual hash
+      isHashValid: hashValidation.isValid,
+      urlHash: hashValidation.urlHash,
+      ...metadata,
+      thumbnail,
+      isVideo,
+      isAudio
+    };
+
+    displayResults(mediaData, mediaBlob);
+    showStatus('Processing complete!', 'success');
+
+  } catch (error) {
+    showStatus(`Error: ${error.message}`, 'error');
+    console.error('Error processing media:', error);
+  }
+}
+
+async function extractCompleteMediaMetadata(blob, mimeType, isVideo, isAudio) {
+  if (isAudio) {
+    // For audio, we can only get duration
+    return new Promise((resolve, reject) => {
+      const audio = document.createElement('audio');
+      const blobUrl = URL.createObjectURL(blob);
+      
+      audio.onloadedmetadata = () => {
+        const metadata = {
+          duration: audio.duration,
+          width: null,
+          height: null,
+          dimensions: 'N/A',
+        };
+        
+        URL.revokeObjectURL(blobUrl);
+        resolve(metadata);
+      };
+      
+      audio.onerror = () => {
+        URL.revokeObjectURL(blobUrl);
+        reject(new Error('Failed to load audio metadata'));
+      };
+      
+      audio.src = blobUrl;
+    });
+  }
+
+  // For video
+  return new Promise((resolve, reject) => {
+    const video = document.createElement('video');
+    const blobUrl = URL.createObjectURL(blob);
+    
+    video.onloadedmetadata = () => {
+      const metadata = {
+        duration: video.duration,
+        width: video.videoWidth,
+        height: video.videoHeight,
+        dimensions: `${video.videoWidth}x${video.videoHeight}`,
+      };
+      
+      URL.revokeObjectURL(blobUrl);
+      resolve(metadata);
+    };
+    
+    video.onerror = () => {
+      URL.revokeObjectURL(blobUrl);
+      reject(new Error('Failed to load video metadata'));
+    };
+    
+    video.src = blobUrl;
+  });
+}
+
+function displayResults(mediaData, blob) {
+  const resultsContainer = document.getElementById('resultsContainer');
+  const mediaInfo = document.getElementById('mediaInfo');
+  const imetaOutput = document.getElementById('imetaOutput');
+  const mediaPreview = document.getElementById('mediaPreview');
+
+  // Display media information
+  mediaInfo.innerHTML = `
+    <div class="info-grid">
+      <div><strong>URL:</strong> ${mediaData.url}</div>
+      <div><strong>Type:</strong> ${mediaData.type}</div>
+      <div><strong>Size:</strong> ${formatBytes(mediaData.size)}</div>
+      ${mediaData.dimensions !== 'N/A' ? `<div><strong>Dimensions:</strong> ${mediaData.dimensions}</div>` : ''}
+      <div><strong>Duration:</strong> ${mediaData.duration?.toFixed(2)}s</div>
+      <div>
+        <strong>Hash (SHA-256):</strong><br>
+        <code class="hash">${mediaData.hash}</code>
+      </div>
+      <div>
+        <strong>Blossom Validation:</strong> 
+        <span class="${mediaData.isHashValid ? 'success' : 'warning'}">
+          ${mediaData.isHashValid ? '🌸 Hash matches filename' : '⚠ Hash does not match filename'}
+        </span>
+      </div>
+    </div>
+  `;
+
+  // Build imeta tag (always with actual hash)
+  const imetaTag = [
+    "imeta",
+    `url ${mediaData.url}`,
+    `x ${mediaData.hash}`, // Always actual hash
+    `m ${mediaData.type}`,
+    ...(mediaData.dimensions !== 'N/A' ? [`dim ${mediaData.dimensions}`] : []),
+    `size ${mediaData.size}`
+  ];
+
+  if (mediaData.thumbnail) {
+    imetaTag.push(`image ${mediaData.thumbnail}`);
+  }
+
+  const imetaString = JSON.stringify(imetaTag, null, 2);
+  imetaOutput.textContent = imetaString;
+
+  // Copy button
+  document.getElementById('copyImeta').addEventListener('click', () => {
+    copyToClipboard(JSON.stringify(imetaTag), document.getElementById('copyImeta'));
   });
 
-  document.getElementById('nextStep1').addEventListener('click', () => processStep2(videoData));
-  document.getElementById('generateImeta').addEventListener('click', () => generateImetaTag(videoData));
-}
-
-async function processStep1(videoData) {
-  try {
-    // Check accessibility
-    showStatus('Checking video accessibility...', 'loading');
-    const accessibility = await checkVideoAccessibility(videoData.url);
-    if (!accessibility.accessible) {
-      showStatus(`Video not accessible: ${accessibility.error || 'Unknown error'}`, 'error');
-      return;
-    }
-
-    // Fetch the video blob with progress
-    videoData.blob = await fetchVideoWithProgress(videoData.url, (progress) => {
-      if (progress.indeterminate) {
-        showStatus('Downloading video...', 'loading', { indeterminate: true });
-      } else {
-        showStatus('Downloading video...', 'loading', progress);
-      }
-    });
-    
-    // Quick processing message for the final steps
-    showStatus('Processing video data...', 'loading');
-    
-    // Create basic info elements (your existing code)
-    const basicInfoContainer = document.getElementById('basicInfo');
-    basicInfoContainer.innerHTML = '';
-    
-    const infoGrid = document.createElement('div');
-    infoGrid.className = 'info-grid';
-    
-    const infoItems = [
-      { label: 'URL', value: videoData.url },
-      { label: 'File Size', value: formatBytes(videoData.blob.size) },
-      { label: 'MIME Type', value: videoData.blob.type },
-      { label: 'Status', value: '✓ Video accessible', className: 'success' }
-    ];
-    
-    infoItems.forEach(item => {
-      const div = document.createElement('div');
-      const strong = document.createElement('strong');
-      strong.textContent = `${item.label}: `;
-      div.appendChild(strong);
-      
-      const span = document.createElement('span');
-      span.textContent = item.value;
-      if (item.className) {
-        span.className = item.className;
-      }
-      div.appendChild(span);
-      
-      infoGrid.appendChild(div);
-    });
-    
-    basicInfoContainer.appendChild(infoGrid);
-
-    // Show preview
-    showVideoPreview(videoData.blob);
-    
-    document.getElementById('stepsContainer').style.display = 'block';
-    document.getElementById('nextStep1').disabled = false;
-    showStatus('Download completed successfully!', 'success');
-
-  } catch (error) {
-    showStatus(`Error processing video: ${error.message}`, 'error');
+  // Display media preview
+  if (mediaData.isVideo) {
+    showVideoPreview(blob, mediaPreview);
+  } else if (mediaData.isAudio) {
+    showAudioPreview(blob, mediaPreview);
   }
+
+  resultsContainer.style.display = 'block';
 }
 
 
-async function processStep2(videoData) {
-  showStatus('Generating hash and validating...', 'loading');
-  
-  try {
-    // Generate SHA-256 hash
-    videoData.hash = await generateSHA256Hash(videoData.blob);
-    
-    // Check if hash matches URL filename
-    const hashValidation = validateHashAgainstUrl(videoData.url, videoData.hash);
-    videoData.isHashValid = hashValidation.isValid;
-    
-    // Create hash info elements
-    const hashInfoContainer = document.getElementById('hashInfo');
-    hashInfoContainer.innerHTML = '';
-    
-    const infoGrid = document.createElement('div');
-    infoGrid.className = 'info-grid';
-    
-    // Hash display
-    const hashDiv = document.createElement('div');
-    const hashLabel = document.createElement('strong');
-    hashLabel.textContent = 'SHA-256 Hash:';
-    hashDiv.appendChild(hashLabel);
-    hashDiv.appendChild(document.createElement('br'));
-    
-    const hashCode = document.createElement('code');
-    hashCode.className = 'hash';
-    hashCode.textContent = videoData.hash;
-    hashDiv.appendChild(hashCode);
-    infoGrid.appendChild(hashDiv);
-    
-    // URL filename
-    const urlDiv = document.createElement('div');
-    const urlLabel = document.createElement('strong');
-    urlLabel.textContent = 'URL Filename: ';
-    urlDiv.appendChild(urlLabel);
-    urlDiv.appendChild(document.createTextNode(hashValidation.urlHash || 'N/A'));
-    infoGrid.appendChild(urlDiv);
-    
-    // Validation status
-    const validationDiv = document.createElement('div');
-    const validationLabel = document.createElement('strong');
-    validationLabel.textContent = 'Blossom Validation: ';
-    validationDiv.appendChild(validationLabel);
-    
-    const validationSpan = document.createElement('span');
-    validationSpan.className = hashValidation.isValid ? 'success' : 'warning';
-    validationSpan.textContent = hashValidation.isValid 
-      ? '🌸🌸🌸 Hash matches filename' 
-      : '⚠ Hash does not match filename';
-    validationDiv.appendChild(validationSpan);
-    infoGrid.appendChild(validationDiv);
-    
-    hashInfoContainer.appendChild(infoGrid);
-    
-    // Copy button
-    const copyBtn = document.createElement('button');
-    copyBtn.className = 'btn-small';
-    copyBtn.textContent = 'Copy Hash';
-    copyBtn.addEventListener('click', () => copyToClipboard(videoData.hash, copyBtn));
-    hashInfoContainer.appendChild(copyBtn);
-
-    document.getElementById('generateImeta').disabled = false;
-    showStatus('Completed - ready to generate imeta tag', 'success');
-
-  } catch (error) {
-    showStatus(`Error in hash validation: ${error.message}`, 'error');
-  }
-}
-
-async function generateImetaTag(videoData) {
-  showStatus('Extracting metadata and generating imeta...', 'loading');
-  
-  try {
-    // Extract video metadata directly here
-    const metadata = await extractVideoMetadata(videoData.blob);
-    videoData.metadata = metadata;
-    
-    // Generate x tag value (use hash if valid, otherwise generate random)
-    const xValue = videoData.isHashValid ? videoData.hash : generateRandomHash();
-    
-    // Build imeta tag
-    const imetaTag = [
-      "imeta",
-      `url ${videoData.url}`,
-      `x ${xValue}`,
-      `m ${videoData.blob.type}`,
-      `dim ${videoData.metadata.width}x${videoData.metadata.height}`,
-      `size ${videoData.blob.size}`
-    ];
-
-    // Create formatted output for display and clipboard
-    const imetaForClipboard = JSON.stringify(imetaTag);
-    const imetaForDisplay = JSON.stringify(imetaTag, null, 2);
-
-    // Create output elements
-    const outputContainer = document.getElementById('imetaOutput');
-    outputContainer.innerHTML = '';
-    
-    const resultDiv = document.createElement('div');
-    resultDiv.className = 'imeta-result';
-    
-    // Title
-    const title = document.createElement('h4');
-    title.textContent = 'Generated imeta Tag:';
-    resultDiv.appendChild(title);
-    
-    // Formatted Array Section
-    const formattedSection = document.createElement('div');
-    formattedSection.className = 'output-section';
-    
-    const formattedPre = document.createElement('pre');
-    formattedPre.className = 'code-block';
-    formattedPre.textContent = imetaForDisplay;
-    formattedSection.appendChild(formattedPre);
-    
-    const copyBtn = document.createElement('button');
-    copyBtn.className = 'btn-small';
-    copyBtn.textContent = 'Copy imeta Tag';
-    copyBtn.addEventListener('click', () => copyToClipboard(imetaForClipboard, copyBtn));
-    formattedSection.appendChild(copyBtn);
-    
-    resultDiv.appendChild(formattedSection);
-    
-    // Summary Section
-    const summarySection = document.createElement('div');
-    summarySection.className = 'metadata-summary';
-    
-    const summaryTitle = document.createElement('h5');
-    summaryTitle.textContent = 'Summary:';
-    summarySection.appendChild(summaryTitle);
-    
-    const summaryList = document.createElement('ul');
-    
-    const summaryItems = [
-      `URL: ${videoData.url}`,
-      `Hash ${videoData.isHashValid ? '(validated)' : '(random)'}: ${xValue}`,
-      `Size: ${formatBytes(videoData.blob.size)}`,
-      `Dimensions: ${videoData.metadata.width}x${videoData.metadata.height}`,
-      `Duration: ${videoData.metadata.duration?.toFixed(2)}s`
-    ];
-    
-    summaryItems.forEach(item => {
-      const li = document.createElement('li');
-      li.textContent = item;
-      summaryList.appendChild(li);
-    });
-    
-    summarySection.appendChild(summaryList);
-    resultDiv.appendChild(summarySection);
-    
-    outputContainer.appendChild(resultDiv);
-
-    showStatus('imeta tag generated successfully!', 'success');
-
-  } catch (error) {
-    showStatus(`Error generating imeta tag: ${error.message}`, 'error');
-  }
-}
-
-function isValidVideoUrl(url) {
-  try {
-    new URL(url); // Just validate it's a proper URL
-    return true; // Accept any valid URL, let the HEAD request determine if it's valid media
-  } catch {
-    return false;
-  }
-}
-
-async function checkVideoAccessibility(url) {
-  try {
-    const response = await fetch(url, { method: 'HEAD' });
-    return {
-      accessible: response.ok,
-      contentType: response.headers.get('Content-Type'),
-      contentLength: parseInt(response.headers.get('Content-Length') || '0'),
-      error: null
-    };
-  } catch (error) {
-    return {
-      accessible: false,
-      error: error.message
-    };
-  }
-}
 
 async function generateSHA256Hash(blob) {
   const arrayBuffer = await blob.arrayBuffer();
@@ -371,51 +279,34 @@ function validateHashAgainstUrl(url, blobHash) {
   }
 }
 
-async function extractVideoMetadata(blob) {
-  return new Promise((resolve, reject) => {
-    const video = document.createElement('video');
-    const blobUrl = URL.createObjectURL(blob);
-    
-    video.onloadedmetadata = () => {
-      const metadata = {
-        duration: video.duration,
-        width: video.videoWidth,
-        height: video.videoHeight,
-        aspectRatio: video.videoWidth / video.videoHeight,
-        fileType: blob.type,
-        fileSize: blob.size
-      };
-      
-      URL.revokeObjectURL(blobUrl);
-      resolve(metadata);
-    };
-    
-    video.onerror = () => {
-      URL.revokeObjectURL(blobUrl);
-      reject(new Error('Failed to load video metadata'));
-    };
-    
-    video.src = blobUrl;
-  });
-}
 
-function generateRandomHash() {
-  const array = new Uint8Array(32);
-  crypto.getRandomValues(array);
-  return Array.from(array)
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('');
-}
 
-function showVideoPreview(blob) {
+function showAudioPreview(blob, container) {
   const blobUrl = URL.createObjectURL(blob);
-  const previewContainer = document.getElementById('previewContainer');
-  previewContainer.innerHTML = '';
+  container.innerHTML = '';
+  
+  const audio = document.createElement('audio');
+  audio.controls = true;
+  audio.style.width = '100%';
+  
+  const source = document.createElement('source');
+  source.src = blobUrl;
+  source.type = blob.type;
+  
+  audio.appendChild(source);
+  audio.appendChild(document.createTextNode('Your browser does not support the audio element.'));
+  
+  container.appendChild(audio);
+}
+
+function showVideoPreview(blob, container) {
+  const blobUrl = URL.createObjectURL(blob);
+  container.innerHTML = '';
   
   const video = document.createElement('video');
   video.controls = true;
-  video.style.width = '400px';
   video.style.maxWidth = '100%';
+  video.style.width = '400px';
   
   const source = document.createElement('source');
   source.src = blobUrl;
@@ -424,9 +315,9 @@ function showVideoPreview(blob) {
   video.appendChild(source);
   video.appendChild(document.createTextNode('Your browser does not support the video tag.'));
   
-  previewContainer.appendChild(video);
-  document.getElementById('videoPreview').style.display = 'block';
+  container.appendChild(video);
 }
+
 
 function showStatus(message, type, progressData = null) {
   const statusEl = document.getElementById('processingStatus');
@@ -565,119 +456,70 @@ function isBlosomUrl(url) {
 let blossomValidationCache = new Map(); // Cache validation results by URL
 
 
-function setupAutoBlossomValidation(directUrl, filename, technicalSummary, validationResults, fileExtension, dimensions, fileSize, pageKey) {
-  // Wait for the video element to be ready
-  const checkForVideo = () => {
-    const videoElement = document.querySelector('.custom-video-element');
-    if (!videoElement) {
-      // Video not ready yet, try again
-      setTimeout(checkForVideo, 500);
-      return;
-    }
-    
-    console.log('Video element found, setting up auto-validation listeners');
-    
-    // Track if we've already validated
-    let hasAutoValidated = false;
-    
-    // Listen for when enough data has been downloaded
-    const onProgress = () => {
-      if (hasAutoValidated) return;
-      
-      const buffered = videoElement.buffered;
-      if (buffered.length === 0) return;
-      
-      // Check if we have substantial buffering (at least 30% or 10 seconds)
-      const duration = videoElement.duration;
-      const bufferedEnd = buffered.end(buffered.length - 1);
-      const bufferedPercentage = duration > 0 ? (bufferedEnd / duration) * 100 : 0;
-      
-      // Trigger auto-validation if we have enough buffer
-      if (bufferedPercentage >= 30 || bufferedEnd >= 10) {
-        hasAutoValidated = true;
-        console.log('Video sufficiently buffered, triggering auto-validation...');
-        performAutoValidation(directUrl, filename, technicalSummary, validationResults, fileExtension, dimensions, fileSize);
-      }
-    };
-    
-    // Also trigger on ended event (video fully watched)
-    const onEnded = () => {
-      if (hasAutoValidated) return;
-      hasAutoValidated = true;
-      console.log('Video ended, triggering auto-validation...');
-      performAutoValidation(directUrl, filename, technicalSummary, validationResults, fileExtension, dimensions, fileSize);
-    };
-    
-    // Listen to progress and ended events
-    addTrackedEventListener(videoElement, 'progress', onProgress, pageKey);
-    addTrackedEventListener(videoElement, 'ended', onEnded, pageKey);
-    
-    // Also check on play events in case video is already buffered
-    const onPlay = () => {
-      setTimeout(onProgress, 1000); // Check buffer 1 second after play
-    };
-    addTrackedEventListener(videoElement, 'play', onPlay, pageKey);
-  };
-  
-  // Start checking for video element
-  setTimeout(checkForVideo, 100);
-}
 
-async function performAutoValidation(directUrl, filename, technicalSummary, validationResults, fileExtension, dimensions, fileSize) {
-  try {
-    console.log('Performing auto-validation (using cached video data)...');
-    
-    // Show subtle loading message
-    validationResults.innerHTML = `
-      <div class="result loading" style="font-size: 0.9em; padding: 8px;">
-        <small>Auto-validating Blossom...</small>
-      </div>
-    `;
-    
-    // Fetch from cache (browser should have it cached from video playback)
-    const response = await fetch(directUrl);
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-    
-    const blob = await response.blob();
-    const hash = await generateSHA256Hash(blob);
-    
-    // Validate against URL filename (not x-tag!)
-    const filenameWithoutExt = filename.split('.')[0];
-    const isValid = filenameWithoutExt === hash;
-    
-    const result = {
-      success: true,
-      hash: hash,
-      isValid: isValid,
-      urlHash: filenameWithoutExt,
-      blobHash: hash
-    };
-    
-    // Cache the result
-    blossomValidationCache.set(directUrl, result);
-    
-    // Update summary
-    let summaryParts = [fileExtension, dimensions];
-    summaryParts.push(result.isValid ? '🌸 verified' : '⚠ hash mismatch');
-    if (fileSize) summaryParts.push(fileSize);
-    technicalSummary.textContent = summaryParts.join(' - ');
-    
-    // Show subtle validation result
-    validationResults.innerHTML = `
-      <div class="result ${result.isValid ? 'success' : 'warning'}" style="font-size: 0.9em; padding: 8px;">
-        <small>${result.isValid ? '✓ Auto-validated: Hash matches filename' : '⚠ Auto-validated: Hash mismatch'}</small>
-      </div>
-    `;
-    
-    console.log('Auto-validation complete:', result.isValid ? 'VALID' : 'INVALID');
-    
-  } catch (error) {
-    console.log('Auto-validation failed (will require manual validation):', error.message);
-    // Silently fail - user can still manually validate
+  async function extractThumbnail(videoUrl) {
+    return new Promise((resolve, reject) => {
+      const video = document.createElement("video");
+      video.crossOrigin = "anonymous";
+      video.muted = true;
+
+      video.onloadedmetadata = () => {
+        video.currentTime = 0.1;
+      };
+
+      video.onseeked = () => {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+
+        const thumbnailWidth = 240;
+        const thumbnailHeight = 135;
+
+        canvas.width = thumbnailWidth;
+        canvas.height = thumbnailHeight;
+
+        ctx.fillStyle = "#000000";
+        ctx.fillRect(0, 0, thumbnailWidth, thumbnailHeight);
+
+        const videoWidth = video.videoWidth;
+        const videoHeight = video.videoHeight;
+        const videoAspectRatio = videoWidth / videoHeight;
+        const containerAspectRatio = thumbnailWidth / thumbnailHeight;
+
+        let drawWidth, drawHeight, offsetX, offsetY;
+
+        if (videoAspectRatio > containerAspectRatio) {
+          drawWidth = thumbnailWidth;
+          drawHeight = thumbnailWidth / videoAspectRatio;
+          offsetX = 0;
+          offsetY = (thumbnailHeight - drawHeight) / 2;
+        } else {
+          drawHeight = thumbnailHeight;
+          drawWidth = thumbnailHeight * videoAspectRatio;
+          offsetX = (thumbnailWidth - drawWidth) / 2;
+          offsetY = 0;
+        }
+
+        ctx.drawImage(video, offsetX, offsetY, drawWidth, drawHeight);
+
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              const reader = new FileReader();
+              reader.onload = () => resolve(reader.result);
+              reader.readAsDataURL(blob);
+            } else {
+              resolve(canvas.toDataURL("image/jpeg", 0.7));
+            }
+          },
+          "image/webp",
+          0.8
+        );
+      };
+
+      video.onerror = () => resolve(generatePlaceholderThumbnail());
+      video.src = videoUrl;
+    });
   }
-}
 
 function displayValidationResult(result, validationResults, fullCheckBtn) {
   if (result.success) {

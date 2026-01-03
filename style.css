@@ -3040,14 +3040,6 @@ main {
   }
 }
 
-/* @media (max-width: 480px) {
-
-  .relays-discovery-page .relay-url {
-    font-size: medium;
-  }
-}
- */
-
 /****************************************/
 /***video actions***/
 
@@ -9021,6 +9013,7 @@ noscript {
 /* Active Set Tab */
 .active-set-header {
   display: flex;
+  flex-direction: column;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 8px;
@@ -12026,15 +12019,101 @@ noscript {
   max-width: 100%;
   overflow: visible;
 }
-
-/* Ensure container doesn't overflow */
-.videos-listview {
-  width: 100%;
-  max-width: 100%;
-  overflow: visible;
-}
 /*****more relay set discovery********/
+.relays-discovery-page .relay-urls .relay-item {
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  gap: 12px;
+  font-size: inherit;
+}
 
+.relays-discovery-page .relay-urls .relay-item .relay-header {
+  width: 100%;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.relays-discovery-page .relay-urls .relay-item .relay-main-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 12px;
+}
+
+.relays-discovery-page .relay-urls .relay-item .relay-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.relays-discovery-page .relay-urls .relay-item .relay-icon {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  border-radius: 4px;
+  object-fit: cover;
+}
+
+.relays-discovery-page .relay-urls .relay-item .relay-text-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.relays-discovery-page .relay-urls .relay-item .relay-name {
+  font-weight: 600;
+  font-size: 0.95em;
+  color: var(--text);
+  margin: 0;
+}
+
+.relays-discovery-page .relay-urls .relay-item .relay-url {
+  font-size: 0.85em;
+  color: var(--text-secondary);
+  word-break: break-all;
+}
+
+.relays-discovery-page .relay-urls .relay-item .relay-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.relays-discovery-page .relay-urls .relay-item .btn,
+.relays-discovery-page .relay-urls .relay-item .btn-primary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 0.9em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid var(--border);
+  background: var(--background);
+  color: var(--text);
+}
+
+.relays-discovery-page .relay-urls .relay-item .btn:hover,
+.relays-discovery-page .relay-urls .relay-item .btn-primary:hover {
+  background: var(--surface);
+  border-color: var(--primary);
+}
+
+
+.relays-discovery-page .relay-urls .relay-item .btn svg {
+  width: 18px;
+  height: 18px;
+}
 /****** discovery - ranking tab ******/
 /* Discovery Tabs */
 .tab-button.disabled {

@@ -340,6 +340,11 @@ function renderVideoPage(video, videoId, pageHash, shouldAutoplay = false) {
           <h4>Published:</h4>
           <p class="video-time"></p>
         </div>
+
+<div class="extra-tags-section">
+  <h4>Additional Information:</h4>
+  <div class="extra-tags-content"></div>
+</div>        
       </div>
     </div>
 
@@ -482,6 +487,41 @@ function setupVideoPageContent(video, videoId, title, content, relativeTime, pub
     videoRelays.textContent = 'No relays specified';
   }
 
+// Extract and display extra tags (after the relays section code)
+const displayedTagTypes = ['title', 'thumb', 'published_at', 'alt', 'imeta', 't', 'relay', 'url', 'm', 'x', 'dim', 'size', 'image', 'fallback', 'duration', 'bitrate'];
+
+const extraTags = video.tags.filter(tag => 
+  tag[0] && // Has a tag name
+  !displayedTagTypes.includes(tag[0]) && // Not already displayed
+  tag[1] !== undefined && // Has a value
+  tag[1] !== '' // Value is not empty
+);
+
+const extraTagsContent = mainContent.querySelector(".extra-tags-content");
+const extraTagsSection = mainContent.querySelector(".extra-tags-section");
+
+if (extraTags.length > 0) {
+  extraTagsContent.innerHTML = '';
+  
+  extraTags.forEach(tag => {
+    const tagName = tag[0];
+    const tagValue = tag.slice(1).join(', '); // Join all values after tag name
+    
+    const tagRow = document.createElement('div');
+    tagRow.className = 'extra-tag-row';
+    tagRow.innerHTML = `
+      <span class="extra-tag-key">${escapeHtml(tagName)}:</span>
+      <span class="extra-tag-value">${escapeHtml(tagValue)}</span>
+    `;
+    
+    extraTagsContent.appendChild(tagRow);
+  });
+  
+  extraTagsSection.style.display = 'block';
+} else {
+  extraTagsSection.style.display = 'none';
+}
+
   // Technical info processing
   const imetaTag = video.tags.find(tag => tag[0] === 'imeta');
   let directUrl = url;
@@ -562,14 +602,15 @@ function setupVideoPageContent(video, videoId, title, content, relativeTime, pub
     if (isBlossomUrl) {
       validateBtn.textContent = 'Validate Blossom';
     } else {
-      validateBtn.textContent = 'Full Metadata Check';
+      validateBtn.textContent = 'no blossom URL';
     }
 
     // Validate button handler - tracked
     const validateBtnHandler = async () => {
       if (!isBlossomUrl) {
         // Not a Blossom URL, go to full check page
-        window.location.hash = `#blob/${encodeURIComponent(directUrl)}`;
+      //  window.location.hash = `#blob/${encodeURIComponent(directUrl)}`;
+      console.log("not a blossom URL");
         return;
       }
       
@@ -604,7 +645,7 @@ function setupVideoPageContent(video, videoId, title, content, relativeTime, pub
             <div class="result loading">
               <div class="progress-message">Downloading video...</div>
               <div class="progress-info">
-                <span class="progress-percentage">${progress.percentage}%</span>
+              <!--  <span class="progress-percentage">${progress.percentage}%</span> -->
                 <span class="progress-size">${formatBytes(progress.loaded)} / ${formatBytes(progress.total)}</span>
               </div>
               <div class="progress-bar-container">
@@ -638,7 +679,8 @@ function setupVideoPageContent(video, videoId, title, content, relativeTime, pub
 
     // Full check button handler - tracked
     const fullCheckBtnHandler = () => {
-     window.location.hash = `#blob/${encodeURIComponent(directUrl)}`;
+    // window.location.hash = `#blob/${encodeURIComponent(directUrl)}`;
+    console.log("cclicked full checkk!");
     };
     addTrackedEventListener(fullCheckBtn, 'click', fullCheckBtnHandler, pageKey);
     
@@ -657,7 +699,8 @@ function setupVideoPageContent(video, videoId, title, content, relativeTime, pub
     let validateBtn = mainContent.querySelector(".validate-blossom-btn");
     validateBtn.textContent = 'Full Metadata Check';
     const validateBtnHandler = () => {
-      window.location.hash = `#blob/${encodeURIComponent(url)}`;
+    //  window.location.hash = `#blob/${encodeURIComponent(url)}`;
+    console.log("full metadata clicked!");
     };
     addTrackedEventListener(validateBtn, 'click', validateBtnHandler, pageKey);
   }

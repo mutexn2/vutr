@@ -554,7 +554,21 @@ async function validateBlossomInPlace(videoUrl, onProgress = null) {
   try {
     console.log('📥 Validating blossom for URL:', videoUrl);
     
-    const result = await fetchVideoWithProgress(videoUrl, onProgress);
+    // Wrap the progress callback to normalize the format
+    const wrappedProgressCallback = onProgress ? (progress) => {
+      // Convert progress format to match what your UI expects
+      const normalizedProgress = {
+        loaded: progress.loaded,
+        total: progress.total,
+        percentage: progress.percent !== null && progress.percent !== undefined 
+          ? progress.percent 
+          : 0, // Convert percent to percentage
+        indeterminate: progress.indeterminate
+      };
+      onProgress(normalizedProgress);
+    } : null;
+    
+    const result = await fetchVideoWithProgress(videoUrl, wrappedProgressCallback);
     
     console.log('✅ Hash generated:', result.hash);
     console.log('🌸 Validating hash against URL filename...');

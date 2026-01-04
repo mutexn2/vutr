@@ -159,7 +159,6 @@
     // visit a lib link and paste to local file
     [
       //"https://unpkg.com/nostr-tools/lib/nostr.bundle.js",
-      // 12-2025
       // nostr-tools@2.19.2
       // https://cdn.jsdelivr.net/npm/nostr-tools/+esm
       "lib/nostr.bundle.js",
@@ -170,12 +169,16 @@
 
       // manual download: https://dompurify.com
       //"https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.2.4/purify.min.js",
-      // 8-2025
       "lib/purify.min.js",
 
       // no url, doing it custom from npm to single js
       // npm:@jsr/nostr__gadgets@^0.0.46
       "lib/nostr-gadgets.js",
+
+
+// https://www.jsdelivr.com/package/npm/hash-wasm
+// https://cdn.jsdelivr.net/npm/hash-wasm@4.12.0/dist/index.umd.min.js
+"lib/hash-wasm.js",
 
       //"https://cdn.jsdelivr.net/npm/nostr-web-components/dist/index.js",
       // 9-2025

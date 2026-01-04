@@ -6,7 +6,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Vutr</title>
 
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; media-src 'self' data: blob: https:; connect-src 'self' wss: https:; font-src 'self' data:;">
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'self'; 
+  script-src 'self' 'wasm-unsafe-eval'; 
+  style-src 'self' 'unsafe-inline'; 
+  img-src 'self' data: https:; 
+  media-src 'self' data: blob: https:; 
+  connect-src 'self' wss: https:; 
+  font-src 'self' data:;
+  worker-src 'self';
+  script-src-elem 'self' 'wasm-unsafe-eval'"
+>
   
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
   <link rel="stylesheet" href="style.css" />

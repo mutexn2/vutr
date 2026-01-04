@@ -874,53 +874,100 @@ async function handleAddVideo() {
   try {
     // Step 1: Check accessibility
     showVideoProgress("Checking media accessibility...");
-    const headResponse = await fetch(url, { method: "HEAD" });
-    if (!headResponse.ok) throw new Error("Invalid URL or media not accessible");
-
-    const contentType = headResponse.headers.get("Content-Type") || "video/mp4";
-    const isVideo = contentType.startsWith("video/");
-    const isAudio = contentType.startsWith("audio/");
-
-    if (!isVideo && !isAudio) {
-      throw new Error(`Expected video or audio content, but received: ${contentType}`);
+    const headResponse = await fetch(url, { method: "HEAD" }).catch(() => null);
+    
+    if (headResponse && !headResponse.ok) {
+      throw new Error("Invalid URL or media not accessible");
     }
 
-    const contentLength = parseInt(headResponse.headers.get("Content-Length") || "0");
+    // Detect content type
+    let contentType = headResponse ? detectContentType(headResponse, url) : '';
+    
+    if (!contentType || contentType === 'application/octet-stream' || contentType === '') {
+      showVideoProgress("Detecting file type...");
+      contentType = await sniffContentTypeFromData(url) || 'application/octet-stream';
+    }
+    
+    const isVideo = contentType.startsWith('video/');
+    const isAudio = contentType.startsWith('audio/');
+    const isMedia = isVideo || isAudio;
 
-    // Step 2: Download media
-    const mediaBlob = await fetchVideoWithProgress(url, (progress) => {
+    if (!isMedia) {
+      console.warn('Unknown media type, proceeding anyway:', contentType);
+      contentType = 'video/mp4';
+    }
+
+    // Step 2: Download with integrated hashing
+    showVideoProgress("Downloading media...");
+    
+    const result = await fetchVideoWithProgress(url, (progress) => {
       if (progress.indeterminate) {
         showVideoProgress("Downloading media...", { indeterminate: true });
       } else {
-        showVideoProgress("Downloading media...", progress);
+        const percentage = progress.percent !== null && progress.percent !== undefined 
+          ? progress.percent 
+          : 0;
+        
+        showVideoProgress(`Downloading: ${percentage.toFixed(1)}%`, {
+          percentage: percentage,
+          loaded: progress.loaded,
+          total: progress.total
+        });
       }
     });
 
+    const mediaBlob = result.blob;
+    const blobHash = result.hash;
+    const actualSize = result.size;
+    const headerSize = result.contentLength;
+    
     // Step 3: Extract metadata
     showVideoProgress("Extracting metadata...");
-    const fullMetadata = await extractCompleteVideoMetadata(mediaBlob, contentType, contentLength);
+    let fullMetadata = {};
     
-    // Step 4: Generate hash (always actual hash)
-    showVideoProgress("Generating SHA-256 hash...");
-    const blobHash = await generateSHA256Hash(mediaBlob);
+    try {
+      fullMetadata = await extractCompleteVideoMetadata(mediaBlob, contentType, actualSize); // Pass actualSize!
+    } catch (metadataError) {
+      console.warn('Could not extract metadata:', metadataError);
+      fullMetadata = {
+        duration: 0,
+        width: 0,
+        height: 0,
+        dimensions: 'Unknown',
+        aspectRatio: 0,
+        bitrate: 0
+      };
+    }
     
-    // Step 5: Validate hash against URL
+    // Recalculate bitrate with actual size (in case extractCompleteVideoMetadata didn't)
+    if (fullMetadata.duration && fullMetadata.duration > 0 && actualSize > 0) {
+      fullMetadata.bitrate = Math.round((actualSize * 8) / fullMetadata.duration);
+    }
+    
+    // Step 4: Validate hash against URL
     const hashValidation = validateHashAgainstUrl(url, blobHash);
     
     const metadata = {
       url,
       type: contentType,
-      size: contentLength,
-      hash: blobHash, // Always actual hash, never random
+      size: actualSize, // Use actual downloaded size
+      headerSize: headerSize, // Header size for reference
+      hash: blobHash,
       isHashValid: hashValidation.isValid,
       ...fullMetadata,
       uploaded: Math.floor(Date.now() / 1000),
-      index: metadataIndex++
+      index: metadataIndex++,
+      detectedType: !isMedia ? 'unknown' : contentType
     };
 
-    // Step 6: Generate thumbnail
+    // Step 5: Generate thumbnail
     showVideoProgress("Generating thumbnail...");
-    metadata.thumbnail = isVideo ? await extractThumbnail(url) : await generatePlaceholderThumbnail();
+    try {
+      metadata.thumbnail = isVideo ? await extractThumbnail(url) : await generatePlaceholderThumbnail();
+    } catch (thumbError) {
+      console.warn('Could not generate thumbnail:', thumbError);
+      metadata.thumbnail = await generatePlaceholderThumbnail();
+    }
 
     window.videoMetadataList.push(metadata);
     addVideoToUI(metadata);
@@ -936,6 +983,7 @@ async function handleAddVideo() {
     setButtonLoading(button, false, "Add Video");
   }
 }
+
 async function extractCompleteVideoMetadata(blob, mimeType, fileSize) {
   return new Promise((resolve, reject) => {
     const video = document.createElement('video');
@@ -950,18 +998,11 @@ async function extractCompleteVideoMetadata(blob, mimeType, fileSize) {
         aspectRatio: video.videoWidth / video.videoHeight,
       };
       
-      // Try to extract additional metadata if available
-      // Note: Not all browsers expose all properties
-      if (video.webkitAudioDecodedByteCount !== undefined) {
-        metadata.audioByteCount = video.webkitAudioDecodedByteCount;
-      }
-      if (video.webkitVideoDecodedByteCount !== undefined) {
-        metadata.videoByteCount = video.webkitVideoDecodedByteCount;
-      }
-      
-      // Calculate estimated bitrate
-      if (metadata.duration > 0) {
-        metadata.bitrate = Math.round((fileSize * 8) / metadata.duration); // bits per second
+      // Use the passed fileSize (actual downloaded size)
+      if (metadata.duration > 0 && fileSize > 0) {
+        metadata.bitrate = Math.round((fileSize * 8) / metadata.duration);
+      } else {
+        metadata.bitrate = 0;
       }
       
       URL.revokeObjectURL(blobUrl);
@@ -973,11 +1014,10 @@ async function extractCompleteVideoMetadata(blob, mimeType, fileSize) {
       reject(new Error('Failed to load video metadata'));
     };
     
-    video.preload = 'metadata'; // Only load metadata, not the whole video
+    video.preload = 'metadata';
     video.src = blobUrl;
   });
 }
-
 
   async function handleFileUpload(event) {
     const file = event.target.files[0];
@@ -1105,17 +1145,7 @@ if (!validTypes.includes(file.type)) {
 
 
   async function createUploadMetadata(file) {
-    const hash = await generateHash(file.name + Date.now());
-    const fakeUrl = `https://cdn.nostrcheck.me/57700e6225ecb0d546ff16f2b948f26e9ae40d47c7430a05abb8adc6a7dc3274.webm`;
-
-    return {
-      url: fakeUrl,
-      type: file.type,
-      size: file.size,
-      hash,
-      uploaded: Math.floor(Date.now() / 1000),
-      originalName: file.name,
-    };
+console.log("upload", file);
   }
 
 
@@ -1124,13 +1154,7 @@ if (!validTypes.includes(file.type)) {
     return "https://image.nostr.build/477d78313a37287eb5613424772a14f051288ad1cbf2cdeec60e1c3052a839d4.jpg";
   }
 
-  async function generateHash(input) {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(input);
-    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
-  }
+
 
   function validateImageUrl(url) {
     return new Promise((resolve, reject) => {
@@ -1450,7 +1474,7 @@ function showVideoProgress(message, progressData = null) {
       progressDiv.innerHTML = `
         <div class="progress-message">${message}</div>
         <div class="progress-info">
-          <span class="progress-percentage">${progressData.percentage}%</span>
+        <!--  <span class="progress-percentage">${progressData.percentage}%%</span> -->
           <span class="progress-size">${formatBytes(progressData.loaded)} / ${formatBytes(progressData.total)}</span>
         </div>
         <div class="progress-bar-container">

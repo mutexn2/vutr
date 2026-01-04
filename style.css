@@ -11366,6 +11366,7 @@ noscript {
 
 .progress-size {
   color: var(--text);
+  margin-left: auto;
 }
 
 .progress-bar-container {

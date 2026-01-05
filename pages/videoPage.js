@@ -571,13 +571,16 @@ if (extraTags.length > 0) {
     let summaryParts = [fileExtension, dimensions];
     
     // Check if we already have validation results cached
-    const cachedValidation = blossomValidationCache.get(directUrl);
+/*     const cachedValidation = blossomValidationCache.get(directUrl);
     if (cachedValidation) {
       summaryParts.push(cachedValidation.isValid ? '🌸 verified' : '⚠ hash mismatch');
     } else if (isBlossomUrl) {
       summaryParts.push('blossom');
     }
-    
+     */
+    /* if (isBlossomUrl) {
+      summaryParts.push('blossom');
+    } */
     if (fileSize) {
       summaryParts.push(fileSize);
     }
@@ -598,83 +601,63 @@ if (extraTags.length > 0) {
     let fullCheckBtn = mainContent.querySelector(".full-check-btn");
     let validationResults = mainContent.querySelector("#validationResults");
 
+    validateBtn.textContent = 'Validate Blossom';
     // Update button text based on whether it's a Blossom URL
-    if (isBlossomUrl) {
+/*     if (isBlossomUrl) {
       validateBtn.textContent = 'Validate Blossom';
     } else {
       validateBtn.textContent = 'no blossom URL';
-    }
+    } */
 
     // Validate button handler - tracked
-    const validateBtnHandler = async () => {
-      if (!isBlossomUrl) {
-        // Not a Blossom URL, go to full check page
-      //  window.location.hash = `#blob/${encodeURIComponent(directUrl)}`;
-      console.log("not a blossom URL");
-        return;
-      }
-      
-      console.log('Manual Blossom validation triggered for:', directUrl);
-      
-      // Check cache first
-      if (blossomValidationCache.has(directUrl)) {
-        const cached = blossomValidationCache.get(directUrl);
-        displayValidationResult(cached, validationResults, fullCheckBtn);
-        return;
-      }
-      
-      // Show loading state
-      validationResults.innerHTML = '<div class="result loading">Preparing validation...</div>';
-      validateBtn.disabled = true;
-      
-      // Download and validate with progress
-      const updateProgress = (progress) => {
-        if (progress.indeterminate) {
-          validationResults.innerHTML = `
-            <div class="result loading">
-              <div class="progress-message">Downloading video...</div>
-              <div class="progress-bar-container">
-                <div class="progress-bar indeterminate">
-                  <div class="progress-fill"></div>
-                </div>
-              </div>
+const validateBtnHandler = async () => {
+/*   if (!isBlossomUrl) {
+    console.log("not a blossom URL");
+    return;
+  } */
+  
+  console.log('Manual Blossom validation triggered for:', directUrl);
+  
+  // Show loading state
+  validationResults.innerHTML = '<div class="result loading">Preparing validation...</div>';
+  validateBtn.disabled = true;
+  
+  // Download and validate with progress
+  const updateProgress = (progress) => {
+    if (progress.indeterminate) {
+      validationResults.innerHTML = `
+        <div class="result loading">
+          <div class="progress-message">Downloading video...</div>
+          <div class="progress-bar-container">
+            <div class="progress-bar indeterminate">
+              <div class="progress-fill"></div>
             </div>
-          `;
-        } else {
-          validationResults.innerHTML = `
-            <div class="result loading">
-              <div class="progress-message">Downloading video...</div>
-              <div class="progress-info">
-              <!--  <span class="progress-percentage">${progress.percentage}%</span> -->
-                <span class="progress-size">${formatBytes(progress.loaded)} / ${formatBytes(progress.total)}</span>
-              </div>
-              <div class="progress-bar-container">
-                <div class="progress-bar">
-                  <div class="progress-fill" style="width: ${progress.percentage}%"></div>
-                </div>
-              </div>
+          </div>
+        </div>
+      `;
+    } else {
+      validationResults.innerHTML = `
+        <div class="result loading">
+          <div class="progress-message">Downloading video...</div>
+          <div class="progress-info">
+            <span class="progress-size">${formatBytes(progress.loaded)} / ${formatBytes(progress.total)}</span>
+          </div>
+          <div class="progress-bar-container">
+            <div class="progress-bar">
+              <div class="progress-fill" style="width: ${progress.percentage}%"></div>
             </div>
-          `;
-        }
-      };
-      
-      const result = await validateBlossomInPlace(directUrl, updateProgress);
-      
-      // Cache the result
-      if (result.success) {
-        blossomValidationCache.set(directUrl, result);
-        
-        // Update summary
-        summaryParts = [fileExtension, dimensions];
-        summaryParts.push(result.isValid ? '🌸 verified' : '⚠ hash mismatch');
-        if (fileSize) summaryParts.push(fileSize);
-        technicalSummary.textContent = summaryParts.join(' - ');
-      }
-      
-      // Display results
-      displayValidationResult(result, validationResults, fullCheckBtn);
-      validateBtn.disabled = false;
-    };
+          </div>
+        </div>
+      `;
+    }
+  };
+  
+  const result = await validateBlossomInPlace(directUrl, updateProgress);
+  
+  // Display results with save button
+  displayValidationResultWithSave(result, validationResults, mimeType);
+  validateBtn.disabled = false;
+};
     addTrackedEventListener(validateBtn, 'click', validateBtnHandler, pageKey);
 
     // Full check button handler - tracked

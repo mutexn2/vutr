@@ -234,10 +234,10 @@ showTemporaryNotification(message);
 function renderVideoPage(video, videoId, pageHash, shouldAutoplay = false) {
   let url = getValueFromTags(video, "url", "No URL found");
   let mimeType = getValueFromTags(video, "m", "Unknown MIME type");
-  let title = escapeHtml(getValueFromTags(video, "title", "Untitled"));
-  let content = escapeHtml(video.content);
-  let relativeTime = escapeHtml(getRelativeTime(video.created_at));
-  let pubkey = escapeHtml(video.pubkey);
+  let title = getValueFromTags(video, "title", "Untitled");
+  let content = video.content || '';
+  let relativeTime = getRelativeTime(video.created_at);
+  let pubkey = video.pubkey;
 
   mainContent.innerHTML = `
 <div class="video-page-layout">
@@ -384,7 +384,8 @@ function renderVideoPage(video, videoId, pageHash, shouldAutoplay = false) {
 
   let videoContainer = mainContent.querySelector(".video-container");
   handleVideoPlayback(videoContainer, url, videoId, video, pageHash, shouldAutoplay);
-  setupVideoPageContent(video, videoId, title, content, relativeTime, pubkey, mimeType, url);
+    setupVideoPageContent(video, videoId, title, content, relativeTime, pubkey, mimeType, url);
+
   
   // Load comments after delay
   setTimeout(() => {
@@ -402,55 +403,56 @@ function setupVideoPageContent(video, videoId, title, content, relativeTime, pub
   let channelImage = document.createElement("nostr-picture");
   channelImage.className = "channel-image";
   channelImage.setAttribute("pubkey", pubkey);
-  
   let channelName = document.createElement("nostr-name");
   channelName.className = "channel-name";
   channelName.setAttribute("pubkey", pubkey);
-  
   channelInfo.children[0].appendChild(channelImage);
   channelInfo.children[1].appendChild(channelName);
-
+  
   // Add zap button
   const zapContainer = document.createElement('div');
   zapContainer.className = 'channel-zap-container';
   channelInfo.appendChild(zapContainer);
   setupVideoZapButton(zapContainer, video, videoId, pubkey);
-
+  
   // Click handlers
   addTrackedEventListener(channelImage, 'click', () => {
     window.location.hash = `#profile/${pubkey}`;
   }, pageKey);
-
+  
   addTrackedEventListener(channelName, 'click', () => {
     window.location.hash = `#profile/${pubkey}`;
   }, pageKey);
-
+  
   // Social info - using new tab structure
-  mainContent.querySelector(".video-title-text").textContent = title;
-  mainContent.querySelector(".video-description").textContent = content;
+  // FIXED: Don't escape title before assigning to textContent (it's already safe)
+  mainContent.querySelector(".video-title-text").textContent = getValueFromTags(video, "title", "Untitled");
+  
+  // FIXED: Use processMessageContent for description to handle escaping + linkification
+  const descriptionContainer = mainContent.querySelector(".video-description");
+  descriptionContainer.innerHTML = ''; // Clear existing content
+  const processedDescription = processMessageContent(video.content || '');
+  descriptionContainer.appendChild(processedDescription);
+  
   mainContent.querySelector(".video-time").textContent = relativeTime;
-
+  
   let videoTags = mainContent.querySelector(".video-tags");
   let videoRelays = mainContent.querySelector(".video-relays");
-
+  
   // Extract and display tags (make them clickable)
   const tTags = video.tags.filter(tag => tag[0] === 't').map(tag => tag[1]);
   if (tTags.length > 0) {
     videoTags.innerHTML = '';
     tTags.forEach((tag, index) => {
       const tagSpan = document.createElement('span');
-      tagSpan.textContent = tag;
+      tagSpan.textContent = tag; // textContent is safe here
       tagSpan.className = 'clickable-tag';
       tagSpan.style.cursor = 'pointer';
-      
-      // Tracked event listener
       const tagHandler = () => {
-        window.location.hash = `#tag/params?tags=${tag}`;
+        window.location.hash = `#tag/params?tags=${encodeURIComponent(tag)}`; // FIXED: Added encodeURIComponent
       };
       addTrackedEventListener(tagSpan, 'click', tagHandler, pageKey);
-      
       videoTags.appendChild(tagSpan);
-      
       if (index < tTags.length - 1) {
         const separator = document.createTextNode(', ');
         videoTags.appendChild(separator);
@@ -459,33 +461,39 @@ function setupVideoPageContent(video, videoId, title, content, relativeTime, pub
   } else {
     videoTags.textContent = 'No tags';
   }
+  
 
-  // Extract and display relays (make them clickable)
-  const relayTags = video.tags.filter(tag => tag[0] === 'relay').map(tag => tag[1]);
-  if (relayTags.length > 0) {
-    videoRelays.innerHTML = '';
-    relayTags.forEach((relay, index) => {
-      const relaySpan = document.createElement('span');
-      relaySpan.textContent = relay;
-      relaySpan.className = 'clickable-relay';
-      relaySpan.style.cursor = 'pointer';
-      
-      // Tracked event listener
-      const relayHandler = () => {
-        window.location.hash = `#singlerelay/${relay}`;
-      };
-      addTrackedEventListener(relaySpan, 'click', relayHandler, pageKey);
-      
-      videoRelays.appendChild(relaySpan);
-      
-      if (index < relayTags.length - 1) {
-        const separator = document.createTextNode(', ');
-        videoRelays.appendChild(separator);
+// Extract and display relays (make them clickable)
+const relayTags = video.tags.filter(tag => tag[0] === 'relay').map(tag => tag[1]);
+if (relayTags.length > 0) {
+  videoRelays.innerHTML = '';
+  relayTags.forEach((relay, index) => {
+    const relaySpan = document.createElement('span');
+    relaySpan.textContent = relay;
+    relaySpan.className = 'clickable-relay';
+    relaySpan.style.cursor = 'pointer';
+    
+
+    const relayHandler = () => {
+      let cleanRelay = relay;
+      if (relay.startsWith("wss://")) {
+        cleanRelay = relay.slice(6);
+      } else if (relay.startsWith("ws://")) {
+        cleanRelay = relay.slice(5);
       }
-    });
-  } else {
-    videoRelays.textContent = 'No relays specified';
-  }
+      window.location.hash = `#singlerelay/${cleanRelay}`;
+    };
+    
+    addTrackedEventListener(relaySpan, 'click', relayHandler, pageKey);
+    videoRelays.appendChild(relaySpan);
+    if (index < relayTags.length - 1) {
+      const separator = document.createTextNode(', ');
+      videoRelays.appendChild(separator);
+    }
+  });
+} else {
+  videoRelays.textContent = 'No relays specified';
+}
 
 // Extract and display extra tags (after the relays section code)
 const displayedTagTypes = ['title', 'thumb', 'published_at', 'alt', 'imeta', 't', 'relay', 'url', 'm', 'x', 'dim', 'size', 'image', 'fallback', 'duration', 'bitrate'];
@@ -957,14 +965,17 @@ function setupInfoTabs() {
 ////////////////////////////
 function extractHostname(url) {
   try {
-    const urlObj = new URL(url);
+    // ADDED: Validate URL first
+    const sanitizedUrl = sanitizeUrl(url);
+    if (!sanitizedUrl) return null;
+    
+    const urlObj = new URL(sanitizedUrl);
     return urlObj.hostname;
   } catch (error) {
     console.error("Invalid URL:", url);
     return null;
   }
 }
-
 // Helper function to check whitelist and handle video playback
 function handleVideoPlayback(videoContainer, url, videoId, video, pageHash, shouldAutoplay) {
   const hostname = extractHostname(url);

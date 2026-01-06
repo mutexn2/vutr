@@ -48,7 +48,7 @@ async function profilePageHandler() {
 
     // Render the complete profile page with updated tabs
     profilePageContainer.innerHTML = `
-    <div class="profile-container" data-extended-relays='${JSON.stringify(extendedRelays)}'>
+    <div class="profile-container" data-extended-relays='${escapeHtml(JSON.stringify(extendedRelays))}'>
       ${app.myPk === profile ? '<div class="settings-section"></div>' : ''}
       <div class="profile-page">
         <div class="profile-banner">
@@ -1226,7 +1226,7 @@ function renderRelaySetCardContent(card, event) {
       </div>
       <div class="relay-urls">
         ${wsUrls.map((url, index) => {
-          const iconId = `profile-relay-icon-${event.id}-${index}`;
+          const iconId = `profile-relay-icon-${sanitizeForId(event.id)}-${index}`;
           return `
             <div class="relay-item" data-relay="${escapeHtml(url)}">
               <div class="relay-url-text">
@@ -1260,7 +1260,7 @@ function renderRelaySetCardContent(card, event) {
   const relayItems = card.querySelectorAll('.relay-item');
   relayItems.forEach((item, index) => {
     const relayUrl = item.dataset.relay;
-    const iconId = `profile-relay-icon-${event.id}-${index}`;
+    const iconId = `profile-relay-icon-${sanitizeForId(event.id)}-${index}`;
     
     // Load relay icon asynchronously
     setTimeout(() => loadRelayIcon(relayUrl, iconId), 0);
@@ -1460,7 +1460,8 @@ function populateProfileData(kindZeroContent, profile, profileNpub) {
       about.appendChild(processedContent);
     }
 
-    createProfileLinks(kindZeroContent, profile, profileNpub);
+createProfileLinks(kindZeroContent, profile, profileNpub);
+// profile should be the hex pubkey, profileNpub is the encoded version
     createEditButton(profile, kindZeroContent);
     populateTechnicalInfo(profile, profileNpub);
     
@@ -1510,25 +1511,23 @@ function createCorsTestUrl(nip05) {
   return `https://cors-test.codehappy.dev/?url=${encodeURIComponent(wellKnownUrl)}&method=get`;
 }
 
-async function createProfileLinks(kindZeroContent, pubkey, profile) {
+async function createProfileLinks(kindZeroContent, pubkey, profileNpub) {
   const linksContainer = document.querySelector(".profile-links");
   if (!linksContainer) return;
   
-
   linksContainer.innerHTML = '';
   
-
   const linksRow = document.createElement('div');
   linksRow.className = 'profile-links-row';
   
   const links = [];
   
-
+  // FIXED: Use pubkey (hex format) instead of profileNpub
   const followBtn = createProfileButton({
     icon: FOLLOW_ICON,
-    text: isProfileFollowed(profile) ? "Following" : "Follow",
-    className: isProfileFollowed(profile) ? "profile-btn following" : "profile-btn",
-    onClick: () => handleFollowClick(followBtn, profile)
+    text: isProfileFollowed(pubkey) ? "Following" : "Follow",
+    className: isProfileFollowed(pubkey) ? "profile-btn following" : "profile-btn",
+    onClick: () => handleFollowClick(followBtn, pubkey) // Pass pubkey, not profile
   });
   links.push(followBtn);
   
@@ -1673,18 +1672,25 @@ const SHARE_ICON = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox=
 </svg>
 `;
 
-function handleFollowClick(button, profile) {
-  const currentlyFollowed = isProfileFollowed(profile);
+function handleFollowClick(button, pubkey) {
+  // Validate that pubkey is in hex format (64 characters, hex only)
+  if (!pubkey || pubkey.length !== 64 || !/^[0-9a-f]+$/i.test(pubkey)) {
+    console.error("Invalid pubkey format:", pubkey);
+    showTemporaryNotification("Error: Invalid profile format");
+    return;
+  }
+  
+  const currentlyFollowed = isProfileFollowed(pubkey);
   let success;
   
   if (currentlyFollowed) {
-    success = removeFollowedPubkey(profile);
+    success = removeFollowedPubkey(pubkey);
     if (success) {
-      removeFavoriteChannel(profile);
+      removeFavoriteChannel(pubkey);
       updateDrawerContent();
     }
   } else {
-    success = addFollowedPubkey(profile);
+    success = addFollowedPubkey(pubkey);
   }
   
   if (success) {
@@ -1696,7 +1702,6 @@ function handleFollowClick(button, profile) {
     );
   }
 }
-
 function setButtonIcon(iconContainer, svgString) {
   iconContainer.innerHTML = '';
   const svg = new DOMParser().parseFromString(svgString, 'image/svg+xml').documentElement;

@@ -5812,6 +5812,7 @@ main {
 
 .profile-container .profile-info {
   flex: 1;
+  width: 100%;
 }
 
 .profile-container .display-name {
@@ -5831,6 +5832,7 @@ main {
   color: var(--text);
   margin: 10px 0;
   white-space: pre-line;
+  word-break: normal;
 }
 
 .profile-container .about nostr-name {
@@ -10825,6 +10827,10 @@ noscript {
 
 .video-page-layout .message-content>.message-content {
   pointer-events: none;
+}
+
+.video-page-layout .message-content {
+  width: 100%;
 }
 
 .profile-page .message-content a {

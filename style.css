@@ -2419,11 +2419,11 @@ main {
 }
 
 .video-progress-container {
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 .video-progress-bar {
-  height: 4px;
+  height: 8px;
   background: rgba(255,255,255,0.3);
   border-radius: 2px;
   cursor: pointer;
@@ -2432,7 +2432,7 @@ main {
 }
 
 .video-progress-bar:hover {
-  height: 6px;
+  height: 12px;
 }
 
 .video-progress-filled {
@@ -2637,11 +2637,11 @@ main {
 }
 
 #miniplayer .video-progress-bar {
-  height: 3px;
+  height: 4px;
 }
 
 #miniplayer .video-progress-bar:hover {
-  height: 5px;
+  height: 6px;
 }
 
 #miniplayer .video-control-btn {
@@ -2709,7 +2709,7 @@ main {
   }
   
   .video-controls-bottom {
-    gap: 6px;
+    gap: 4px;
   }
   
   .player-video-time {
@@ -2730,6 +2730,12 @@ main {
     padding: 7px 11px;
     font-size: 12px;
   }
+  .custom-video-controls {
+
+  padding: 15px 6px 6px;
+
+}
+
 }
 
 /* Fullscreen adjustments */
@@ -2782,6 +2788,18 @@ main {
   padding: 10px 14px;
   font-size: 14px;
 }
+
+@media (max-width: 768px) {
+
+.custom-video-wrapper:fullscreen .custom-video-controls {
+  padding: 20px 8px 8px;
+}
+.custom-video-wrapper:fullscreen .video-control-btn {
+  padding: 4px;
+
+}
+}
+
 /**************************/
 /* Base miniplayer styles */
 .miniplayer {
@@ -3122,7 +3140,7 @@ main {
   max-width: 720px;
   background-color: var(--background);
   padding: 0;
-  border-top: 1px solid var(--primary);
+  border-top: 1px solid var(--border);
   color: var(--text);
   gap: 0;
 }
@@ -3492,11 +3510,11 @@ nostr-picture::part(img) {
 .video-page-layout .hash {
   font-family: 'Courier New', monospace;
   background-color: var(--surface);
-  padding: 0.25rem 0.5rem;
+  padding: 4px;
   border-radius: 4px;
   display: inline-block;
-  margin-top: 0.25rem;
-  font-size: 0.9em;
+  margin-top: 8px;
+  font-size: large;
 }
 
 /* Save section */
@@ -10807,6 +10825,11 @@ noscript {
 
 .video-page-layout .message-content>.message-content {
   pointer-events: none;
+}
+
+.profile-page .message-content a {
+  color: var(--primary);
+  background-color: var(--background);
 }
 
 .message-tags {

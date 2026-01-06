@@ -508,8 +508,7 @@ let NostrClient = {
   },
 };
 
-// Clean HTML string and write into our DIV
-// const clean = DOMPurify.sanitize(dirty);
+
 
 
 

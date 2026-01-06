@@ -2026,4 +2026,4 @@ async function findBlobPublishers(sha256) {
   }
 }
 
-console.log("🌸 Blossom page loaded with enhanced capabilities");
+//console.log("🌸 Blossom page loaded with enhanced capabilities");

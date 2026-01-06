@@ -435,7 +435,6 @@ function fafoPageLoaded(requestType, params) {
 
           // Dispatch each event with delay
           events.forEach((event, index) => {
-            //const cleanEvent = DOMPurify.sanitize(event);
             //console.log(cleanEvent);
             setTimeout(() => {
               const eventArrivedEvent = new CustomEvent("nostr-event-arrived", {

@@ -616,11 +616,11 @@ function displayValidationResultWithSave(result, validationResults, mimeType = '
         <div class="info-grid">
           <div><strong>Status:</strong> ${statusText}</div>
           <div><strong>Calculated Hash:</strong><br><code class="hash">${result.hash}</code></div>
-          <div><strong>URL Filename:</strong> ${result.urlHash || 'N/A'}</div>
+          <div><strong>URL Filename:</strong><br> <code class="hash">${result.urlHash || 'N/A'}</code></div>
         </div>
         
         <div class="save-section">
-          <p class="save-title"><strong>Save File</strong> (already downloaded):</p>
+          <p class="save-title"><strong>Save to device</strong> (already downloaded):</p>
           <div class="save-controls">
             <code class="filename-display">${filename}</code>
             <button class="save-file-btn">

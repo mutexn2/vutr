@@ -687,63 +687,68 @@ function createMessageElement(event) {
   return messageDiv;
 }
 
+/**
+ * Processes message/profile content with URLs, nostr URIs, and newlines
+ * Returns a DOM element safe for innerHTML
+ */
 function processMessageContent(content) {
-  const sanitizedContent = sanitizeTextPreservingNostrUris(content);
-  const nostrUriRegex = /nostr:(npub1[a-z0-9]+|nprofile1[a-z0-9]+)/g;
+  if (!content || typeof content !== "string") {
+    return document.createTextNode("No description provided.");
+  }
 
+  // Step 1: Escape all HTML to prevent XSS
+  const escaped = escapeHtml(content);
+
+  // Step 2: Convert newlines to <br> tags
+  const withBreaks = escaped.replace(/\n/g, "<br>");
+
+  // Step 3: Convert URLs to clickable links
+  const urlRegex = /(https?:\/\/[^\s<>"{}|\\^`\[\]]+)/g;
+  const withUrls = withBreaks.replace(urlRegex, (url) => {
+    const sanitized = sanitizeUrl(url);
+    if (!sanitized) return escapeHtml(url); // Keep as text if invalid
+    return `<a href="${sanitized}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a>`;
+  });
+
+  // Step 4: Convert nostr: URIs to clickable elements
+  const nostrUriRegex = /nostr:(npub1[a-z0-9]+|nprofile1[a-z0-9]+|note1[a-z0-9]+|nevent1[a-z0-9]+|naddr1[a-z0-9]+)/g;
+  const withNostrUris = withUrls.replace(nostrUriRegex, (match, nostrId) => {
+    return `<span class="nostr-uri-link" data-uri="${escapeHtml(match)}" data-id="${escapeHtml(nostrId)}">${escapeHtml(match)}</span>`;
+  });
+
+  // Step 5: Create container and set innerHTML (safe because we escaped everything)
   const contentDiv = document.createElement("div");
   contentDiv.className = "message-content";
+  contentDiv.innerHTML = withNostrUris;
 
-  let lastIndex = 0;
-  let match;
-
-  while ((match = nostrUriRegex.exec(sanitizedContent)) !== null) {
-    if (match.index > lastIndex) {
-      const textNode = document.createTextNode(
-        sanitizedContent.slice(lastIndex, match.index)
-      );
-      contentDiv.appendChild(textNode);
-    }
-
-    const nostrName = document.createElement("nostr-name");
-    const nostrId = match[1];
+  // Step 6: Attach event listeners to nostr URI links
+  contentDiv.querySelectorAll(".nostr-uri-link").forEach((span) => {
+    const nostrId = span.getAttribute("data-id");
     const hexPubkey = decodeProfileParam(nostrId);
 
     if (hexPubkey) {
-      let pubkeyForComponent;
-      if (nostrId.startsWith("npub1")) {
-        pubkeyForComponent = nostrId;
-      } else {
-        try {
-          pubkeyForComponent = window.NostrTools.nip19.npubEncode(hexPubkey);
-        } catch (error) {
-          console.warn("Failed to encode npub:", error);
-          pubkeyForComponent = hexPubkey;
+      span.style.cursor = "pointer";
+      span.style.color = "var(--link-color, #0066cc)"; // Make it look like a link
+      span.style.textDecoration = "underline";
+
+      span.addEventListener("click", (e) => {
+        e.preventDefault();
+        
+        // Handle different nostr ID types
+        if (nostrId.startsWith("npub1") || nostrId.startsWith("nprofile1")) {
+          window.location.hash = `#profile/${hexPubkey}`;
+        } else if (nostrId.startsWith("note1") || nostrId.startsWith("nevent1")) {
+          // Navigate to note/event if you have that page
+          window.location.hash = `#note/${hexPubkey}`;
         }
-      }
-
-      nostrName.setAttribute("pubkey", pubkeyForComponent);
-      nostrName.style.cursor = "pointer";
-      nostrName.addEventListener("click", () => {
-        window.location.hash = `#profile/${hexPubkey}`;
+        // Add more handlers for naddr, etc.
       });
-
-      contentDiv.appendChild(nostrName);
-    } else {
-      const textNode = document.createTextNode(match[0]);
-      contentDiv.appendChild(textNode);
     }
-
-    lastIndex = nostrUriRegex.lastIndex;
-  }
-
-  if (lastIndex < sanitizedContent.length) {
-    const textNode = document.createTextNode(sanitizedContent.slice(lastIndex));
-    contentDiv.appendChild(textNode);
-  }
+  });
 
   return contentDiv;
 }
+
 
 // Helper function to get the replied-to event ID following NIP-10
 function getRepliedToEventId(event) {

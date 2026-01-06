@@ -686,57 +686,158 @@ function updateOfflineIndicator() {
 }
 
 //////////////////////////////
-// HTML sanitation
-// should just have 3 functions, 1-for a whole event 2-for text 3-for URLs 4-?
-// should use just DOMPurify (prevent all tags and allow nostr:URIs)
-// (shared app url - media server - relays - nostr events)
+//////////////////////////////
+// SECURITY HELPERS
+// Core principle: Escape ALL user content, manually create safe HTML structures
+//////////////////////////////
+
+/**
+ * Escapes HTML special characters to prevent XSS
+ * Use this for ALL user-generated text content
+ */
+function escapeHtml(text) {
+  if (text === null || text === undefined) return "";
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+/**
+ * Validates and sanitizes URLs - only allows HTTPS and safe data URLs
+ * Use this for ALL URLs before setting src/href attributes
+ */
+function sanitizeUrl(url, maxLength = 2048) {
+  if (!url || typeof url !== "string") return null;
+
+  // Handle data URLs for images (they can be very long)
+  if (url.startsWith("data:image/")) {
+    // Allow up to 5MB for data URLs
+    if (url.length > 5 * 1024 * 1024) return null;
+    
+    const dataUrlPattern =
+      /^data:image\/(png|jpe?g|gif|webp|svg\+xml);base64,([A-Za-z0-9+/=]+)$/;
+    return dataUrlPattern.test(url) ? url : null;
+  }
+
+  // Regular URLs use the standard length limit
+  if (url.length > maxLength) return null;
+
+  // Only allow HTTPS URLs
+  try {
+    const parsed = new URL(url);
+    
+    // Only allow HTTPS
+    if (parsed.protocol !== "https:") return null;
+    
+    // Double-check no sneaky protocols
+    const href = parsed.href.toLowerCase();
+    if (href.startsWith("javascript:") || href.startsWith("vbscript:")) {
+      return null;
+    }
+    
+    return parsed.href;
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * Converts text to safe HTML with clickable links
+ * Handles: regular URLs, nostr: URIs (npub, nprofile, note, nevent, naddr)
+ * Use this for rendering Nostr event content
+ */
+function textToSafeHtml(text) {
+  if (text === null || text === undefined) return "";
+  
+  const escaped = escapeHtml(text);
+  
+  // Match URLs and nostr URIs
+  const urlRegex = /(https?:\/\/[^\s<>"{}|\\^`\[\]]+)/g;
+  const nostrRegex = /nostr:(npub1[a-z0-9]+|nprofile1[a-z0-9]+|note1[a-z0-9]+|nevent1[a-z0-9]+|naddr1[a-z0-9]+)/g;
+  
+  // Replace URLs with links
+  let result = escaped.replace(urlRegex, (url) => {
+    const sanitized = sanitizeUrl(url);
+    if (!sanitized) return url;
+    return `<a href="${sanitized}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+  });
+  
+  // Replace nostr URIs with links
+  result = result.replace(nostrRegex, (match) => {
+    return `<a href="#" class="nostr-uri" data-uri="${match}">${match}</a>`;
+  });
+  
+  return result;
+}
+
+/**
+ * Safely extracts and validates video/image URLs from Nostr event tags
+ * Use this when extracting media URLs from events
+ */
+function extractMediaUrl(tag) {
+  if (!Array.isArray(tag) || tag.length < 2) return null;
+  
+  const tagType = tag[0];
+  let url = null;
+  
+  // Handle different tag formats
+  if (tagType === "url" || tagType === "r") {
+    url = tag[1];
+  } else if (tagType === "imeta") {
+    // imeta format: ["imeta", "url https://...", "dim 1920x1080", ...]
+    const urlField = tag.find(field => 
+      typeof field === "string" && field.startsWith("url ")
+    );
+    url = urlField ? urlField.substring(4) : null;
+  }
+  
+  return url ? sanitizeUrl(url) : null;
+}
+
+/**
+ * Sanitizes a complete Nostr event object
+ * Use this when receiving events before storing/processing them
+ */
 function sanitizeNostrEvent(event) {
   if (!event) return null;
 
-  // a deep clone to avoid modifying the original
-  let sanitized = JSON.parse(JSON.stringify(event));
-  //console.log("sanitizing kind:", sanitized.kind, "id: ", sanitized.id);
-  if (sanitized.content) {
-    sanitized.content = DOMPurify.sanitize(sanitized.content, {
-      RETURN_DOM_FRAGMENT: false,
-      RETURN_DOM: false,
-    });
-  }
-
+  // Deep clone to avoid modifying original
+  const sanitized = JSON.parse(JSON.stringify(event));
+  
+  // Content is displayed as text, so we don't need to process it here
+  // It will be escaped when rendered via textToSafeHtml()
+  
+  // Sanitize URLs in tags
   if (Array.isArray(sanitized.tags)) {
     sanitized.tags = sanitized.tags.map((tag) => {
       if (!Array.isArray(tag)) return [];
 
       return tag.map((value, index) => {
-        // First element is tag type, leave as is
+        // First element is tag type
         if (index === 0) return value;
 
-        // For URL-containing tags, sanitize URLs
-        if (
-          (tag[0] === "r" ||
-            (tag[0] === "imeta" &&
-              (value.startsWith("url ") ||
-                value.startsWith("fallback ") ||
-                value.startsWith("image ") ||
-                value.startsWith("thumb ")))) &&
-          typeof value === "string"
-        ) {
-          // For imeta tags with URLs
-          if (tag[0] === "imeta") {
-            let parts = value.split(" ");
+        // Sanitize URL-containing values
+        if (typeof value === "string") {
+          // Handle imeta tags with URL fields
+          if (tag[0] === "imeta" && 
+              (value.startsWith("url ") || 
+               value.startsWith("fallback ") ||
+               value.startsWith("image ") ||
+               value.startsWith("thumb "))) {
+            const parts = value.split(" ");
             if (parts.length >= 2) {
-              let urlPart = parts.slice(1).join(" ");
+              const urlPart = parts.slice(1).join(" ");
               return `${parts[0]} ${sanitizeUrl(urlPart)}`;
             }
           }
-
-          // For direct URL tags
-          return sanitizeUrl(value);
-        }
-
-        // For other content, sanitize as text
-        if (typeof value === "string") {
-          return DOMPurify.sanitize(value, { ALLOWED_TAGS: [] });
+          
+          // Handle direct URL tags
+          if (tag[0] === "r" || tag[0] === "url") {
+            return sanitizeUrl(value);
+          }
         }
 
         return value;
@@ -747,125 +848,135 @@ function sanitizeNostrEvent(event) {
   return sanitized;
 }
 
-function sanitizeUrl(url) {
-  if (!url || typeof url !== "string") return "";
-
-  // Handle data URLs for images
-  if (url.startsWith("data:image/")) {
-    // Basic validation for data URLs - ensure they follow the expected format
-    const dataUrlPattern =
-      /^data:image\/(png|jpe?g|gif|webp|svg\+xml);base64,([A-Za-z0-9+/=]+)$/;
-    if (dataUrlPattern.test(url)) {
-      return url;
-    }
-    return ""; // Invalid data URL format
-  }
-
-  try {
-    let parsed = new URL(url);
-    // only allow https for regular URLs
-    if (parsed.protocol !== "https:") {
-      return ""; // may add default image URL here
-    }
-    return parsed.href;
-  } catch (e) {
-    return "";
-  }
+/**
+ * Creates a safe DOM element from HTML string
+ * ONLY use this with HTML you've created yourself using the above functions
+ * NEVER pass user content directly to this
+ */
+function createElementFromHTML(html) {
+  const template = document.createElement("template");
+  template.innerHTML = html.trim();
+  return template.content.firstChild;
 }
 
-function escapeHtml(text, options = {}) {
-  if (typeof text !== "string") return String(text);
-
-  const {
-    escapeQuotes = false, // Only escape quotes if explicitly needed
-  } = options;
-
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(escapeQuotes ? /"/g : /a^/, "&quot;")
-    .replace(escapeQuotes ? /'/g : /a^/, "&#039;");
+/**
+ * Formats errors for safe display
+ */
+function formatErrorForDisplay(error) {
+  if (!error) return "Unknown error occurred";
+  const message = String(error.message || error);
+  return escapeHtml(message.substring(0, 500));
 }
 
-// Usage examples:
-// Minimal escaping (just HTML tags)
-//const safeText1 = escapeHtml(userInput);
-
-// With quote escaping when needed
-//const safeText2 = escapeHtml(userInput, { escapeQuotes: true });
+//////////////////////////////
+// DEPRECATED - kept for backward compatibility
+// These redirect to the new functions
+//////////////////////////////
 
 function sanitizeHTML(text) {
-  if (text === null || text === undefined) return "";
-  return escapeHtml(String(text));
+  console.warn("sanitizeHTML is deprecated, use escapeHtml instead");
+  return escapeHtml(text);
 }
 
-// Helper for creating safe HTML from template literals
-function safeHtml(strings, ...values) {
-  return strings.reduce((result, string, i) => {
-    let value = values[i - 1];
-    if (value instanceof HTMLElement) {
-      let div = document.createElement("div");
-      div.appendChild(value.cloneNode(true));
-      return result + div.innerHTML + string;
-    }
-    return result + string + (i < values.length ? sanitizeHTML(values[i]) : "");
-  });
-}
-
-// For text that should have no HTML tags
 function sanitizeText(text) {
-  if (text === null || text === undefined) return "";
-  return DOMPurify.sanitize(String(text), { ALLOWED_TAGS: [] });
+  console.warn("sanitizeText is deprecated, use escapeHtml instead");
+  return escapeHtml(text);
 }
 
-// For HTML content that should be sanitized but can contain some tags
 function sanitizeHtml(html) {
-  if (html === null || html === undefined) return "";
-  return DOMPurify.sanitize(String(html));
+  console.warn("sanitizeHtml is deprecated - you probably want textToSafeHtml for content or escapeHtml for plain text");
+  return escapeHtml(html);
 }
 
 function sanitizeTextPreservingNostrUris(text) {
-  if (text === null || text === undefined) return "";
-
-  // First, temporarily replace nostr URIs with placeholders
-  const nostorUriRegex = /nostr:(npub1[a-z0-9]+|nprofile1[a-z0-9]+)/g;
-  const uriPlaceholders = [];
-  let placeholderIndex = 0;
-
-  const textWithPlaceholders = text.replace(nostorUriRegex, (match) => {
-    const placeholder = `__NOSTR_URI_PLACEHOLDER_${placeholderIndex}__`;
-    uriPlaceholders.push({ placeholder, original: match });
-    placeholderIndex++;
-    return placeholder;
-  });
-
-  // Sanitize the text with placeholders
-  const sanitized = DOMPurify.sanitize(String(textWithPlaceholders), {
-    ALLOWED_TAGS: [],
-  });
-
-  // Restore the original nostr URIs
-  let result = sanitized;
-  uriPlaceholders.forEach(({ placeholder, original }) => {
-    result = result.replace(placeholder, original);
-  });
-
-  return result;
+  console.warn("sanitizeTextPreservingNostrUris is deprecated, use textToSafeHtml instead");
+  return textToSafeHtml(text);
 }
 
-let createElementFromHTML = (html) => {
-  let template = document.createElement("template");
-  template.innerHTML = html.trim();
-  return template.content.firstChild;
-};
-
-function formatErrorForDisplay(error) {
-  if (!error) return "Unknown error occurred";
-  let message = String(error.message || error);
-  return sanitizeHTML(message.substring(0, 500)); // Limit length
+/**
+ * Validates and cleans a media URL (for images/videos)
+ * More strict than sanitizeUrl - specifically for media elements
+ * Returns cleaned URL or null if invalid
+ * 
+ * @param {string} url - The URL to validate
+ * @param {Object} options - Validation options
+ * @param {string} options.type - 'image' or 'video' (optional)
+ * @param {number} options.maxLength - Max URL length for https URLs (default: 2048)
+ * @param {number} options.maxDataUrlLength - Max length for data URLs (default: 5MB)
+ * @returns {string|null} - Cleaned URL or null if invalid
+ */
+function validateMediaUrl(url, options = {}) {
+  const { 
+    type = null, // 'image' or 'video'
+    maxLength = 2048,
+    maxDataUrlLength = 5 * 1024 * 1024 // 5MB for base64 images
+  } = options;
+  
+  if (!url || typeof url !== "string") return null;
+  
+  // Handle data URLs separately (they can be very long)
+  if (url.startsWith("data:")) {
+    if (type === "video") return null; // No data URLs for video
+    
+    // Check length limit for data URLs (they're much larger)
+    if (url.length > maxDataUrlLength) return null;
+    
+    // Validate format
+    const dataUrlPattern =
+      /^data:image\/(png|jpe?g|gif|webp|svg\+xml);base64,([A-Za-z0-9+/=]+)$/;
+    return dataUrlPattern.test(url) ? url : null;
+  }
+  
+  // For regular HTTPS URLs, use the standard maxLength
+  if (url.length > maxLength) return null;
+  
+  // Validate as proper URL
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch (e) {
+    return null;
+  }
+  
+  // Only allow HTTPS (never HTTP for security)
+  if (parsed.protocol !== "https:") return null;
+  
+  // Reject suspicious protocols that might have slipped through
+  const href = parsed.href.toLowerCase();
+  if (href.startsWith("javascript:") || 
+      href.startsWith("vbscript:") ||
+      href.startsWith("file:")) {
+    return null;
+  }
+  
+  // Optional: Validate file extensions for stricter checking
+  if (type === "image") {
+    const imageExts = /\.(jpg|jpeg|png|gif|webp|svg|avif|bmp|ico)(\?|$)/i;
+    // Note: Many CDNs don't use extensions, so this is commented out
+    // if (!imageExts.test(parsed.pathname)) return null;
+  } else if (type === "video") {
+    const videoExts = /\.(mp4|webm|ogg|mov|m3u8|mpd)(\?|$)/i;
+    console.log(videoExts);
+    // if (!videoExts.test(parsed.pathname)) return null;
+  }
+  
+  return parsed.href;
 }
 
+
+/**
+ * Convenience wrapper for image URLs
+ */
+function validateImageUrl(url) {
+  return validateMediaUrl(url, { type: "image" });
+}
+
+/**
+ * Convenience wrapper for video URLs
+ */
+function validateVideoUrl(url) {
+  return validateMediaUrl(url, { type: "video" });
+}
 //////////////////////////////
 // cleaners
 // Helper to register cleanup handlers

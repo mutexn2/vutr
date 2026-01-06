@@ -29,7 +29,7 @@ function openModal(options = {}) {
     <div class="universal-modal ${sizeClass} ${customClass}">
       <div class="universal-modal-content">
         ${showCloseButton ? '<span class="close-modal">&times;</span>' : ''}
-        ${title ? `<h3 class="modal-title">${sanitizeHTML(title)}</h3>` : ''}
+        ${title ? `<h3 class="modal-title">${escapeHtml(title)}</h3>` : ''}
         <div class="modal-body">
           ${content}
         </div>
@@ -168,10 +168,10 @@ function openQrModal(options = {}) {
   } = options;
 
   // Sanitize inputs that will be inserted into HTML
-  let safeTitle = sanitizeHTML(title);
-  let safeCustomInputLabel = sanitizeHTML(customInputLabel);
-  let safeInitialUrl = sanitizeHTML(initialUrl);
-  let safeInitialText = sanitizeHTML(initialText);
+  let safeTitle = escapeHtml(title);
+  let safeCustomInputLabel = escapeHtml(customInputLabel);
+  let safeInitialUrl = escapeHtml(initialUrl);
+  let safeInitialText = escapeHtml(initialText);
 
   // Determine what content to display initially in the QR code
   let initialContent = "";
@@ -377,7 +377,7 @@ function openTextModal(text, title = "Information") {
   return openModal({
     id: "text-info",
     title: title,
-    content: `<div class="text-modal-content"><p>${sanitizeHTML(
+    content: `<div class="text-modal-content"><p>${escapeHtml(
       text
     )}</p></div>`,
     size: "medium",
@@ -422,7 +422,7 @@ function confirmModal(message, title = 'Confirm') {
   return new Promise((resolve) => {
     const content = `
       <div class="confirm-modal">
-        <p>${sanitizeHTML(message)}</p>
+        <p>${escapeHtml(message)}</p>
         <div class="modal-actions">
           <button class="btn-secondary" id="confirmCancel">Cancel</button>
           <button class="btn-primary" id="confirmOk">Confirm</button>
@@ -457,7 +457,7 @@ function confirmModal(message, title = 'Confirm') {
 function alertModal(message, title = 'Notice') {
   const content = `
     <div class="alert-modal">
-      <p>${sanitizeHTML(message)}</p>
+      <p>${escapeHtml(message)}</p>
       <div class="modal-actions">
         <button class="btn-primary" id="alertOk">OK</button>
       </div>
@@ -494,12 +494,12 @@ function openConfirmModal(options = {}) {
   return new Promise((resolve) => {
     let confirmContent = `
       <div class="confirm-modal-inner">
-        <p class="confirm-message">${sanitizeHTML(message)}</p>
+        <p class="confirm-message">${escapeHtml(message)}</p>
         <div class="confirm-actions">
-          <button class="confirm-cancel">${sanitizeHTML(cancelText)}</button>
+          <button class="confirm-cancel">${escapeHtml(cancelText)}</button>
           <button class="confirm-action ${
             type === "danger" ? "danger" : ""
-          }">${sanitizeHTML(confirmText)}</button>
+          }">${escapeHtml(confirmText)}</button>
         </div>
       </div>
     `;

@@ -1410,16 +1410,20 @@ function getProfileNpub(profile) {
 }
 
 // Unified profile data population
+/**
+ * Populates profile page with user data
+ */
 function populateProfileData(kindZeroContent, profile, profileNpub) {
   try {
     // Set banner image with fallback
     const bannerImg = document.querySelector(".banner-image");
     if (bannerImg) {
-      bannerImg.src =
-        kindZeroContent.banner ||
+      const bannerUrl = validateImageUrl(kindZeroContent.banner);
+      bannerImg.src = bannerUrl || 
         "https://image.nostr.build/477d78313a37287eb5613424772a14f051288ad1cbf2cdeec60e1c3052a839d4.jpg";
+      
       bannerImg.onerror = () => {
-        bannerImg.src =
+        bannerImg.src = 
           "https://image.nostr.build/477d78313a37287eb5613424772a14f051288ad1cbf2cdeec60e1c3052a839d4.jpg";
       };
     }
@@ -1427,13 +1431,14 @@ function populateProfileData(kindZeroContent, profile, profileNpub) {
     // Set profile picture with fallback
     const avatar = document.querySelector(".avatar");
     if (avatar) {
-      avatar.src = kindZeroContent.picture || "";
+      const pictureUrl = validateImageUrl(kindZeroContent.picture);
+      avatar.src = pictureUrl || "";
       avatar.onerror = () => {
         avatar.style.display = "none";
       };
     }
 
-    // Set text content safely
+    // Set text content safely (no HTML, just plain text)
     const displayName = document.querySelector(".display-name");
     if (displayName) {
       displayName.textContent =
@@ -1442,27 +1447,28 @@ function populateProfileData(kindZeroContent, profile, profileNpub) {
 
     const username = document.querySelector(".username");
     if (username) {
-      username.textContent = kindZeroContent.name || "";
+      displayName.textContent = kindZeroContent.name || "";
     }
 
+    // Set about content (with HTML links, so use innerHTML)
     const about = document.querySelector(".about");
-if (about) {
-  const content = kindZeroContent.about || "No description provided.";
-  const processedContent = processMessageContent(content);
-  
-  about.innerHTML = '';
-  about.appendChild(processedContent);
-}
+    if (about) {
+      const content = kindZeroContent.about || "No description provided.";
+      const processedContent = processMessageContent(content);
+      
+      about.innerHTML = ""; // Clear existing content
+      about.appendChild(processedContent);
+    }
 
-
-  createProfileLinks(kindZeroContent, profile, profile);
+    createProfileLinks(kindZeroContent, profile, profileNpub);
     createEditButton(profile, kindZeroContent);
-    
     populateTechnicalInfo(profile, profileNpub);
+    
   } catch (error) {
     console.error("Error populating profile data:", error);
   }
 }
+
 
 async function verifyNip05(nip05, pubkey) {
   try {

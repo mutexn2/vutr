@@ -167,9 +167,6 @@
       // nip46
       "lib/nip46.js",
 
-      // manual download: https://dompurify.com
-      //"https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.2.4/purify.min.js",
-      "lib/purify.min.js",
 
       // no url, doing it custom from npm to single js
       // npm:@jsr/nostr__gadgets@^0.0.46

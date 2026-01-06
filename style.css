@@ -9607,7 +9607,7 @@ noscript {
 }
 
 .already-added-indicator {
-  color: var(--accent);
+  color: var(--text-secondary);
   font-size: 0.9em;
   font-weight: 500;
 }

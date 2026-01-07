@@ -143,18 +143,45 @@ async function profilePageHandler() {
   } catch (error) {
     console.error("Error rendering profile page:", error);
     const errorMessage = error.message || "Unknown error occurred";
+    
+    // Check if this is the current user's profile
+    const profileParam = window.location.hash.split("/")[1];
+    const profile = await decodeProfileParam(profileParam);
+    const isOwnProfile = profile && app.isLoggedIn && app.myPk === profile;
+    
     profilePageContainer.innerHTML = `
       <div class="error-container">
         <h1>Profile Load Error</h1>
         <p>Failed to load profile: ${errorMessage}</p>
-        <button class="retry-button">Retry</button>
-        <a href="#" class="nav-link">Return to Home</a>
+        ${isOwnProfile ? `
+          <div class="new-user-notice">
+            <p>📝 No kind:0 found for your key. create your profile or check your connection if you've already published a kind:0</p>
+          </div>
+        ` : ''}
+        <div class="error-actions">
+          ${isOwnProfile ? `
+            <button class="create-profile-button">Create Your Profile</button>
+          ` : ''}
+          <button class="retry-button">Retry</button>
+          <a href="#" class="nav-link">Return to Home</a>          
+        </div>
       </div>
     `;
 
     const retryButton = document.querySelector(".retry-button");
     if (retryButton) {
       retryButton.addEventListener("click", () => window.location.reload());
+    }
+    
+    // Add event listener for create profile button
+    if (isOwnProfile) {
+      const createProfileButton = document.querySelector(".create-profile-button");
+      if (createProfileButton) {
+        createProfileButton.addEventListener("click", () => {
+          const profileNpub = window.NostrTools.nip19.npubEncode(profile);
+          window.location.hash = `#editprofile/${profileNpub}`;
+        });
+      }
     }
   }
 }

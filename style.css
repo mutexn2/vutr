@@ -10833,6 +10833,12 @@ noscript {
   width: 100%;
 }
 
+.video-page-layout .message-content a {
+  color: var(--text);
+  background-color: var(--surface);
+  border-bottom: 1px solid var(--primary);
+}
+
 .profile-page .message-content a {
   color: var(--primary);
   background-color: var(--background);

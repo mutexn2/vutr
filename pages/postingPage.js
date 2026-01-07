@@ -872,102 +872,169 @@ async function handleAddVideo() {
   setButtonLoading(button, true, "Processing...");
 
   try {
-    // Step 1: Check accessibility
     showVideoProgress("Checking media accessibility...");
+    
+    // Step 1: Quick check if URL looks like a Blossom URL
+    const isBlossom = isBlosomUrl(url);
+    
+    // Step 2: Try HEAD request
     const headResponse = await fetch(url, { method: "HEAD" }).catch(() => null);
     
-    if (headResponse && !headResponse.ok) {
-      throw new Error("Invalid URL or media not accessible");
-    }
-
-    // Detect content type
-    let contentType = headResponse ? detectContentType(headResponse, url) : '';
+    let contentType = '';
+    let canFetch = false;
     
-    if (!contentType || contentType === 'application/octet-stream' || contentType === '') {
-      showVideoProgress("Detecting file type...");
-      contentType = await sniffContentTypeFromData(url) || 'application/octet-stream';
-    }
-    
-    const isVideo = contentType.startsWith('video/');
-    const isAudio = contentType.startsWith('audio/');
-    const isMedia = isVideo || isAudio;
-
-    if (!isMedia) {
-      console.warn('Unknown media type, proceeding anyway:', contentType);
-      contentType = 'video/mp4';
-    }
-
-    // Step 2: Download with integrated hashing
-    showVideoProgress("Downloading media...");
-    
-    const result = await fetchVideoWithProgress(url, (progress) => {
-      if (progress.indeterminate) {
-        showVideoProgress("Downloading media...", { indeterminate: true });
-      } else {
-        const percentage = progress.percent !== null && progress.percent !== undefined 
-          ? progress.percent 
-          : 0;
-        
-        showVideoProgress(`Downloading: ${percentage.toFixed(1)}%`, {
-          percentage: percentage,
-          loaded: progress.loaded,
-          total: progress.total
-        });
-      }
-    });
-
-    const mediaBlob = result.blob;
-    const blobHash = result.hash;
-    const actualSize = result.size;
-    const headerSize = result.contentLength;
-    
-    // Step 3: Extract metadata
-    showVideoProgress("Extracting metadata...");
-    let fullMetadata = {};
-    
-    try {
-      fullMetadata = await extractCompleteVideoMetadata(mediaBlob, contentType, actualSize); // Pass actualSize!
-    } catch (metadataError) {
-      console.warn('Could not extract metadata:', metadataError);
-      fullMetadata = {
-        duration: 0,
-        width: 0,
-        height: 0,
-        dimensions: 'Unknown',
-        aspectRatio: 0,
-        bitrate: 0
-      };
+    if (headResponse && headResponse.ok) {
+      contentType = detectContentType(headResponse, url);
+      canFetch = true;
+    } else {
+      // HEAD failed
+      const extension = getFileExtensionFromUrl(url);
+      contentType = getMimeTypeFromExtension(extension) || 'video/mp4';
+      console.warn('HEAD request failed - likely CORS restricted');
     }
     
-    // Recalculate bitrate with actual size (in case extractCompleteVideoMetadata didn't)
-    if (fullMetadata.duration && fullMetadata.duration > 0 && actualSize > 0) {
-      fullMetadata.bitrate = Math.round((actualSize * 8) / fullMetadata.duration);
-    }
-    
-    // Step 4: Validate hash against URL
-    const hashValidation = validateHashAgainstUrl(url, blobHash);
-    
-    const metadata = {
+    // Step 3: Try full Blossom validation if we can
+    let metadata = {
       url,
       type: contentType,
-      size: actualSize, // Use actual downloaded size
-      headerSize: headerSize, // Header size for reference
-      hash: blobHash,
-      isHashValid: hashValidation.isValid,
-      ...fullMetadata,
       uploaded: Math.floor(Date.now() / 1000),
       index: metadataIndex++,
-      detectedType: !isMedia ? 'unknown' : contentType
     };
-
-    // Step 5: Generate thumbnail
-    showVideoProgress("Generating thumbnail...");
-    try {
-      metadata.thumbnail = isVideo ? await extractThumbnail(url) : await generatePlaceholderThumbnail();
-    } catch (thumbError) {
-      console.warn('Could not generate thumbnail:', thumbError);
-      metadata.thumbnail = await generatePlaceholderThumbnail();
+    
+    if (canFetch) {
+      // Try full validation with download
+      try {
+        showVideoProgress("Validating Blossom and extracting metadata...");
+        
+        const result = await fetchVideoWithProgress(url, (progress) => {
+          if (progress.indeterminate) {
+            showVideoProgress("Downloading media...", { indeterminate: true });
+          } else {
+            const percentage = progress.percent !== null ? progress.percent : 0;
+            showVideoProgress(`Downloading: ${percentage.toFixed(1)}%`, {
+              percentage: percentage,
+              loaded: progress.loaded,
+              total: progress.total
+            });
+          }
+        });
+        
+        const mediaBlob = result.blob;
+        const blobHash = result.hash;
+        const actualSize = result.size;
+        
+        // Validate hash against URL
+        const hashValidation = validateHashAgainstUrl(url, blobHash);
+        
+        // Extract metadata from blob
+        showVideoProgress("Extracting metadata...");
+        let fullMetadata = {};
+        try {
+          fullMetadata = await extractCompleteVideoMetadata(mediaBlob, contentType, actualSize);
+        } catch (metadataError) {
+          console.warn('Could not extract metadata:', metadataError);
+          fullMetadata = {
+            duration: 0,
+            width: 0,
+            height: 0,
+            dimensions: 'Unknown',
+            aspectRatio: 0,
+            bitrate: 0
+          };
+        }
+        
+        // Calculate bitrate
+        let bitrate = 0;
+        if (fullMetadata.duration && fullMetadata.duration > 0 && actualSize > 0) {
+          bitrate = Math.round((actualSize * 8) / fullMetadata.duration);
+        }
+        
+        // Generate thumbnail
+        showVideoProgress("Generating thumbnail...");
+        let thumbnail;
+        try {
+          thumbnail = await extractThumbnail(url);
+        } catch (thumbError) {
+          console.warn('Could not generate thumbnail:', thumbError);
+          thumbnail = await generatePlaceholderThumbnail();
+        }
+        
+        metadata = {
+          ...metadata,
+          size: actualSize,
+          hash: blobHash,
+          isHashValid: hashValidation.isValid,
+          blossomValidated: true,
+          corsRestricted: false,
+          ...fullMetadata,
+          bitrate: bitrate,
+          thumbnail: thumbnail
+        };
+        
+        console.log('✅ Full Blossom validation complete');
+        
+      } catch (fetchError) {
+        // Fetch failed even though HEAD worked - probably CORS on GET
+        console.warn('❌ Cannot download file (CORS on GET):', fetchError.message);
+        canFetch = false;
+      }
     }
+    
+// Step 4: Fallback to video element if fetch failed
+if (!canFetch || !metadata.blossomValidated) {
+  console.log('⚠️ Falling back to video element method (CORS restricted)');
+  
+  // Check if video is at least playable
+  showVideoProgress("Checking if video is playable...");
+  let videoElementMetadata;
+  try {
+    videoElementMetadata = await extractMetadataDirectly(url);
+  } catch (videoError) {
+    throw new Error(`Video cannot be loaded or played. ${videoError.message}\n\nThis URL may be completely blocked or invalid.`);
+  }
+  
+  // Video is playable but we can't validate Blossom
+  // User decision point: warn them about reduced functionality
+  const userConsent = confirm(
+    `⚠️ CORS Restriction Detected\n\n` +
+    `This video URL blocks direct access (no CORS headers).\n\n` +
+    `Available metadata:\n` +
+    `✅ Video will play in your app\n` +
+    `✅ Dimensions: ${videoElementMetadata.dimensions}\n` +
+    `✅ Duration: ${videoElementMetadata.duration.toFixed(2)}s\n\n` +
+    `NOT available:\n` +
+    `❌ Blossom hash validation\n` +
+    `❌ File size\n` +
+    `❌ Actual bitrate\n\n` +
+    (isBlossom ? 
+      `Note: This LOOKS like a Blossom URL but we cannot verify it.\n\n` :
+      `Note: This doesn't appear to be a Blossom URL.\n\n`) +
+    `Do you want to add it anyway with limited metadata?`
+  );
+  
+  if (!userConsent) {
+    throw new Error('User cancelled - CORS restricted URL');
+  }
+  
+  // For CORS-restricted videos, just use placeholder thumbnail
+  // Don't try to extract - it will likely fail or hang
+  showVideoProgress("Using placeholder thumbnail...");
+  const thumbnail = await generatePlaceholderThumbnail();
+  
+  metadata = {
+    ...metadata,
+    size: 0,
+    hash: '', // No hash available
+    isHashValid: false,
+    blossomValidated: false,
+    corsRestricted: true,
+    ...videoElementMetadata,
+    bitrate: 0,
+    thumbnail: thumbnail
+  };
+  
+  console.log('⚠️ Added with limited metadata (CORS restricted)');
+}
 
     window.videoMetadataList.push(metadata);
     addVideoToUI(metadata);
@@ -975,10 +1042,11 @@ async function handleAddVideo() {
     updateVideoCounter();
     saveFormDataToStorage();
     hideVideoProgress();
+    
   } catch (error) {
     console.error("Error fetching media metadata:", error);
     hideVideoProgress();
-    alert(`Failed to fetch media metadata: ${error.message}`);
+    alert(`Failed to add video:\n\n${error.message}`);
   } finally {
     setButtonLoading(button, false, "Add Video");
   }
@@ -1150,9 +1218,7 @@ console.log("upload", file);
 
 
 
-  async function generatePlaceholderThumbnail() {
-    return "https://image.nostr.build/477d78313a37287eb5613424772a14f051288ad1cbf2cdeec60e1c3052a839d4.jpg";
-  }
+
 
 
 
@@ -1237,29 +1303,53 @@ function addVideoToUI(video) {
     });
   }
 
+
 function buildK21EventData() {
   const now = Math.floor(Date.now() / 1000);
-
+  
   const imetaTags = window.videoMetadataList.map((video) => {
     const imetaTag = [
       "imeta",
       `url ${video.url}`,
-      `x ${video.hash}`,
       `m ${video.type}`,
-      `dim ${video.dimensions}`,
-      `size ${video.size}`,
-      `image ${video.thumbnail}`,
-      `fallback ${video.url}`,
-      `duration ${video.duration}`,
     ];
     
-    // Add bitrate if available
-    if (video.bitrate) {
+    // Only add hash if we have real Blossom validation
+    if (video.hash && video.blossomValidated) {
+      imetaTag.push(`x ${video.hash}`);
+    }
+    
+    // Dimensions
+    if (video.dimensions && video.dimensions !== 'Unknown') {
+      imetaTag.push(`dim ${video.dimensions}`);
+    }
+    
+    // Only add size if we have it
+    if (video.size && video.size > 0) {
+      imetaTag.push(`size ${video.size}`);
+    }
+    
+    // Thumbnail
+    if (video.thumbnail) {
+      imetaTag.push(`image ${video.thumbnail}`);
+    }
+    
+    // Fallback
+    imetaTag.push(`fallback ${video.url}`);
+    
+    // Duration
+    if (video.duration) {
+      imetaTag.push(`duration ${video.duration}`);
+    }
+    
+    // Bitrate (only if calculated from actual size)
+    if (video.bitrate && video.bitrate > 0) {
       imetaTag.push(`bitrate ${video.bitrate}`);
     }
     
     return imetaTag;
   });
+
 
   const customFields = Array.from(document.querySelectorAll(".custom-field"))
     .map((field) => {

@@ -72,28 +72,29 @@ async function processMediaUrl(url) {
     showStatus('Checking media accessibility...', 'loading');
     const headResponse = await fetch(url, { method: 'HEAD' }).catch(() => null);
 
-    if (headResponse && !headResponse.ok) {
-      throw new Error('Media not accessible');
+    let contentType = '';
+    let canFetch = false;
+
+    if (headResponse && headResponse.ok) {
+      contentType = detectContentType(headResponse, url);
+      canFetch = true;
+    } else {
+      // HEAD failed - likely CORS
+      const extension = getFileExtensionFromUrl(url);
+      contentType = getMimeTypeFromExtension(extension) || 'video/mp4';
+      console.warn('HEAD request failed - likely CORS restricted');
     }
 
-    // Step 1.5: Detect content type with fallbacks
-    let contentType = headResponse ? detectContentType(headResponse, url) : '';
-
-    // If we still have a generic type or no HEAD response, try to sniff
-    if (!contentType || contentType === 'application/octet-stream' || contentType === '') {
-      showStatus('Detecting file type...', 'loading');
-      contentType = await sniffContentTypeFromData(url) || 'application/octet-stream';
-    }
+    // Step 1.5: Check if it's Blossom URL
+    const isBlossom = isBlosomUrl(url);
 
     // Determine if this is video/audio
     const isVideo = contentType.startsWith('video/');
     const isAudio = contentType.startsWith('audio/');
     const isMedia = isVideo || isAudio;
 
-    // Warn but don't block if we can't determine type
     if (!isMedia) {
       console.warn('Could not determine media type, assuming video for processing:', contentType);
-      // Ask user if they want to proceed
       const proceed = confirm(
         `Could not determine if this is a video/audio file.\n` +
         `Content-Type: ${contentType || '(empty)'}\n` +
@@ -107,87 +108,145 @@ async function processMediaUrl(url) {
       contentType = 'video/mp4';
     }
 
-    // Step 2: Download media with integrated hashing (this gives us actual size!)
-    showStatus('Downloading media...', 'loading');
+    // Step 2: Try full download with hashing if possible
+    let mediaData;
 
-    const result = await fetchVideoWithProgress(url, (progress) => {
-      if (progress.indeterminate) {
-        showStatus('Downloading media...', 'loading', { indeterminate: true });
-      } else {
-        // Convert to the format your showStatus function expects
-        const percentage = progress.percent !== null && progress.percent !== undefined
-          ? progress.percent
-          : 0;
-
-        showStatus(`Downloading: ${percentage.toFixed(1)}%`, 'loading', {
-          percentage: percentage, // Your function expects "percentage" not "percent"
-          loaded: progress.loaded,
-          total: progress.total
-        });
-      }
-    });
-
-    const mediaBlob = result.blob;
-    const blobHash = result.hash;
-    const actualSize = result.size; // This is the actual downloaded size!
-    const headerSize = result.contentLength; // Size from headers (might be 0)
-
-    // Step 3: Validate hash against URL
-    const hashValidation = validateHashAgainstUrl(url, blobHash);
-
-    // Step 4: Extract metadata from blob
-    showStatus('Extracting metadata...', 'loading');
-    let metadata = {};
-
-    try {
-      metadata = await extractCompleteMediaMetadata(mediaBlob, contentType, isVideo, isAudio);
-    } catch (metadataError) {
-      console.warn('Could not extract metadata:', metadataError);
-      metadata = {
-        duration: 0,
-        width: null,
-        height: null,
-        dimensions: 'Unknown'
-      };
-    }
-
-    // Calculate bitrate using actual downloaded size
-    let bitrate = 0;
-    if (metadata.duration && metadata.duration > 0 && actualSize > 0) {
-      bitrate = Math.round((actualSize * 8) / metadata.duration);
-    }
-
-    // Step 5: Generate thumbnail
-    let thumbnail = null;
-    if (isVideo) {
-      showStatus('Generating thumbnail...', 'loading');
+    if (canFetch) {
       try {
-        thumbnail = await extractThumbnail(url);
-      } catch (thumbError) {
-        console.warn('Could not generate thumbnail:', thumbError);
-        thumbnail = await generatePlaceholderThumbnail();
+        showStatus('Downloading media...', 'loading');
+
+        const result = await fetchVideoWithProgress(url, (progress) => {
+          if (progress.indeterminate) {
+            showStatus('Downloading media...', 'loading', { indeterminate: true });
+          } else {
+            const percentage = progress.percent !== null && progress.percent !== undefined
+              ? progress.percent
+              : 0;
+
+            showStatus(`Downloading: ${percentage.toFixed(1)}%`, 'loading', {
+              percentage: percentage,
+              loaded: progress.loaded,
+              total: progress.total
+            });
+          }
+        });
+
+        const mediaBlob = result.blob;
+        const blobHash = result.hash;
+        const actualSize = result.size;
+        const headerSize = result.contentLength;
+
+        // Step 3: Validate hash against URL
+        const hashValidation = validateHashAgainstUrl(url, blobHash);
+
+        // Step 4: Extract metadata from blob
+        showStatus('Extracting metadata...', 'loading');
+        let metadata = {};
+
+        try {
+          metadata = await extractCompleteMediaMetadata(mediaBlob, contentType, isVideo, isAudio);
+        } catch (metadataError) {
+          console.warn('Could not extract metadata:', metadataError);
+          metadata = {
+            duration: 0,
+            width: null,
+            height: null,
+            dimensions: 'Unknown'
+          };
+        }
+
+        // Calculate bitrate using actual downloaded size
+        let bitrate = 0;
+        if (metadata.duration && metadata.duration > 0 && actualSize > 0) {
+          bitrate = Math.round((actualSize * 8) / metadata.duration);
+        }
+
+        // Step 5: Generate thumbnail
+        let thumbnail = null;
+        if (isVideo) {
+          showStatus('Generating thumbnail...', 'loading');
+          try {
+            thumbnail = await extractThumbnail(url);
+          } catch (thumbError) {
+            console.warn('Could not generate thumbnail:', thumbError);
+            thumbnail = await generatePlaceholderThumbnail();
+          }
+        }
+
+        // Build full result
+        mediaData = {
+          url,
+          type: contentType,
+          detectedType: !isMedia ? 'unknown (assumed video)' : contentType,
+          size: actualSize,
+          headerSize: headerSize,
+          hash: blobHash,
+          isHashValid: hashValidation.isValid,
+          urlHash: hashValidation.urlHash,
+          blossomValidated: true,
+          corsRestricted: false,
+          ...metadata,
+          bitrate: bitrate,
+          thumbnail,
+          isVideo: isVideo || !isMedia,
+          isAudio,
+          metadataExtracted: Object.keys(metadata).length > 0
+        };
+
+        console.log('✅ Full processing with Blossom validation complete');
+
+      } catch (fetchError) {
+        console.warn('❌ Cannot download file (CORS):', fetchError.message);
+        canFetch = false;
       }
     }
 
-    // Step 6: Build and display results
-    const mediaData = {
-      url,
-      type: contentType,
-      detectedType: !isMedia ? 'unknown (assumed video)' : contentType,
-      size: actualSize, // Use actual downloaded size!
-      headerSize: headerSize, // Keep header size for reference
-      hash: blobHash,
-      isHashValid: hashValidation.isValid,
-      urlHash: hashValidation.urlHash,
-      ...metadata,
-      bitrate: bitrate, // Now calculated with actual size
-      thumbnail,
-      isVideo: isVideo || !isMedia,
-      isAudio,
-      metadataExtracted: Object.keys(metadata).length > 0
-    };
+    // Step 3: Fallback to video element if fetch failed
+    if (!canFetch || !mediaData) {
+      console.log('⚠️ Falling back to video element method (CORS restricted)');
 
-    displayResults(mediaData, mediaBlob);
+      // Check if video is at least playable
+      showStatus('Checking if media is playable...', 'loading');
+      let elementMetadata;
+      try {
+        if (isVideo || !isAudio) {
+          elementMetadata = await extractMetadataFromVideoElement(url);
+        } else {
+          elementMetadata = await extractMetadataFromAudioElement(url);
+        }
+      } catch (elementError) {
+        throw new Error(`Media cannot be loaded or played. ${elementError.message}`);
+      }
+
+      // Media is playable but we can't do full processing
+      showStatus('Media is CORS restricted - using limited metadata', 'warning');
+
+      // Use placeholder thumbnail for CORS-restricted videos
+      const thumbnail = (isVideo || !isAudio) ? await generatePlaceholderThumbnail() : null;
+
+      mediaData = {
+        url,
+        type: contentType,
+        detectedType: contentType,
+        size: 0, // Unknown
+        headerSize: 0,
+        hash: '', // Cannot calculate
+        isHashValid: false,
+        urlHash: null,
+        blossomValidated: false,
+        corsRestricted: true,
+        ...elementMetadata,
+        bitrate: 0, // Cannot calculate without size
+        thumbnail,
+        isVideo: isVideo || !isMedia,
+        isAudio,
+        metadataExtracted: true
+      };
+
+      console.log('⚠️ Processed with limited metadata (CORS restricted)');
+    }
+
+    displayResults(mediaData, null); // No blob for CORS-restricted
     showStatus('Processing complete!', 'success');
 
   } catch (error) {
@@ -195,6 +254,7 @@ async function processMediaUrl(url) {
     console.error('Error processing media:', error);
   }
 }
+
 async function extractCompleteMediaMetadata(blob, mimeType, isVideo, isAudio) {
   if (isAudio) {
     // For audio, we can only get duration
@@ -249,42 +309,205 @@ async function extractCompleteMediaMetadata(blob, mimeType, isVideo, isAudio) {
   });
 }
 
+  async function generatePlaceholderThumbnail() {
+    return "https://image.nostr.build/477d78313a37287eb5613424772a14f051288ad1cbf2cdeec60e1c3052a839d4.jpg";
+  }
+async function extractMetadataDirectly(url) {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement('video');
+    video.crossOrigin = 'anonymous';
+    video.muted = true;
+    video.preload = 'metadata';
+    
+    const timeout = setTimeout(() => {
+      cleanup();
+      reject(new Error('Timeout loading video metadata'));
+    }, 30000);
+    
+    let retryWithoutCors = true;
+    
+    const cleanup = () => {
+      clearTimeout(timeout);
+      video.remove();
+    };
+    
+    video.onloadedmetadata = () => {
+      cleanup();
+      resolve({
+        duration: video.duration,
+        width: video.videoWidth,
+        height: video.videoHeight,
+        dimensions: `${video.videoWidth}x${video.videoHeight}`,
+        aspectRatio: video.videoWidth / video.videoHeight
+      });
+    };
+    
+    video.onerror = (e) => {
+      if (retryWithoutCors && video.crossOrigin) {
+        retryWithoutCors = false;
+        video.crossOrigin = null;
+        video.src = url;
+      } else {
+        cleanup();
+        reject(new Error('Video cannot be loaded'));
+      }
+    };
+    
+    video.src = url;
+  });
+}
+
+
+async function extractMetadataFromVideoElement(url) {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement('video');
+    video.crossOrigin = 'anonymous';
+    video.muted = true;
+    video.preload = 'metadata';
+
+    const timeout = setTimeout(() => {
+      cleanup();
+      reject(new Error('Timeout loading video'));
+    }, 30000);
+
+    let retryWithoutCors = true;
+
+    const cleanup = () => {
+      clearTimeout(timeout);
+      video.remove();
+    };
+
+    video.onloadedmetadata = () => {
+      cleanup();
+      resolve({
+        duration: video.duration,
+        width: video.videoWidth,
+        height: video.videoHeight,
+        dimensions: `${video.videoWidth}x${video.videoHeight}`
+      });
+    };
+
+    video.onerror = (e) => {
+      if (retryWithoutCors && video.crossOrigin) {
+        retryWithoutCors = false;
+        video.crossOrigin = null;
+        video.src = url;
+      } else {
+        cleanup();
+        reject(new Error('Video cannot be loaded'));
+      }
+    };
+
+    video.src = url;
+  });
+}
+
+// Helper function to extract metadata from audio element (CORS-restricted fallback)
+async function extractMetadataFromAudioElement(url) {
+  return new Promise((resolve, reject) => {
+    const audio = document.createElement('audio');
+    audio.crossOrigin = 'anonymous';
+    audio.preload = 'metadata';
+
+    const timeout = setTimeout(() => {
+      cleanup();
+      reject(new Error('Timeout loading audio'));
+    }, 30000);
+
+    let retryWithoutCors = true;
+
+    const cleanup = () => {
+      clearTimeout(timeout);
+      audio.remove();
+    };
+
+    audio.onloadedmetadata = () => {
+      cleanup();
+      resolve({
+        duration: audio.duration,
+        width: null,
+        height: null,
+        dimensions: 'N/A'
+      });
+    };
+
+    audio.onerror = (e) => {
+      if (retryWithoutCors && audio.crossOrigin) {
+        retryWithoutCors = false;
+        audio.crossOrigin = null;
+        audio.src = url;
+      } else {
+        cleanup();
+        reject(new Error('Audio cannot be loaded'));
+      }
+    };
+
+    audio.src = url;
+  });
+}
+
+
+
+
+
 function displayResults(mediaData, blob) {
   const resultsContainer = document.getElementById('resultsContainer');
   const mediaInfo = document.getElementById('mediaInfo');
   const imetaOutput = document.getElementById('imetaOutput');
   const mediaPreview = document.getElementById('mediaPreview');
 
+  // Show CORS warning if applicable
+  const corsWarning = mediaData.corsRestricted 
+    ? `<div class="result warning">
+         <p><strong>⚠️ CORS Restriction:</strong> This server doesn't allow direct access. 
+         Hash validation and file size are unavailable, but the media will play in your app.</p>
+       </div>` 
+    : '';
+
   // Display media information
   mediaInfo.innerHTML = `
+    ${corsWarning}
     <div class="info-grid">
       <div><strong>URL:</strong> ${mediaData.url}</div>
       <div><strong>Type:</strong> ${mediaData.type}</div>
-      <div><strong>Size:</strong> ${formatBytes(mediaData.size)}</div>
+      <div><strong>Size:</strong> ${mediaData.size > 0 ? formatBytes(mediaData.size) : '<em>Unknown (CORS)</em>'}</div>
       ${mediaData.dimensions !== 'N/A' ? `<div><strong>Dimensions:</strong> ${mediaData.dimensions}</div>` : ''}
       <div><strong>Duration:</strong> ${mediaData.duration?.toFixed(2)}s</div>
       <div>
         <strong>Hash (SHA-256):</strong><br>
-        <code class="hash">${mediaData.hash}</code>
+        ${mediaData.hash ? `<code class="hash">${mediaData.hash}</code>` : '<em>N/A (CORS restricted)</em>'}
       </div>
+      ${mediaData.hash ? `
       <div>
         <strong>Blossom Validation:</strong> 
         <span class="${mediaData.isHashValid ? 'success' : 'warning'}">
           ${mediaData.isHashValid ? '🌸 Hash matches filename' : '⚠ Hash does not match filename'}
         </span>
-      </div>
+      </div>` : ''}
     </div>
   `;
 
-  // Build imeta tag (always with actual hash)
+  // Build imeta tag
   const imetaTag = [
     "imeta",
     `url ${mediaData.url}`,
-    `x ${mediaData.hash}`, // Always actual hash
     `m ${mediaData.type}`,
-    ...(mediaData.dimensions !== 'N/A' ? [`dim ${mediaData.dimensions}`] : []),
-    `size ${mediaData.size}`
   ];
+
+  // Only add hash if we have it (Blossom validated)
+  if (mediaData.hash && mediaData.blossomValidated) {
+    imetaTag.push(`x ${mediaData.hash}`);
+  }
+
+  // Add dimensions if available
+  if (mediaData.dimensions && mediaData.dimensions !== 'N/A' && mediaData.dimensions !== 'Unknown') {
+    imetaTag.push(`dim ${mediaData.dimensions}`);
+  }
+
+  // Only add size if we have it
+  if (mediaData.size && mediaData.size > 0) {
+    imetaTag.push(`size ${mediaData.size}`);
+  }
 
   if (mediaData.thumbnail) {
     imetaTag.push(`image ${mediaData.thumbnail}`);
@@ -294,19 +517,62 @@ function displayResults(mediaData, blob) {
   imetaOutput.textContent = imetaString;
 
   // Copy button
-  document.getElementById('copyImeta').addEventListener('click', () => {
-    copyToClipboard(JSON.stringify(imetaTag), document.getElementById('copyImeta'));
+  const copyBtn = document.getElementById('copyImeta');
+  copyBtn.style.display = 'block';
+  // Remove old listener and add new one
+  const newCopyBtn = copyBtn.cloneNode(true);
+  copyBtn.parentNode.replaceChild(newCopyBtn, copyBtn);
+  newCopyBtn.addEventListener('click', () => {
+    copyToClipboard(JSON.stringify(imetaTag), newCopyBtn);
   });
 
-  // Display media preview
+  // Display media preview - use URL directly for CORS-restricted media
   if (mediaData.isVideo) {
-    showVideoPreview(blob, mediaPreview);
+    if (mediaData.corsRestricted) {
+      showVideoPreviewDirect(mediaData.url, mediaPreview);
+    } else if (blob) {
+      showVideoPreview(blob, mediaPreview);
+    } else {
+      showVideoPreviewDirect(mediaData.url, mediaPreview);
+    }
   } else if (mediaData.isAudio) {
-    showAudioPreview(blob, mediaPreview);
+    if (mediaData.corsRestricted) {
+      showAudioPreviewDirect(mediaData.url, mediaPreview);
+    } else if (blob) {
+      showAudioPreview(blob, mediaPreview);
+    } else {
+      showAudioPreviewDirect(mediaData.url, mediaPreview);
+    }
   }
 
   resultsContainer.style.display = 'block';
 }
+
+function showVideoPreviewDirect(url, container) {
+  container.innerHTML = '';
+
+  const video = document.createElement('video');
+  video.controls = true;
+  video.style.maxWidth = '100%';
+  video.style.width = '400px';
+  video.src = url;
+  video.appendChild(document.createTextNode('Your browser does not support the video tag.'));
+
+  container.appendChild(video);
+}
+
+function showAudioPreviewDirect(url, container) {
+  container.innerHTML = '';
+
+  const audio = document.createElement('audio');
+  audio.controls = true;
+  audio.style.width = '100%';
+  audio.src = url;
+  audio.appendChild(document.createTextNode('Your browser does not support the audio element.'));
+
+  container.appendChild(audio);
+}
+
 
 function validateHashAgainstUrl(url, blobHash) {
   try {

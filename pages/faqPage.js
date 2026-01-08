@@ -31,7 +31,7 @@ async function faqPageHandler() {
       </p>
       <p>- Experimental project exploring nostr.</p>
 
- 
+ <a href="https://gitworkshop.dev/npub1mutexn28l0umympkquy0vsfjqn32dz7ee3q90lyvztkvl3vawvfsgqwgck/relay.ngit.dev/vutr" target="_blank">Open-source</a>
      
     </div>
 
@@ -61,7 +61,7 @@ async function faqPageHandler() {
 
     <!--
 
- <a href="https://github.com/nostr-protocol/nips/blob/master/71.md" target="_blank">Open-source</a>
+ 
 
 
 

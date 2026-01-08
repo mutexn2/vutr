@@ -165,6 +165,8 @@
 
 
       // nip46
+      //  "name": "nostr-tools",
+      //  "version": "2.19.4",
       "lib/nip46.js",
 
 
@@ -178,7 +180,7 @@
 "lib/hash-wasm.js",
 
       //"https://cdn.jsdelivr.net/npm/nostr-web-components/dist/index.js",
-      // 9-2025
+      // 1-2026
       "lib/nostr-web-components.js",
 
       // - visit https://github.com/danielgjackson/qrcodejs - direct download as a .js file

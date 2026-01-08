@@ -77,7 +77,7 @@ start_file_watcher() {
         echo -e "${YELLOW}File change detected \u2192 updating version...${NC}"
         update_version
         echo -e "${YELLOW}http://localhost:8081${NC}"
-        echo -e "${BLUE}Refresh the app (or wait for auto-reload if service worker detects it)${NC}"
+        echo -e "${BLUE}Refresh the app ${NC}"
     done
 }
 

@@ -1,7 +1,8 @@
 async function handleNostrLogin() {
   console.log(
-    "%c[Login] Starting login handler",
-    "color: blue; font-weight: bold"
+    "%c[Login]%c Starting login handler",
+    "color: blue; font-weight: bold",
+    ""
   );
 
   // CRITICAL: Always show login overlay initially
@@ -20,27 +21,38 @@ async function handleNostrLogin() {
       // No saved method - show login prompt
       await showLoginPrompt();
     }
+    
+    // Login completed successfully
+    return true;
+    
   } catch (error) {
     console.error(
-      "%c[Login] Top-level login error:",
+      "%c[Login]%c Top-level login error:",
       "color: red; font-weight: bold",
+      "",
       error
     );
+    
+    // Even on failure, we return (not throw) so the app continues
     await handleLoginFailure("Unexpected login error", error);
+    return false;
   }
 }
 
+
 async function attemptLoginWithMethod(methodName, loginFunction) {
   console.log(
-    `%c[Login] Attempting ${methodName} login`,
-    "color: blue; font-weight: bold"
+    `%c[Login]%c Attempting ${methodName} login`,
+    "color: blue; font-weight: bold",
+    ""
   );
 
   // Prevent concurrent login attempts
   if (app.loginState.isAttemptingLogin) {
     console.warn(
-      "%c[Login] Login already in progress, ignoring duplicate attempt",
-      "color: orange"
+      "%c[Login]%c Login already in progress, ignoring duplicate attempt",
+      "color: orange; font-weight: bold",
+      ""
     );
     return;
   }
@@ -66,19 +78,22 @@ async function attemptLoginWithMethod(methodName, loginFunction) {
     }
 
     console.log(
-      `%c[Login] ✅ ${methodName} login successful`,
-      "color: green; font-weight: bold"
+      `%c[Login]%c ✅ ${methodName} login successful`,
+      "color: green; font-weight: bold",
+      ""
     );
-    console.log(`%c[Login] User: ${app.myNpub}`, "color: green");
+    console.log(`%c[Login]%c User: ${app.myNpub}`, "color: green; font-weight: bold", "");
     console.log(
-      `%c[Login] isLoggedIn: ${app.isLoggedIn}, myPk: ${app.myPk}`,
-      "color: green"
+      `%c[Login]%c isLoggedIn: ${app.isLoggedIn}, myPk: ${app.myPk}`,
+      "color: green; font-weight: bold",
+      ""
     );
 
     // CRITICAL: Force removal of ALL login UI after successful login
     console.log(
-      "%c[Login] Closing login modal after successful login",
-      "color: green; font-weight: bold"
+      "%c[Login]%c Closing login modal after successful login",
+      "color: green; font-weight: bold",
+      ""
     );
     removePersistentLoginOverlay();
 
@@ -91,16 +106,18 @@ async function attemptLoginWithMethod(methodName, loginFunction) {
     setTimeout(() => {
       if (app.isLoggedIn && app.myPk && app.loginState.loginOverlayActive) {
         console.log(
-          "%c[Login] Overlay still active after login, forcing removal",
-          "color: orange; font-weight: bold"
+          "%c[Login]%c Overlay still active after login, forcing removal",
+          "color: orange; font-weight: bold",
+          ""
         );
         removePersistentLoginOverlay();
       }
     }, 500);
   } catch (error) {
     console.error(
-      `%c[Login] ❌ ${methodName} login failed:`,
+      `%c[Login]%c ❌ ${methodName} login failed:`,
       "color: red; font-weight: bold",
+      "",
       error
     );
     await handleLoginFailure(`${methodName} login failed`, error);
@@ -111,7 +128,7 @@ async function attemptLoginWithMethod(methodName, loginFunction) {
 }
 
 async function handleLoginFailure(reason, error = null) {
-  console.log(`%c[Login Failure] ${reason}`, "color: red; font-weight: bold");
+  console.log(`%c[Login Failure]%c ${reason}`, "color: red; font-weight: bold", "");
 
   // Clean up any partial login state
   await cleanupPartialLoginState();
@@ -127,13 +144,14 @@ async function handleLoginFailure(reason, error = null) {
 
 async function cleanupPartialLoginState() {
   console.log(
-    "%c[Cleanup] Cleaning up partial login state",
-    "color: orange; font-weight: bold"
+    "%c[Cleanup]%c Cleaning up partial login state",
+    "color: orange; font-weight: bold",
+    ""
   );
 
   // If bunker connection was started, clean it up
   if (app.bunkerSigner || app.bunkerPool) {
-    console.log("%c[Cleanup] Cleaning up bunker resources", "color: orange");
+    console.log("%c[Cleanup]%c Cleaning up bunker resources", "color: orange; font-weight: bold", "");
     await cleanupBunkerConnection();
   }
 
@@ -151,11 +169,11 @@ async function cleanupPartialLoginState() {
     bunkerPool: null,
   });
 
-  console.log("%c[Cleanup] ✅ Cleanup complete", "color: green");
+  console.log("%c[Cleanup]%c ✅ Cleanup complete", "color: green; font-weight: bold", "");
 }
 
 function showPersistentLoginOverlay() {
-  console.log("%c[Login Overlay] Showing initial overlay", "color: blue");
+  console.log("%c[Login Overlay]%c Showing initial overlay", "color: blue; font-weight: bold", "");
 
   const overlay = document.createElement("div");
   overlay.id = "login-overlay";
@@ -173,8 +191,9 @@ function showPersistentLoginOverlay() {
 
 function removePersistentLoginOverlay() {
   console.log(
-    "%c[Login Overlay] Removing all login overlays",
-    "color: green; font-weight: bold"
+    "%c[Login Overlay]%c Removing all login overlays",
+    "color: green; font-weight: bold",
+    ""
   );
 
   // Remove initial loading overlay
@@ -188,15 +207,18 @@ function removePersistentLoginOverlay() {
 
   app.loginState.loginOverlayActive = false;
   console.log(
-    "%c[Login Overlay] ✅ All login UI removed",
-    "color: green; font-weight: bold"
+    "%c[Login Overlay]%c ✅ All login UI removed",
+    "color: green; font-weight: bold",
+    ""
   );
 }
+
 async function showLoginPrompt() {
   return new Promise((resolve) => {
     console.log(
-      "%c[Login Prompt] Showing login choice",
-      "color: blue; font-weight: bold"
+      "%c[Login Prompt]%c Showing login choice",
+      "color: blue; font-weight: bold",
+      ""
     );
 
     // Remove initial loading overlay first
@@ -228,10 +250,21 @@ async function showLoginPrompt() {
         <button id="use-guest-btn" class="btn-secondary">
           👤 Use Guest Account
         </button>
+        <!-- Add a skip button for cases where login fails completely -->
+        <button id="skip-login-btn" class="btn-secondary" style="margin-top: 10px;">
+          ⏭️ Skip & Continue to App
+        </button>
       </div>
     `;
 
     const modal = createLoginModal("Choose Login Method", content);
+
+    // Add skip button handler
+    modal.querySelector("#skip-login-btn").addEventListener("click", () => {
+      console.log("%c[Login]%c User chose to skip login", "color: orange; font-weight: bold", "");
+      removePersistentLoginOverlay();
+      resolve(false); // Resolve with false to indicate skipped login
+    });
 
     if (hasExtension) {
       modal
@@ -241,19 +274,20 @@ async function showLoginPrompt() {
           showLoginSpinner("Connecting to extension...");
           try {
             await attemptExtensionLogin();
-            // Success - close modal
             console.log(
-              "%c[Extension] Login successful, closing modal",
-              "color: green; font-weight: bold"
+              "%c[Extension]%c Login successful",
+              "color: green; font-weight: bold",
+              ""
             );
             removePersistentLoginOverlay();
             renderNavLinks();
             updateSidebar();
             updateDrawerContent();
-            resolve();
+            resolve(true); // Resolve with true to indicate successful login
           } catch (error) {
-            console.error("%c[Extension] Login failed", "color: red", error);
+            console.error("%c[Extension]%c Login failed", "color: red; font-weight: bold", "", error);
             await handleLoginFailure("Extension login failed", error);
+            // Don't resolve here - handleLoginFailure will call showLoginPrompt again
           }
         });
     }
@@ -271,23 +305,25 @@ async function showLoginPrompt() {
         showLoginSpinner("Creating guest account...");
         try {
           await handleGuestLogin();
-          // Success - close modal
           console.log(
-            "%c[Guest] Login successful, closing modal",
-            "color: green; font-weight: bold"
+            "%c[Guest]%c Login successful",
+            "color: green; font-weight: bold",
+            ""
           );
           removePersistentLoginOverlay();
           renderNavLinks();
           updateSidebar();
           updateDrawerContent();
-          resolve();
+          resolve(true);
         } catch (error) {
-          console.error("%c[Guest] Login failed", "color: red", error);
+          console.error("%c[Guest]%c Login failed", "color: red; font-weight: bold", "", error);
           await handleLoginFailure("Guest login failed", error);
+          // Don't resolve here - handleLoginFailure will call showLoginPrompt again
         }
       });
   });
 }
+
 function showLoginError(title, message) {
   const overlay = document.getElementById("login-overlay");
   if (overlay) {
@@ -325,17 +361,20 @@ async function handleEventSigning(eventTemplate) {
     throw new Error("No login method available");
   }
 }
+
 /////////////////////
 async function attemptExtensionLogin() {
   console.log(
-    "%c[Extension] Attempting extension login",
-    "color: green; font-weight: bold"
+    "%c[Extension]%c Attempting extension login",
+    "color: green; font-weight: bold",
+    ""
   );
 
   if (typeof window.nostr !== "undefined" && window.nostr !== null) {
     console.log(
-      "%c[Extension] Extension detected, requesting public key",
-      "color: green"
+      "%c[Extension]%c Extension detected, requesting public key",
+      "color: green; font-weight: bold",
+      ""
     );
     const pk = await window.nostr.getPublicKey();
     const myNpub = window.NostrTools.nip19.npubEncode(pk);
@@ -350,14 +389,15 @@ async function attemptExtensionLogin() {
     });
 
     console.log(
-      "%c[Extension] ✅ Logged in with extension:",
+      "%c[Extension]%c ✅ Logged in with extension:",
       "color: green; font-weight: bold",
+      "",
       myNpub
     );
 
     // Don't update UI here - let attemptLoginWithMethod do it after modal closes
   } else {
-    console.warn("%c[Extension] Extension not available", "color: orange");
+    console.warn("%c[Extension]%c Extension not available", "color: orange; font-weight: bold", "");
     throw new Error("Extension not available");
   }
 }
@@ -370,13 +410,14 @@ async function signEventWithExtension(eventTemplate) {
   try {
     const signedEvent = await window.nostr.signEvent(eventTemplate);
     console.log(
-      "%c Signed Event with Extension",
+      "%c[Extension Sign]%c Signed Event with Extension",
       "font-weight: bold; color: green;",
+      "",
       JSON.stringify(signedEvent, null, 2)
     );
     return signedEvent;
   } catch (error) {
-    console.error("Extension signing failed:", error);
+    console.error("%c[Extension Sign]%c Signing failed:", "color: red; font-weight: bold", "", error);
     throw error;
   }
 }
@@ -384,8 +425,9 @@ async function signEventWithExtension(eventTemplate) {
 
 async function handleGuestLogin() {
   console.log(
-    "%c[Guest] Starting guest login",
-    "color: blue; font-weight: bold"
+    "%c[Guest]%c Starting guest login",
+    "color: blue; font-weight: bold",
+    ""
   );
 
   let encryptedGuestData = localStorage.getItem("nostr_guest_data");
@@ -393,7 +435,7 @@ async function handleGuestLogin() {
   let isNewAccount = false;
 
   if (!encryptedGuestData) {
-    console.log("%c[Guest] Creating new guest account", "color: blue");
+    console.log("%c[Guest]%c Creating new guest account", "color: blue; font-weight: bold", "");
     guestSk = window.NostrTools.generateSecretKey();
     isNewAccount = true;
 
@@ -405,27 +447,31 @@ async function handleGuestLogin() {
     const encryptedData = btoa(JSON.stringify(guestData));
     localStorage.setItem("nostr_guest_data", encryptedData);
     console.log(
-      "%c[Guest] ✅ New guest account created and saved",
-      "color: green; font-weight: bold"
+      "%c[Guest]%c ✅ New guest account created and saved",
+      "color: green; font-weight: bold",
+      ""
     );
   } else {
     try {
-      console.log("%c[Guest] Loading existing guest account", "color: blue");
+      console.log("%c[Guest]%c Loading existing guest account", "color: blue; font-weight: bold", "");
       const decryptedData = JSON.parse(atob(encryptedGuestData));
       guestSk = new Uint8Array(decryptedData.sk);
       console.log(
-        "%c[Guest] ✅ Existing guest account loaded",
-        "color: green; font-weight: bold"
+        "%c[Guest]%c ✅ Existing guest account loaded",
+        "color: green; font-weight: bold",
+        ""
       );
     } catch (error) {
       console.error(
-        "%c[Guest] Error decrypting guest data:",
-        "color: red",
+        "%c[Guest]%c Error decrypting guest data:",
+        "color: red; font-weight: bold",
+        "",
         error
       );
       console.log(
-        "%c[Guest] Creating new account after decryption failure",
-        "color: blue"
+        "%c[Guest]%c Creating new account after decryption failure",
+        "color: blue; font-weight: bold",
+        ""
       );
       guestSk = window.NostrTools.generateSecretKey();
       isNewAccount = true;
@@ -451,14 +497,15 @@ async function handleGuestLogin() {
   });
 
   console.log(
-    "%c[Guest] ✅ Logged in as guest:",
+    "%c[Guest]%c ✅ Logged in as guest:",
     "color: green; font-weight: bold",
+    "",
     myNpub
   );
 
   if (isNewAccount) {
     publishGuestProfile(guestSk, pk).catch((err) =>
-      console.error("Background profile publish failed:", err)
+      console.error("%c[Guest Profile]%c Publish failed:", "color: orange; font-weight: bold", "", err)
     );
   }
 }
@@ -486,14 +533,14 @@ async function publishGuestProfile(secretKey, publicKey) {
       secretKey
     );
 
-    console.log("Publishing guest profile:", profileData);
+    console.log("%c[Guest Profile]%c Publishing guest profile:", "color: blue; font-weight: bold", "", profileData);
 
     await publishEvent(signedEvent, null, {
       successMessage: "Guest profile published successfully",
       errorMessage: "Failed to publish guest profile",
     });
   } catch (error) {
-    console.error("Error publishing guest profile:", error);
+    console.error("%c[Guest Profile]%c Error publishing guest profile:", "color: red; font-weight: bold", "", error);
     // Don't throw error - login should still work even if profile publishing fails
   }
 }
@@ -508,8 +555,9 @@ function signEventAsGuest(eventTemplate) {
     app.guestSk
   );
   console.log(
-    "%c Signed Event as Guest",
+    "%c[Guest Sign]%c Signed Event as Guest",
     "font-weight: bold; color: blue;",
+    "",
     JSON.stringify(signedEvent, null, 2)
   );
   return signedEvent;
@@ -518,22 +566,27 @@ function signEventAsGuest(eventTemplate) {
 /////////////////////
 async function showBunkerLoginFlow(resolve) {
   console.log(
-    "%c[Bunker] Starting unified bunker flow",
-    "color: purple; font-weight: bold"
+    "%c[Bunker]%c Starting unified bunker flow",
+    "color: purple; font-weight: bold",
+    ""
   );
 
   const savedBunkerData = localStorage.getItem("bunker_connection_data");
 
   if (savedBunkerData) {
-    console.log("%c[Bunker] Reconnecting with saved data", "color: purple");
+    console.log("%c[Bunker]%c Reconnecting with saved data", "color: purple; font-weight: bold", "");
     showLoginSpinner("Reconnecting to bunker...", true);
     
     try {
       await attemptBunkerLogin();
-      resolve();
+      removePersistentLoginOverlay();
+      renderNavLinks();
+      updateSidebar();
+      updateDrawerContent();
+      resolve(true);
       return;
     } catch (error) {
-      console.error("%c[Bunker] Reconnect failed:", "color: red", error);
+      console.error("%c[Bunker]%c Reconnect failed:", "color: red; font-weight: bold", "", error);
       // Clear bad data and continue to show connection options
       await cleanupBunkerConnection();
       localStorage.removeItem("bunker_connection_data");
@@ -544,7 +597,6 @@ async function showBunkerLoginFlow(resolve) {
   // Show unified bunker connection interface
   const content = `
     <div class="bunker-unified-container">
-     
       <div class="bunker-connection-area">
         <!-- QR Code Display -->
         <div class="qr-section" id="qr-section">
@@ -582,6 +634,9 @@ async function showBunkerLoginFlow(resolve) {
         <button id="back-to-login-btn" class="btn-secondary">
           ← Back to Login Options
         </button>
+        <button id="skip-bunker-btn" class="btn-secondary">
+          ⏭️ Skip & Continue
+        </button>
       </div>
 
       <details class="help-section">
@@ -607,11 +662,20 @@ async function showBunkerLoginFlow(resolve) {
     showLoginPrompt();
   });
 
+  // Skip button
+  modal.querySelector("#skip-bunker-btn").addEventListener("click", () => {
+    cleanupBunkerAttempt();
+    console.log("%c[Bunker]%c User skipped bunker login", "color: orange; font-weight: bold", "");
+    removePersistentLoginOverlay();
+    resolve(false);
+  });
+
   // URI connection button
   modal.querySelector("#connect-bunker-uri-btn").addEventListener("click", async () => {
     await handleURIConnection(modal, resolve);
   });
 }
+
 async function handleURIConnection(modal, resolve) {
   const input = modal.querySelector("#bunker-uri-input");
   const bunkerInput = input.value.trim();
@@ -640,7 +704,7 @@ async function handleURIConnection(modal, resolve) {
       throw new Error("Invalid bunker URI or NIP-05 identifier");
     }
 
-    console.log("%c[Bunker URI] Parsed:", "color: purple", {
+    console.log("%c[Bunker URI]%c Parsed:", "color: purple; font-weight: bold", "", {
       remotePubkey: bunkerPointer.pubkey.substring(0, 16) + "...",
       relays: bunkerPointer.relays,
     });
@@ -668,13 +732,13 @@ async function handleURIConnection(modal, resolve) {
       ),
     ]);
 
-    console.log("%c[Bunker URI] Success!", "color: green; font-weight: bold");
+    console.log("%c[Bunker URI]%c Success!", "color: green; font-weight: bold", "");
 
     await completeBunkerLogin(bunker, localSecretKey, pubkey, pool, bunkerPointer);
     resolve();
 
   } catch (error) {
-    console.error("%c[Bunker URI] Failed:", "color: red", error);
+    console.error("%c[Bunker URI]%c Failed:", "color: red; font-weight: bold", "", error);
     
     if (pool) {
       pool.close(bunkerPointer?.relays || []);
@@ -704,10 +768,11 @@ function updateBunkerStatus(modal, message, isError = false) {
     statusEl.innerHTML = `<p class="${isError ? 'error-text' : ''}">${message}</p>`;
   }
 }
+
 let activeQRConnection = null; // Track active connection attempt
 
 function initializeQRConnection(modal, resolve) {
-  console.log("%c[Bunker QR] Initializing QR connection", "color: blue");
+  console.log("%c[Bunker QR]%c Initializing QR connection", "color: blue; font-weight: bold", "");
 
   try {
     // Generate client keypair
@@ -747,7 +812,7 @@ function initializeQRConnection(modal, resolve) {
         btn.textContent = "✓ Copied!";
         setTimeout(() => (btn.textContent = originalText), 2000);
       } catch (err) {
-        console.error("Copy failed:", err);
+        console.error("%c[Copy URI]%c Copy failed:", "color: red; font-weight: bold", "", err);
       }
     });
 
@@ -763,7 +828,7 @@ function initializeQRConnection(modal, resolve) {
     waitForQRConnection(activeQRConnection, modal, resolve);
 
   } catch (error) {
-    console.error("%c[Bunker QR] Setup failed:", "color: red", error);
+    console.error("%c[Bunker QR]%c Setup failed:", "color: red; font-weight: bold", "", error);
     updateBunkerStatus(modal, "❌ QR code generation failed", true);
   }
 }
@@ -773,7 +838,7 @@ async function waitForQRConnection(connection, modal, resolve) {
   statusEl.textContent = "⏳ Waiting for your bunker app to scan...";
 
   try {
-    console.log("%c[Bunker QR] Listening for connection (60s)", "color: blue");
+    console.log("%c[Bunker QR]%c Listening for connection (60s)", "color: blue; font-weight: bold", "");
 
     // Wait for connection with timeout
     const signer = await Promise.race([
@@ -810,7 +875,7 @@ async function waitForQRConnection(connection, modal, resolve) {
       return;
     }
 
-    console.log("%c[Bunker QR] Success!", "color: green; font-weight: bold");
+    console.log("%c[Bunker QR]%c Success!", "color: green; font-weight: bold", "");
 
     const bunkerPointer = signer.bp;
     await completeBunkerLogin(
@@ -826,11 +891,11 @@ async function waitForQRConnection(connection, modal, resolve) {
 
   } catch (error) {
     if (connection.cancelled) {
-      console.log("%c[Bunker QR] Connection attempt cancelled", "color: orange");
+      console.log("%c[Bunker QR]%c Connection attempt cancelled", "color: orange; font-weight: bold", "");
       return;
     }
 
-    console.error("%c[Bunker QR] Failed:", "color: red", error);
+    console.error("%c[Bunker QR]%c Failed:", "color: red; font-weight: bold", "", error);
     connection.pool.close(connection.relays);
     
     if (error.message === "QR_TIMEOUT") {
@@ -844,7 +909,7 @@ async function waitForQRConnection(connection, modal, resolve) {
 }
 
 function cleanupBunkerAttempt() {
-  console.log("%c[Bunker] Cleaning up active connection attempt", "color: orange");
+  console.log("%c[Bunker]%c Cleaning up active connection attempt", "color: orange; font-weight: bold", "");
   
   if (activeQRConnection) {
     activeQRConnection.cancelled = true;
@@ -854,10 +919,12 @@ function cleanupBunkerAttempt() {
     activeQRConnection = null;
   }
 }
+
 async function initiateBunkerQRFlow(resolve) {
   console.log(
-    "%c[Bunker QR] Starting QR flow",
-    "color: blue; font-weight: bold"
+    "%c[Bunker QR]%c Starting QR flow",
+    "color: blue; font-weight: bold",
+    ""
   );
 
   let pool = null;
@@ -933,7 +1000,7 @@ async function initiateBunkerQRFlow(resolve) {
         btn.textContent = "✓ Copied!";
         setTimeout(() => (btn.textContent = "Copy URI"), 2000);
       } catch (err) {
-        console.error("Copy failed:", err);
+        console.error("%c[Copy URI]%c Copy failed:", "color: red; font-weight: bold", "", err);
       }
     });
 
@@ -942,8 +1009,9 @@ async function initiateBunkerQRFlow(resolve) {
     statusEl.textContent = "⏳ Connecting...";
 
     console.log(
-      "%c[Bunker QR] Waiting for bunker to scan QR code (60s timeout)",
-      "color: blue"
+      "%c[Bunker QR]%c Waiting for bunker to scan QR code (60s timeout)",
+      "color: blue; font-weight: bold",
+      ""
     );
 
     // Wait for bunker to scan and connect
@@ -959,7 +1027,7 @@ async function initiateBunkerQRFlow(resolve) {
     ]);
 
     statusEl.textContent = "✅ Connected! Getting your public key...";
-    console.log("%c[Bunker QR] Connection established!", "color: green");
+    console.log("%c[Bunker QR]%c Connection established!", "color: green; font-weight: bold", "");
 
     // Get user's public key
     const pubkey = await Promise.race([
@@ -969,13 +1037,13 @@ async function initiateBunkerQRFlow(resolve) {
       ),
     ]);
 
-    console.log("%c[Bunker QR] User pubkey retrieved:", "color: green", pubkey);
+    console.log("%c[Bunker QR]%c User pubkey retrieved:", "color: green; font-weight: bold", "", pubkey);
 
     // CRITICAL: Extract the bunkerPointer from the signer
     // After fromURI completes, signer.bp contains the bunkerPointer we need
     const bunkerPointer = signer.bp;
 
-    console.log("%c[Bunker QR] Extracted bunkerPointer:", "color: purple", {
+    console.log("%c[Bunker QR]%c Extracted bunkerPointer:", "color: purple; font-weight: bold", "", {
       remotePubkey: bunkerPointer.pubkey.substring(0, 16) + "...",
       relays: bunkerPointer.relays,
       hasSecret: !!bunkerPointer.secret,
@@ -992,8 +1060,9 @@ async function initiateBunkerQRFlow(resolve) {
     resolve();
   } catch (error) {
     console.error(
-      "%c[Bunker QR] Error:",
+      "%c[Bunker QR]%c Error:",
       "color: red; font-weight: bold",
+      "",
       error
     );
     if (pool) {
@@ -1070,11 +1139,11 @@ async function initiateBunkerURIFlow(resolve) {
           throw new Error("Invalid bunker URI or NIP-05 identifier");
         }
 
-        console.log("%c[Bunker URI] Parsed bunker pointer:", "color: purple", {
-          remotePubkey: bunkerPointer.pubkey.substring(0, 16) + "...",
-          relays: bunkerPointer.relays,
-          hasSecret: !!bunkerPointer.secret,
-        });
+    console.log("%c[Bunker URI]%c Parsed bunker pointer:", "color: purple; font-weight: bold", "", {
+      remotePubkey: bunkerPointer.pubkey.substring(0, 16) + "...",
+      relays: bunkerPointer.relays,
+      hasSecret: !!bunkerPointer.secret,
+    });
 
         // Generate local keypair for this connection
         const localSecretKey = window.NostrTools.generateSecretKey();
@@ -1088,8 +1157,9 @@ async function initiateBunkerURIFlow(resolve) {
         });
 
         console.log(
-          "%c[Bunker URI] Signer created, calling connect() for first-time connection",
-          "color: purple"
+          "%c[Bunker URI]%c Signer created, calling connect() for first-time connection",
+          "color: purple; font-weight: bold",
+          ""
         );
 
         // IMPORTANT: For first-time connection with bunker URI, call .connect()
@@ -1102,8 +1172,9 @@ async function initiateBunkerURIFlow(resolve) {
         ]);
 
         console.log(
-          "%c[Bunker URI] Connection established, getting public key",
-          "color: purple"
+          "%c[Bunker URI]%c Connection established, getting public key",
+          "color: purple; font-weight: bold",
+          ""
         );
 
         // Get user's public key
@@ -1118,8 +1189,9 @@ async function initiateBunkerURIFlow(resolve) {
         ]);
 
         console.log(
-          "%c[Bunker URI] User pubkey retrieved:",
-          "color: green",
+          "%c[Bunker URI]%c User pubkey retrieved:",
+          "color: green; font-weight: bold",
+          "",
           pubkey
         );
 
@@ -1134,8 +1206,9 @@ async function initiateBunkerURIFlow(resolve) {
         resolve();
       } catch (error) {
         console.error(
-          "%c[Bunker URI] Error:",
+          "%c[Bunker URI]%c Error:",
           "color: red; font-weight: bold",
+          "",
           error
         );
         if (pool && error.bunkerPointer?.relays) {
@@ -1162,8 +1235,9 @@ async function completeBunkerLogin(
   const npub = window.NostrTools.nip19.npubEncode(pubkey);
 
   console.log(
-    "%c[Bunker] Saving connection data for persistence",
-    "color: purple; font-weight: bold"
+    "%c[Bunker]%c Saving connection data for persistence",
+    "color: purple; font-weight: bold",
+    ""
   );
 
   // Save EVERYTHING needed for reconnection
@@ -1187,8 +1261,9 @@ async function completeBunkerLogin(
     bunkerData.bunkerPointer.relays.length === 0
   ) {
     console.error(
-      "%c[Bunker] ⚠️ Invalid bunkerPointer! Future reconnection will fail",
-      "color: red; font-weight: bold"
+      "%c[Bunker]%c ⚠️ Invalid bunkerPointer! Future reconnection will fail",
+      "color: red; font-weight: bold",
+      ""
     );
     throw new Error("Invalid bunker connection data");
   }
@@ -1197,8 +1272,9 @@ async function completeBunkerLogin(
   localStorage.setItem("preferredLoginMethod", "bunker");
 
   console.log(
-    "%c[Bunker] ✅ Connection data saved successfully",
-    "color: green; font-weight: bold"
+    "%c[Bunker]%c ✅ Connection data saved successfully",
+    "color: green; font-weight: bold",
+    ""
   );
 
   // Update app state
@@ -1216,8 +1292,9 @@ async function completeBunkerLogin(
   });
 
   console.log(
-    "%c[Bunker] ✅ Login complete:",
+    "%c[Bunker]%c ✅ Login complete:",
     "color: green; font-weight: bold",
+    "",
     npub
   );
 
@@ -1230,12 +1307,12 @@ async function completeBunkerLogin(
     renderNavLinks();
     updateSidebar();
     updateDrawerContent();
-    console.log("%c[Bunker] ✅ UI updated", "color: green; font-weight: bold");
+    console.log("%c[Bunker]%c ✅ UI updated", "color: green; font-weight: bold", "");
   }, 1000);
 }
 
 async function attemptBunkerLogin() {
-  console.log("%c[Bunker Reconnect] Starting", "color: cyan; font-weight: bold");
+  console.log("%c[Bunker Reconnect]%c Starting", "color: cyan; font-weight: bold", "");
 
   const savedBunkerData = localStorage.getItem("bunker_connection_data");
 
@@ -1247,7 +1324,7 @@ async function attemptBunkerLogin() {
   try {
     bunkerData = JSON.parse(savedBunkerData);
   } catch (e) {
-    console.error("%c[Bunker Reconnect] Invalid JSON", "color: red");
+    console.error("%c[Bunker Reconnect]%c Invalid JSON", "color: red; font-weight: bold", "");
     localStorage.removeItem("bunker_connection_data");
     throw new Error("INVALID_SAVED_DATA");
   }
@@ -1255,7 +1332,7 @@ async function attemptBunkerLogin() {
   // Validate structure
   if (!bunkerData.localSk || !bunkerData.bunkerPointer?.pubkey || 
       !bunkerData.bunkerPointer?.relays?.length) {
-    console.error("%c[Bunker Reconnect] Invalid structure", "color: red");
+    console.error("%c[Bunker Reconnect]%c Invalid structure", "color: red; font-weight: bold", "");
     localStorage.removeItem("bunker_connection_data");
     throw new Error("CORRUPTED_DATA");
   }
@@ -1264,7 +1341,7 @@ async function attemptBunkerLogin() {
   const localSecretKey = new Uint8Array(bunkerData.localSk);
   const pool = new window.NostrTools.SimplePool();
 
-  console.log("%c[Bunker Reconnect] Attempting connection", "color: cyan");
+  console.log("%c[Bunker Reconnect]%c Attempting connection", "color: cyan; font-weight: bold", "");
 
   try {
     const bunker = BunkerSigner.fromBunker(localSecretKey, bp, { pool });
@@ -1278,7 +1355,7 @@ async function attemptBunkerLogin() {
     ]);
 
     const npub = window.NostrTools.nip19.npubEncode(pubkey);
-    console.log("%c[Bunker Reconnect] ✅ Success", "color: green; font-weight: bold");
+    console.log("%c[Bunker Reconnect]%c ✅ Success", "color: green; font-weight: bold", "");
 
     // Update last used
     bunkerData.lastUsed = Date.now();
@@ -1298,12 +1375,12 @@ async function attemptBunkerLogin() {
     });
 
   } catch (error) {
-    console.error("%c[Bunker Reconnect] Failed:", "color: red", error);
+    console.error("%c[Bunker Reconnect]%c Failed:", "color: red; font-weight: bold", "", error);
     pool.close(bp.relays);
     
     // Clean up bad data on timeout
     if (error.message === "RECONNECT_TIMEOUT") {
-      console.log("%c[Bunker Reconnect] Timeout - clearing data", "color: orange");
+      console.log("%c[Bunker Reconnect]%c Timeout - clearing data", "color: orange; font-weight: bold", "");
       localStorage.removeItem("bunker_connection_data");
       localStorage.removeItem("preferredLoginMethod");
     }
@@ -1311,14 +1388,15 @@ async function attemptBunkerLogin() {
     throw error;
   }
 }
+
 async function signEventWithBunker(eventTemplate) {
   if (!app.bunkerSigner) {
-    console.error("%c[Bunker Sign] Bunker signer not available", "color: red");
+    console.error("%c[Bunker Sign]%c Bunker signer not available", "color: red; font-weight: bold", "");
     throw new Error("Bunker signer not available");
   }
 
   try {
-    console.log("%c[Bunker Sign] Signing event with bunker", "color: purple");
+    console.log("%c[Bunker Sign]%c Signing event with bunker", "color: purple; font-weight: bold", "");
 
     // Add timeout to prevent hanging
     const signedEvent = await Promise.race([
@@ -1332,8 +1410,9 @@ async function signEventWithBunker(eventTemplate) {
     ]);
 
     console.log(
-      "%c✅ Signed Event with Bunker",
+      "%c[Bunker Sign]%c ✅ Signed Event with Bunker",
       "font-weight: bold; color: purple;",
+      "",
       JSON.stringify(signedEvent, null, 2)
     );
 
@@ -1350,14 +1429,15 @@ async function signEventWithBunker(eventTemplate) {
         );
       }
     } catch (e) {
-      console.warn("Could not update lastUsed timestamp:", e);
+      console.warn("%c[Bunker Sign]%c Could not update lastUsed timestamp:", "color: orange; font-weight: bold", "", e);
     }
 
     return signedEvent;
   } catch (error) {
     console.error(
-      "%c[Bunker Sign] Signing failed:",
+      "%c[Bunker Sign]%c Signing failed:",
       "color: red; font-weight: bold",
+      "",
       error
     );
 
@@ -1373,8 +1453,9 @@ async function signEventWithBunker(eventTemplate) {
       if (shouldReconnect) {
         try {
           console.log(
-            "%c[Bunker Sign] Attempting to reconnect...",
-            "color: orange"
+            "%c[Bunker Sign]%c Attempting to reconnect...",
+            "color: orange; font-weight: bold",
+            ""
           );
 
           // Clean up old connection
@@ -1387,14 +1468,16 @@ async function signEventWithBunker(eventTemplate) {
 
           // Retry signing after reconnection
           console.log(
-            "%c[Bunker Sign] Reconnected, retrying sign",
-            "color: green"
+            "%c[Bunker Sign]%c Reconnected, retrying sign",
+            "color: green; font-weight: bold",
+            ""
           );
           return await app.bunkerSigner.signEvent(eventTemplate);
         } catch (reconnectError) {
           console.error(
-            "%c[Bunker Sign] Reconnection failed:",
-            "color: red",
+            "%c[Bunker Sign]%c Reconnection failed:",
+            "color: red; font-weight: bold",
+            "",
             reconnectError
           );
           throw new Error(
@@ -1409,17 +1492,18 @@ async function signEventWithBunker(eventTemplate) {
 }
 
 async function cleanupBunkerConnection() {
-  console.log("%c[Bunker Cleanup] Starting cleanup", "color: red");
+  console.log("%c[Bunker Cleanup]%c Starting cleanup", "color: red; font-weight: bold", "");
 
   if (app.bunkerSigner) {
     try {
-      console.log("%c[Bunker Cleanup] Closing bunker signer", "color: red");
+      console.log("%c[Bunker Cleanup]%c Closing bunker signer", "color: red; font-weight: bold", "");
       await app.bunkerSigner.close();
-      console.log("%c[Bunker Cleanup] ✅ Bunker signer closed", "color: green");
+      console.log("%c[Bunker Cleanup]%c ✅ Bunker signer closed", "color: green; font-weight: bold", "");
     } catch (error) {
       console.error(
-        "%c[Bunker Cleanup] Error closing bunker signer:",
-        "color: red",
+        "%c[Bunker Cleanup]%c Error closing bunker signer:",
+        "color: red; font-weight: bold",
+        "",
         error
       );
     }
@@ -1427,32 +1511,35 @@ async function cleanupBunkerConnection() {
 
   if (app.bunkerPool && app.bunkerPointer?.relays) {
     try {
-      console.log("%c[Bunker Cleanup] Closing bunker pool", "color: red");
+      console.log("%c[Bunker Cleanup]%c Closing bunker pool", "color: red; font-weight: bold", "");
       app.bunkerPool.close(app.bunkerPointer.relays);
-      console.log("%c[Bunker Cleanup] ✅ Bunker pool closed", "color: green");
+      console.log("%c[Bunker Cleanup]%c ✅ Bunker pool closed", "color: green; font-weight: bold", "");
     } catch (error) {
       console.error(
-        "%c[Bunker Cleanup] Error closing bunker pool:",
-        "color: red",
+        "%c[Bunker Cleanup]%c Error closing bunker pool:",
+        "color: red; font-weight: bold",
+        "",
         error
       );
     }
   }
 
   console.log(
-    "%c[Bunker Cleanup] Removing bunker data from localStorage",
-    "color: red"
+    "%c[Bunker Cleanup]%c Removing bunker data from localStorage",
+    "color: red; font-weight: bold",
+    ""
   );
   localStorage.removeItem("bunker_connection_data");
 
   console.log(
-    "%c[Bunker Cleanup] ✅ Cleanup complete",
-    "color: green; font-weight: bold"
+    "%c[Bunker Cleanup]%c ✅ Cleanup complete",
+    "color: green; font-weight: bold",
+    ""
   );
 }
 
 async function resetBunkerConnection() {
-  console.log("%c[Bunker Reset] Starting bunker reset", "color: orange; font-weight: bold");
+  console.log("%c[Bunker Reset]%c Starting bunker reset", "color: orange; font-weight: bold", "");
   
   // Show confirmation
   const confirmReset = confirm(
@@ -1460,7 +1547,7 @@ async function resetBunkerConnection() {
   );
   
   if (!confirmReset) {
-    console.log("%c[Bunker Reset] User cancelled reset", "color: orange");
+    console.log("%c[Bunker Reset]%c User cancelled reset", "color: orange; font-weight: bold", "");
     return;
   }
   
@@ -1470,12 +1557,12 @@ async function resetBunkerConnection() {
     
     // Remove preferred login method
     localStorage.removeItem('preferredLoginMethod');
-    console.log("%c[Bunker Reset] ✅ Bunker reset complete, reloading", "color: green; font-weight: bold");
+    console.log("%c[Bunker Reset]%c ✅ Bunker reset complete, reloading", "color: green; font-weight: bold", "");
     
     // Reload page to start fresh
     window.location.reload(true);
   } catch (error) {
-    console.error("%c[Bunker Reset] Error during reset:", "color: red", error);
+    console.error("%c[Bunker Reset]%c Error during reset:", "color: red; font-weight: bold", "", error);
     alert("Error resetting bunker connection. Reloading page...");
     window.location.reload(true);
   }
@@ -1507,7 +1594,7 @@ function createLoginModal(title, content) {
   overlay.addEventListener("click", (e) => {
     if (e.target === overlay) {
       // Do nothing - login modal must stay open
-      console.log("%c[Login Modal] Overlay click prevented - login required", "color: orange");
+      console.log("%c[Login Modal]%c Overlay click prevented - login required", "color: orange; font-weight: bold", "");
     }
   });
   
@@ -1553,7 +1640,7 @@ function showLoginSpinner(message = "Connecting...", showResetButton = false) {
       const resetBtn = document.getElementById("reset-bunker-btn");
       if (resetBtn) {
         resetBtn.addEventListener("click", async () => {
-          console.log("%c[Bunker Reset] User requested bunker reset", "color: orange; font-weight: bold");
+          console.log("%c[Bunker Reset]%c User requested bunker reset", "color: orange; font-weight: bold", "");
           await resetBunkerConnection();
         });
       }
@@ -1566,11 +1653,11 @@ async function handleSignOut() {
   const confirmSignOut = confirm('Are you sure you want to sign out?');
   
   if (confirmSignOut) {
-    console.log("%c[Sign Out] User confirmed sign out", "color: red; font-weight: bold");
+    console.log("%c[Sign Out]%c User confirmed sign out", "color: red; font-weight: bold", "");
     
     // Clean up bunker connection if it exists
     if (app.loginMethod === 'bunker') {
-      console.log("%c[Sign Out] Cleaning up bunker connection", "color: red");
+      console.log("%c[Sign Out]%c Cleaning up bunker connection", "color: red; font-weight: bold", "");
       await cleanupBunkerConnection();
     }
     
@@ -1584,9 +1671,9 @@ async function handleSignOut() {
     
     // IMPORTANT: DO NOT remove guest data - preserve for reuse
     // Guest keys stay in localStorage permanently unless explicitly deleted
-    console.log("%c[Sign Out] Guest keys preserved for future use", "color: blue");
+    console.log("%c[Sign Out]%c Guest keys preserved for future use", "color: blue; font-weight: bold", "");
     
-    console.log("%c[Sign Out] Updating app state", "color: red");
+    console.log("%c[Sign Out]%c Updating app state", "color: red; font-weight: bold", "");
     updateApp({
       isLoggedIn: false,
       myPk: null,
@@ -1601,7 +1688,7 @@ async function handleSignOut() {
     });
         showTemporaryNotification(`✅ Sign out complete, reloading page.`);
 
-    console.log("%c[Sign Out] ✅ Sign out complete, reloading page", "color: red; font-weight: bold");
+    console.log("%c[Sign Out]%c ✅ Sign out complete, reloading page", "color: red; font-weight: bold", "");
   //  window.location.reload();
  //window.location.href = window.location.href + '?forceReload=' + Date.now();
             setTimeout(() => {
@@ -1610,6 +1697,8 @@ async function handleSignOut() {
 
   }
 }
+
+
 
 
 /* 

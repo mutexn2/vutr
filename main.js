@@ -267,10 +267,20 @@ function initializeApp() {
     console.error("NostrGadgets not loaded! Check your script import.");
   }
 
-  ////////////////////////////////////////////////
+  initializeCoreComponents();
+  
+  // Start login flow - router will be started after login completes
+  startLoginFlow();
+
+/*   window.addEventListener("hashchange", handleRoute);
+  window.addEventListener("load", handleNostrLogin); */
+}
+
+function initializeCoreComponents() {
   // Initialize VideoPlayer module
   VideoPlayer.init();
-  ////////////////////////////////////////////////
+  
+  // Initialize UI components
   initializeSidebar();
   setupSidebarToggle();
   initDrawer();
@@ -278,14 +288,37 @@ function initializeApp() {
   initNotifyMenuButton();
   updateSidebar();
   updateDrawerContent();
-
-  //initSubscriptionsManager();
-
-  handleRoute();
-
-  window.addEventListener("hashchange", handleRoute);
-  window.addEventListener("load", handleNostrLogin);
 }
+
+async function startLoginFlow() {
+  console.log("%c[App] Starting login flow...", "color: blue; font-weight: bold");
+  
+  try {
+    // Start the login process - this will show the overlay and handle all login methods
+    await handleNostrLogin();
+    
+    // Login completed (successfully or not) - now start the router
+    console.log("%c[App] Login flow completed, starting router...", "color: green; font-weight: bold");
+    
+    // Set up hashchange listener
+    window.addEventListener("hashchange", handleRoute);
+    
+    // Handle the initial route
+    handleRoute();
+    
+  } catch (error) {
+    console.error("%c[App] Login flow failed:", "color: red; font-weight: bold", error);
+    // Even if login fails, we should still load the app
+    console.log("%c[App] Continuing to router despite login failure...", "color: orange; font-weight: bold");
+    
+    // Set up hashchange listener
+    window.addEventListener("hashchange", handleRoute);
+    
+    // Handle the initial route
+    handleRoute();
+  }
+}
+
 
 function handleRoute() {
   const newHash = window.location.hash || "#";

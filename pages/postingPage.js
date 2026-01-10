@@ -1335,7 +1335,7 @@ function buildK21EventData() {
     }
     
     // Fallback
-    imetaTag.push(`fallback ${video.url}`);
+  //  imetaTag.push(`fallback ${video.url}`);
     
     // Duration
     if (video.duration) {

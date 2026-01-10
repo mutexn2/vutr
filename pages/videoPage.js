@@ -1,12 +1,15 @@
 async function videoPageHandler() {
-//  logMemoryUsage();
-  
-  // Show loading
+  // Show skeleton with basic structure
   mainContent.innerHTML = `
-    <div id="videoPage-container">
-      <h1>Discovering Videos</h1>
-      <div class="loading-indicator">
-        <p>Loading video...</p>
+    <div class="video-page-layout">
+      <div id="video-page-playlist" class="video-page-playlist hidden"></div>
+      <div class="video-container">
+        <div class="loading-indicator">Loading video...</div>
+      </div>
+      <div class="scrollable-content">
+        <div class="video-info-bar">
+          <div class="skeleton-loader"></div>
+        </div>
       </div>
     </div>
   `;
@@ -30,29 +33,36 @@ async function videoPageHandler() {
       return;
     }
 
-    // Setup playlist if needed
-    await setupPlaylistIfNeeded(urlParams.playlistPubkey, urlParams.playlistDTag, urlParams.videoId);
+    // START PARALLEL FETCHING - Don't await playlist
+    const playlistPromise = setupPlaylistIfNeeded(
+      urlParams.playlistPubkey, 
+      urlParams.playlistDTag, 
+      urlParams.videoId
+    );
 
-    // Fetch video data with progressive relay strategy
+    // Fetch video data immediately (don't wait for playlist)
     const video = await fetchVideoDataProgressive(urlParams);
     
-    // Determine autoplay
+    // Determine autoplay - we might not have playlist yet, that's OK
     const shouldAutoplay = !!app.currentPlaylist;
     
     if (!app.currentPlaylist) {
       addVideoToHistory(video);
     }
 
-
-
-    // Render video page
+    // Render video page immediately
     renderVideoPage(video, urlParams.videoId, window.location.hash, shouldAutoplay);
+    
+    // NOW wait for playlist to complete and update UI
+    await playlistPromise;
+    updateVideoPagePlaylistInfo(); // This will show playlist when ready
     
   } catch (error) {
     console.error("Error rendering video page:", error);
     showError(`Error rendering video page: ${formatErrorForDisplay(error)}`);
   }
 }
+
 
 /**
  * Parse video URL and extract all parameters
@@ -121,6 +131,7 @@ function parseVideoURL() {
     }
   }
 
+  console.log("params", result);
   return result;
 }
 
@@ -1711,46 +1722,26 @@ async function setupPlaylistIfNeeded(playlistPubkey, playlistDTag, currentVideoI
     return;
   }
 
-  // Try to find the playlist
+  // Try to find the playlist with progressive strategy
   let playlist = null;
   
   if (playlistPubkey === 'local') {
-    // Find in local playlists
+    // Find in local playlists (instant)
     playlist = (app.playlists || []).find(p => 
       getValueFromTags(p, "d", "") === playlistDTag && 
       (p.pubkey === "local" || p.sig === "local")
     );
   } else {
-    // Find in bookmarked playlists first
-    playlist = (app.bookmarkedPlaylists || []).find(p => 
-      p.pubkey === playlistPubkey && 
-      getValueFromTags(p, "d", "") === playlistDTag
-    );
-    
-    // If not bookmarked, try to fetch from network
-    if (!playlist) {
-      try {
-        const extendedRelays = await getExtendedRelaysForProfile(playlistPubkey);
-        const result = await NostrClient.getEventsFromRelays(extendedRelays, {
-          kinds: [30005],
-          authors: [playlistPubkey],
-          tags: { d: [playlistDTag] },
-          limit: 1,
-        });
-        playlist = Array.isArray(result) ? result[0] : result;
-      } catch (error) {
-        console.error("Error fetching playlist from network:", error);
-      }
-    }
+    // Fetch from network with progressive relay strategy
+    playlist = await fetchPlaylistProgressive(playlistPubkey, playlistDTag);
   }
 
   if (!playlist) {
-    console.warn("Playlist not found, continuing without playlist");
+    console.warn("Playlist not found after trying all relay strategies");
     return;
   }
 
   const videoTags = playlist.tags.filter(tag => tag[0] === "e");
-  
   const videoIndex = videoTags.findIndex(tag => tag[1] === currentVideoId);
 
   if (videoIndex === -1) {
@@ -1772,7 +1763,72 @@ async function setupPlaylistIfNeeded(playlistPubkey, playlistDTag, currentVideoI
   app.currentPlaylist = playlist;
   app.currentPlaylistIndex = videoIndex;
   
-  console.log(`Playlist set: ${getValueFromTags(playlist, "title", "Untitled")} (${videoIndex + 1}/${videoTags.length})`);
+  console.log(`✓ Playlist loaded: ${getValueFromTags(playlist, "title", "Untitled")} (${videoIndex + 1}/${videoTags.length})`);
+}
+
+async function fetchPlaylistProgressive(playlistPubkey, playlistDTag) {
+  const filter = {
+    kinds: [30005],
+    authors: [playlistPubkey],
+    "#d": [playlistDTag],
+    limit: 1,
+  };
+
+  // Strategy 1: Try with author's extended relays (most likely)
+  console.log(`Trying author relays for playlist: ${playlistPubkey.slice(0, 8)}...`);
+  try {
+    const extendedRelays = await getExtendedRelaysForProfile(playlistPubkey);
+    
+    if (extendedRelays && extendedRelays.length > 0) {
+      const result = await NostrClient.getEventsFromRelays(extendedRelays, filter);
+      const playlist = Array.isArray(result) ? result[0] : result;
+      if (playlist) {
+        console.log("✓ Found playlist via author relays");
+        return sanitizeNostrEvent(playlist);
+      }
+    }
+  } catch (error) {
+    console.warn("Error fetching from author relays:", error);
+  }
+
+  // Strategy 2: Try with app relays
+  console.log("Trying app relays for playlist");
+  const result2 = await NostrClient.getEvents(filter);
+  const playlist2 = Array.isArray(result2) ? result2[0] : result2;
+  if (playlist2) {
+    console.log("✓ Found playlist via app relays");
+    return sanitizeNostrEvent(playlist2);
+  }
+
+  // Strategy 3: Try with global relays
+  if (app.globalRelays && app.globalRelays.length > 0) {
+    console.log("Trying global relays for playlist");
+    const result3 = await NostrClient.getEventsFromRelays(app.globalRelays, filter);
+    const playlist3 = Array.isArray(result3) ? result3[0] : result3;
+    if (playlist3) {
+      console.log("✓ Found playlist via global relays");
+      return sanitizeNostrEvent(playlist3);
+    }
+  }
+
+  // Strategy 4: Last resort - try popular static relays
+  console.log("Trying fallback relays for playlist (last resort)");
+  const fallbackRelays = [
+    "wss://relay.nostr.band",
+    "wss://nos.lol",
+    "wss://nostr.mom"
+  ];
+  const result4 = await NostrClient.getEventsFromRelays(fallbackRelays, filter);
+  const playlist4 = Array.isArray(result4) ? result4[0] : result4;
+  
+  if (playlist4) {
+    console.log("✓ Found playlist via fallback relays");
+    return sanitizeNostrEvent(playlist4);
+  }
+
+  // Not found anywhere
+  console.warn("✗ Playlist not found on any relays");
+  return null;
 }
 
 function addPlaylistToHistory(playlist) {
@@ -1813,8 +1869,7 @@ function updateVideoPagePlaylistInfo() {
   
   if (!app.currentPlaylist) {
     playlistElement.classList.add('hidden');
-    // Reset chat input position when no playlist
-    updateChatInputPosition(0);
+
     return;
   }
   
@@ -1836,11 +1891,7 @@ function updateVideoPagePlaylistInfo() {
   
   playlistElement.classList.remove('hidden');
   
-  // Update chat input position to account for playlist height
-  setTimeout(() => {
-    const playlistHeight = playlistElement.offsetHeight;
-    updateChatInputPosition(playlistHeight);
-  }, 0);
+
   
   // Add event listeners for the buttons
   const prevBtn = playlistElement.querySelector('.playlist-prev-btn');
@@ -1855,13 +1906,6 @@ function updateVideoPagePlaylistInfo() {
   }
 }
 
-function updateChatInputPosition(playlistHeight) {
-  const chatInputContainer = document.querySelector('.video-page-layout .chat-input-container');
-  if (chatInputContainer) {
-    chatInputContainer.style.setProperty('--playlist-height', `${playlistHeight}px`);
-    chatInputContainer.style.top = `${playlistHeight}px`;
-  }
-}
 
 function createNotFoundVideoPlaceholder(videoId) {
   return {

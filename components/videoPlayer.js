@@ -349,7 +349,7 @@ function disposeVideo() {
   state.videoData = null;
   state.pageHash = null;
   state.isPlaying = false;
-  state.isMiniplayerVisible = false; // Add this line
+  state.isMiniplayerVisible = false;
 
   // Hide miniplayer immediately
   if (miniplayerEl) {

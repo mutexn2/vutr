@@ -9998,6 +9998,83 @@ noscript {
     align-items: flex-start;
   }
 }
+
+/***/
+/* Simple JSON Syntax Highlighting */
+.json-simple-viewer {
+    font-family: 'Monaco', 'Menlo', 'Consolas', 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    max-height: 70vh;
+    overflow: auto;
+    background: var(--background);
+    border-radius: 4px;
+    padding: 16px;
+}
+
+.json-simple-viewer pre {
+    margin: 0;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+/* Key colors */
+.json-key {
+    color: #881391;
+    font-weight: 500;
+}
+
+.json-key-id {
+    color: #005cc5;
+}
+
+.json-key-url {
+    color: #22863a;
+}
+
+.json-key-date {
+    color: #6f42c1;
+}
+
+.json-key-number {
+    color: #e36209;
+}
+
+/* Value colors */
+.json-value {
+    color: var(--text);
+}
+
+.json-string {
+    color: #032f62;
+}
+
+.json-number {
+    color: #e36209;
+}
+
+.json-boolean {
+    color: #d73a49;
+}
+
+.json-null {
+    color: #6a737d;
+}
+
+.json-url {
+    color: #0366d6;
+}
+
+.json-date {
+    color: #22863a;
+}
+
+/* Punctuation */
+.json-punctuation {
+    color: #6a737d;
+}
+
+
 /*************************************************************/
 
 /* Loading and Error States */

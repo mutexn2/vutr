@@ -666,10 +666,96 @@ function setupQrModalHandlers(modalElement, data) {
 }
 
 
-
-
-
 function showVideoJsonModal(videoData) {
+    // Function to recursively format JSON with styling
+    function formatJsonWithStyle(obj, indent = '') {
+        if (typeof obj !== 'object' || obj === null) {
+            // Handle primitive values
+            const type = typeof obj;
+            let value = String(obj);
+            let valueClass = 'json-value';
+            
+            if (obj === null) {
+                value = 'null';
+                valueClass += ' json-null';
+            } else if (type === 'boolean') {
+                valueClass += ' json-boolean';
+            } else if (type === 'number') {
+                valueClass += ' json-number';
+            } else if (type === 'string') {
+                // Check for special values
+                if (obj.startsWith('http') || obj.includes('://')) {
+                    valueClass += ' json-url';
+                } else if (/^\d{4}-\d{2}-\d{2}/.test(obj)) {
+                    valueClass += ' json-date';
+                }
+                value = `"${obj.replace(/"/g, '\\"')}"`;
+            }
+            
+            return `<span class="${valueClass}">${value}</span>`;
+        }
+        
+        if (Array.isArray(obj)) {
+            if (obj.length === 0) return '<span class="json-punctuation">[]</span>';
+            
+            let html = '<span class="json-punctuation">[</span><br>';
+            const childIndent = indent + '  ';
+            
+            obj.forEach((item, index) => {
+                html += childIndent + formatJsonWithStyle(item, childIndent);
+                if (index < obj.length - 1) html += '<span class="json-punctuation">,</span>';
+                html += '<br>';
+            });
+            
+            html += indent + '<span class="json-punctuation">]</span>';
+            return html;
+        }
+        
+        // Handle objects
+        const keys = Object.keys(obj);
+        if (keys.length === 0) return '<span class="json-punctuation">{}</span>';
+        
+        let html = '<span class="json-punctuation">{</span><br>';
+        const childIndent = indent + '  ';
+        
+        keys.forEach((key, index) => {
+            // Add special styling for certain keys
+            let keyClass = 'json-key';
+            if (key.includes('id') || key.includes('Id') || key.includes('ID')) {
+                keyClass += ' json-key-id';
+            } else if (key.includes('url') || key.includes('Url') || key.includes('URL')) {
+                keyClass += ' json-key-url';
+            } else if (key.includes('time') || key.includes('Time') || key.includes('date') || key.includes('Date')) {
+                keyClass += ' json-key-date';
+            } else if (key.includes('amount') || key.includes('Amount') || key.includes('price') || key.includes('Price')) {
+                keyClass += ' json-key-number';
+            }
+            
+            html += childIndent + `<span class="${keyClass}">"${key}"</span><span class="json-punctuation">: </span>`;
+            html += formatJsonWithStyle(obj[key], childIndent);
+            if (index < keys.length - 1) html += '<span class="json-punctuation">,</span>';
+            html += '<br>';
+        });
+        
+        html += indent + '<span class="json-punctuation">}</span>';
+        return html;
+    }
+    
+    const formattedJson = formatJsonWithStyle(videoData);
+    
+    const modal = openModal({
+        title: `Video JSON - ${videoData.id}`,
+        content: `<div class="json-simple-viewer"><pre>${formattedJson}</pre></div>`,
+        size: "large",
+        customClass: "video-json-modal",
+        onClose: () => {
+            // Any specific cleanup for this modal
+        }
+    });
+}
+
+
+/* function showVideoJsonModal(videoData) {
   const modal = openModal({
     title: `Video JSON - ${videoData.id}`,
     content: `<pre>${JSON.stringify(videoData, null, 2)}</pre>`,
@@ -687,5 +773,5 @@ function showVideoJsonModal(videoData) {
   }
 }
 
-
+ */
 /////////////////////////////////////////////////

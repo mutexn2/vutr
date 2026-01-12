@@ -123,7 +123,8 @@ async function handleSyncAllBookmarks() {
   if (updatedCount > 0) {
     saveBookmarkedPlaylistsToStorage();
     showTemporaryNotification(`Updated ${updatedCount} bookmark(s)`);
-    setTimeout(() => location.reload(), 1000);
+    // Re-render the page instead of reloading
+    await bookmarkedListsPageHandler();
   } else {
     showTemporaryNotification('All bookmarks are up to date');
     syncAllBtn.textContent = originalText;

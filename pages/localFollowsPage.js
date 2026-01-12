@@ -2,7 +2,7 @@ async function localFollowsPageHandler() {
   mainContent.innerHTML = `
     <h1>Following</h1>
     <div class="loading-indicator">
-        <p>Loading followed channels...</p>
+        <p>Loading followed pubkeys...</p>
     </div>
   `;
 
@@ -11,8 +11,8 @@ async function localFollowsPageHandler() {
 
     if (followedPubkeys.length === 0) {
       mainContent.innerHTML = `
-        <h1>No Followed Channels</h1>
-        <p>You haven't followed any channels yet. Visit profile pages and click the follow button to start following channels!</p>
+        <h1>No Followed pubkeys</h1>
+        <p>Visit profile pages and click the follow button to start following pubkeys!</p>
       `;
       return;
     }
@@ -76,7 +76,7 @@ async function localFollowsPageHandler() {
     errorDiv.innerHTML = `
       <h1>Error</h1>
       <div class="loading-indicator">
-        <p>Error loading followed channels: ${formatErrorForDisplay(error)}</p>
+        <p>Error loading followed pubkeys: ${formatErrorForDisplay(error)}</p>
       </div>
     `;
     mainContent.replaceChildren(errorDiv);
@@ -141,14 +141,14 @@ function createFollowedPubkeyCard(pubkey) {
     e.stopPropagation();
     const pubkey = e.target.dataset.pubkey;
     
-    if (confirm('Are you sure you want to unfollow this channel?')) {
+    if (confirm('Are you sure you want to unfollow this pubkey?')) {
       const success = removeFollowedPubkey(pubkey);
       if (success) {
         // Also remove from favorites if unfollowed
         removeFavoriteChannel(pubkey);
         
         card.remove();
-        showTemporaryNotification('Channel unfollowed');
+        showTemporaryNotification('Pubkey unfollowed');
         
         // Update header count
         const header = document.querySelector('.following-header h2');
@@ -162,8 +162,8 @@ function createFollowedPubkeyCard(pubkey) {
         // Show empty state if no more profiles
         if (newCount === 0) {
           mainContent.innerHTML = `
-            <h1>No Followed Channels</h1>
-            <p>You haven't followed any channels yet. Visit profile pages and click the follow button to start following channels!</p>
+            <h1>No Followed pubkeys</h1>
+            <p>Visit profile pages and click the follow button to start following pubkeys!</p>
           `;
         }
       }
@@ -200,9 +200,9 @@ async function shareFollowingList() {
 
   try {
     const followedPubkeys = getFollowedPubkeys();
-    const shareText = `My followed channels (${
+    const shareText = `My followed pubkeys (${
       followedPubkeys.length
-    } channels):\n${followedPubkeys
+    } pubkeys):\n${followedPubkeys
       .map((pk) => window.NostrTools.nip19.npubEncode(pk))
       .join("\n")}`;
 

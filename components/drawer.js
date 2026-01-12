@@ -433,7 +433,7 @@ function getSectionTwoItems() {
     { id: "history", icon: "👍", text: "history" },
     { id: "historyplaylists", icon: "👍", text: "playlist history" },
     { id: "kind1follows", icon: "🫂", text: "kind:3" },
-    { id: "singlerelay", icon: "🔭", text: "Relay" },    
+  //  { id: "singlerelay", icon: "🔭", text: "Relay" },    
   //  { id: "tag", icon: "🧩", text: "tags" },
   //  { id: "contact", icon: "💬", text: "Help" },
   ];

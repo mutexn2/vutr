@@ -184,15 +184,15 @@ async function followsFeedPageHandler() {
         pubkeySource === "kind3" ? "#kind1follows" : "#follows";
       const linkText = pubkeySource === "kind3" ? "Kind3" : "Following";
       headerElement.innerHTML = `
-        <h2>No Followed Channels</h2>
-        <p>You haven't followed any channels yet. Visit the <a href="${linkTarget}">${linkText}</a> page to start following channels!</p>
+        <h2>No Followed pubkeys</h2>
+        <p>no pubkeys found. Visit the <a href="${linkTarget}">${linkText}</a> page to start!</p>
       `;
       console.log("No followed pubkeys available");
       return;
     }
 
     console.log(
-      `🎯 Starting subscription feed for ${followedPubkeys.length} followed channels from ${sourceLabel}`
+      `🎯 Starting subscription feed for ${followedPubkeys.length} followed pubkeys from ${sourceLabel}`
     );
 
     // Start progressive feed loading

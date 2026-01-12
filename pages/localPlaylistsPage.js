@@ -17,6 +17,7 @@ async function localPlaylistsPageHandler() {
         <h1>My Playlists</h1>
         <div class="playlists-actions">
           <button class="create-playlist-btn btn-primary">Create Playlist</button>
+          ${app.myPk ? '<button class="import-my-playlists-btn btn-secondary">📥 Import My Published Playlists</button>' : ''}
         </div>
       </div>
       
@@ -250,6 +251,12 @@ function setupPlaylistsEventListeners() {
     createBtn.addEventListener('click', () => {
       showPlaylistModal();
     });
+  }
+
+  // Import my playlists button
+  const importBtn = document.querySelector('.import-my-playlists-btn');
+  if (importBtn) {
+    importBtn.addEventListener('click', importMyPublishedPlaylists);
   }
 
   // Sync all network playlists button
@@ -558,3 +565,194 @@ function generateId() {
 
 
 
+////////////////////////
+async function importMyPublishedPlaylists() {
+  if (!app.myPk) {
+    showTemporaryNotification("❌ Please log in first");
+    return;
+  }
+  
+  const importBtn = document.querySelector('.import-my-playlists-btn');
+  if (importBtn) {
+    const originalText = importBtn.textContent;
+    importBtn.textContent = 'Importing...';
+    importBtn.disabled = true;
+    
+    try {
+      // Get extended relays for the user
+      const extendedRelays = await getExtendedRelaysForProfile(app.myPk);
+      const allRelays = [...new Set([...app.globalRelays, ...extendedRelays])];
+      
+      console.log(`Searching for playlists across ${allRelays.length} relays`);
+      
+      // Fetch all playlists published by the user
+      const playlists = await fetchUserPlaylists(app.myPk, allRelays);
+      
+      if (playlists.length === 0) {
+        showTemporaryNotification("No published playlists found");
+        importBtn.textContent = originalText;
+        importBtn.disabled = false;
+        return;
+      }
+      
+      // Process each playlist
+      let importedCount = 0;
+      let skippedCount = 0;
+      let duplicatesFound = [];
+      
+      const existingPlaylists = app.playlists || [];
+      
+      // First pass: identify duplicates
+      for (const playlist of playlists) {
+        const dTag = getValueFromTags(playlist, "d", "");
+        const existing = existingPlaylists.find(p => getValueFromTags(p, "d", "") === dTag);
+        
+        if (existing) {
+          const isSameEvent = JSON.stringify(existing.tags) === JSON.stringify(playlist.tags);
+          if (!isSameEvent) {
+            duplicatesFound.push(getValueFromTags(playlist, "title", "Untitled Playlist"));
+          }
+        }
+      }
+      
+      // Prompt once if there are duplicates
+      let shouldOverwriteDuplicates = true;
+      if (duplicatesFound.length > 0) {
+        shouldOverwriteDuplicates = confirm(
+          `Found ${duplicatesFound.length} playlist(s) that already exist locally with different content:\n\n` +
+          duplicatesFound.slice(0, 5).join('\n') +
+          (duplicatesFound.length > 5 ? `\n...and ${duplicatesFound.length - 5} more` : '') +
+          `\n\nDo you want to overwrite them with the published versions?`
+        );
+      }
+      
+      // Second pass: import playlists
+      for (const playlist of playlists) {
+        const dTag = getValueFromTags(playlist, "d", "");
+        const existing = existingPlaylists.find(p => getValueFromTags(p, "d", "") === dTag);
+        
+        if (existing) {
+          const isSameEvent = JSON.stringify(existing.tags) === JSON.stringify(playlist.tags);
+          
+          if (isSameEvent) {
+            skippedCount++;
+            continue;
+          }
+          
+          if (!shouldOverwriteDuplicates) {
+            skippedCount++;
+            continue;
+          }
+          
+          // Remove existing and add new version
+          app.playlists = app.playlists.filter(p => getValueFromTags(p, "d", "") !== dTag);
+        }
+        
+        // Add the playlist with preserved d-tag
+        const videoTags = playlist.tags.filter(tag => tag[0] === "e");
+        const title = getValueFromTags(playlist, "title", "Untitled Playlist");
+        const description = getValueFromTags(playlist, "description", "");
+        const image = getValueFromTags(playlist, "image", "");
+        
+        const localPlaylist = {
+          id: generateId(),
+          pubkey: "local",
+          created_at: Math.floor(Date.now() / 1000),
+          kind: 30005,
+          tags: [
+            ["d", dTag],
+            ["title", title],
+            ...(description ? [["description", description]] : []),
+            ...(image ? [["image", image]] : []),
+            ...videoTags
+          ],
+          content: "",
+          sig: "local"
+        };
+        
+        app.playlists.push(localPlaylist);
+        importedCount++;
+      }
+      
+      if (importedCount > 0) {
+        savePlaylistsToStorage();
+        showTemporaryNotification(
+          `✅ Imported ${importedCount} playlist(s)` + 
+          (skippedCount > 0 ? ` (skipped ${skippedCount})` : '')
+        );
+        
+        // Refresh the page after a brief delay
+        setTimeout(() => {
+          localPlaylistsPageHandler();
+        }, 1000);
+      } else {
+        showTemporaryNotification(
+          skippedCount > 0 
+            ? "All playlists already exist locally" 
+            : "No new playlists to import"
+        );
+        importBtn.textContent = originalText;
+        importBtn.disabled = false;
+      }
+      
+    } catch (error) {
+      console.error("Error importing playlists:", error);
+      showTemporaryNotification("❌ Failed to import playlists");
+      importBtn.textContent = originalText;
+      importBtn.disabled = false;
+    }
+  }
+}
+
+async function fetchUserPlaylists(pubkey, allRelays) {
+  return new Promise((resolve) => {
+    const playlistMap = new Map();
+    let isComplete = false;
+    
+    const filter = {
+      kinds: [30005],
+      authors: [pubkey],
+      limit: 100
+    };
+    
+    const pool = new window.NostrTools.SimplePool();
+    
+    const sub = pool.subscribeMany(
+      allRelays,
+      filter,
+      {
+        onevent(event) {
+          const sanitizedEvent = sanitizeNostrEvent(event);
+          if (!sanitizedEvent) return;
+          
+          const dTag = getValueFromTags(sanitizedEvent, "d", "");
+          
+          if (dTag) {
+            const existing = playlistMap.get(dTag);
+            if (!existing || sanitizedEvent.created_at > existing.created_at) {
+              playlistMap.set(dTag, sanitizedEvent);
+            }
+          }
+        },
+        
+        oneose() {
+          if (!isComplete) {
+            isComplete = true;
+            sub.close();
+            pool.close(allRelays);
+            resolve(Array.from(playlistMap.values()));
+          }
+        }
+      }
+    );
+    
+    setTimeout(() => {
+      if (!isComplete) {
+        isComplete = true;
+        sub.close();
+        pool.close(allRelays);
+        resolve(Array.from(playlistMap.values()));
+      }
+    }, 8000);
+  });
+}

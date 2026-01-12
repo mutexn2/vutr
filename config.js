@@ -69,11 +69,7 @@ let config = {
       ["d", "my-video-bookmarks"],
       ["title", "My Bookmarks"],
       ["description", "local video bookmarks."],
-      ["e", "7f1aa7aeb30712939decd176a49e96f3aae7e9659c3957f0b8b0a88cac0c20a0"],
-      ["e", "e7a0ece8e5b8b3b3f9ada563c6d5b9fa61a5f4b658883b7847e21efe3929f149"],
-      ["e", "d600b31a6d4f1d22316a1b877ffb37dc5f49a870a0788362ee437255da3aca03"],
-      ["e", "d50341d5dd971951debf20675330b980aedc13b4939fdd33fc854a95002a205f"],
-      ["e", "ec9c975bc63c965900e0a37ae4bc9bce404e6bb4a5dce3f53c4f77e3a707a486"],
+
     ],
     content: "",
     sig: "local",
@@ -129,8 +125,28 @@ let config = {
         ],
         [
           "e",
-          "000089feb98f0352b28c9717c7d9c230854cf88a59d301b0de73fbabbf95c39f",
+          "ec9c975bc63c965900e0a37ae4bc9bce404e6bb4a5dce3f53c4f77e3a707a486",
         ],
+        [
+          "e",
+          "d600b31a6d4f1d22316a1b877ffb37dc5f49a870a0788362ee437255da3aca03",
+        ],
+        [
+          "e",
+          "7f1aa7aeb30712939decd176a49e96f3aae7e9659c3957f0b8b0a88cac0c20a0",
+        ],
+        [
+          "e",
+          "e7a0ece8e5b8b3b3f9ada563c6d5b9fa61a5f4b658883b7847e21efe3929f149",
+        ],
+        [
+          "e",
+          "d50341d5dd971951debf20675330b980aedc13b4939fdd33fc854a95002a205f",
+        ],
+        [
+          "e",
+          "000089feb98f0352b28c9717c7d9c230854cf88a59d301b0de73fbabbf95c39f",
+        ],                                        
         [
           "e",
           "e908e425bf20120926184595aee8fce32be9b834dad3f438b074adefc55d763a",
@@ -246,8 +262,8 @@ let config = {
         { name: "settings", displayName: "Settings", icon: "⚙️" },
         { name: "kind1home", displayName: "Kind 1s", icon: "⚙️" },
         { name: "localmuted", displayName: "Muted", icon: "⚙️" },
-        { name: "historyplaylists", displayName: "Playlist history", icon: "📒" },
-        { name: "history", displayName: "history", icon: "📒" },
+      //  { name: "historyplaylists", displayName: "Playlist history", icon: "📒" },
+        { name: "singlerelay", displayName: "single relay", icon: "📒" },
         { name: "shorts", displayName: "Shorts", icon: "⚙️" },
         { name: "relaysetsdiscover", displayName: "Relay Sets", icon: "⚙️" },
         { name: "faq", displayName: "faq", icon: "❓" },

@@ -907,8 +907,41 @@ function copyNetworkPlaylistToLocal(networkPlaylist) {
   const originalTitle = getValueFromTags(networkPlaylist, "title", "Untitled Playlist");
   const description = getValueFromTags(networkPlaylist, "description", "");
   const image = getValueFromTags(networkPlaylist, "image", "");
+  const originalDTag = getValueFromTags(networkPlaylist, "d", "");
   
-  const dTag = `${generateId()}`;
+  // Check if this playlist was published by the current user
+  const isOwnPlaylist = networkPlaylist.pubkey === app.myPk;
+  
+  // If it's the user's own playlist, preserve the d-tag; otherwise generate a new one
+  const dTag = isOwnPlaylist ? originalDTag : `${generateId()}`;
+  
+  // Check if a playlist with this d-tag already exists in local storage
+  const existingPlaylists = app.playlists || [];
+  const existingPlaylist = existingPlaylists.find(p => getValueFromTags(p, "d", "") === dTag);
+  
+  if (existingPlaylist) {
+    // Check if it's exactly the same event
+    const isSameEvent = JSON.stringify(existingPlaylist.tags) === JSON.stringify(networkPlaylist.tags);
+    
+    if (isSameEvent) {
+      showTemporaryNotification("This playlist already exists in local storage");
+      return existingPlaylist;
+    } else {
+      // Different content with same d-tag - prompt user
+      const shouldOverwrite = confirm(
+        `A local playlist with this identifier already exists but has different content.\n\n` +
+        `Do you want to overwrite it with this version?`
+      );
+      
+      if (!shouldOverwrite) {
+        showTemporaryNotification("Action cancelled");
+        return null;
+      }
+      
+      // Remove the existing playlist
+      app.playlists = app.playlists.filter(p => getValueFromTags(p, "d", "") !== dTag);
+    }
+  }
   
   const videoTags = networkPlaylist.tags.filter(tag => tag[0] === "e");
   
@@ -919,7 +952,7 @@ function copyNetworkPlaylistToLocal(networkPlaylist) {
     kind: 30005,
     tags: [
       ["d", dTag],
-      ["title", `${originalTitle} (copy)`],
+      ["title", isOwnPlaylist ? originalTitle : `${originalTitle} (copy)`],
       ...(description ? [["description", description]] : []),
       ...(image ? [["image", image]] : []),
       ...videoTags
@@ -928,14 +961,16 @@ function copyNetworkPlaylistToLocal(networkPlaylist) {
     sig: "local"
   };
   
-  app.playlists = app.playlists || [];
   app.playlists.push(localPlaylist);
   savePlaylistsToStorage();
   
-  showTemporaryNotification(`Created local copy: "${originalTitle} (copy)"`);
+  const message = isOwnPlaylist 
+    ? `Saved your playlist: "${originalTitle}"` 
+    : `Created local copy: "${originalTitle} (copy)"`;
+  showTemporaryNotification(message);
+  
   return localPlaylist;
 }
-
 // Helper function to check if playlist is local
 function isLocalPlaylist(playlist) {
   return playlist.pubkey === "local" || playlist.sig === "local";

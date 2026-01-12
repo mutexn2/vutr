@@ -1207,6 +1207,16 @@ function formatDuration(seconds) {
   return `${mins}:${secs.toString().padStart(2, "0")}`;
 }
 
+///
+/**
+ * Format JSON for inline display with syntax highlighting
+ * @param {Object} data - The JSON data
+ * @returns {string} - HTML string with syntax highlighting
+ */
+function formatInlineJson(data) {
+    return `<div class="json-simple-viewer inline-json"><pre>${formatJsonWithStyle(data)}</pre></div>`;
+}
+
 ////////////////////////////////
 function getBaseHash(hash) {
   const hashWithoutPrefix = hash.startsWith("#") ? hash.slice(1) : hash;

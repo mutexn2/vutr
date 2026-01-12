@@ -470,22 +470,6 @@ function updatePlaylistCardSavedStatus(playlist, isSaved) {
   });
 }
 
-function showPlaylistJsonModal(playlistData) {
-  const modal = openModal({
-    title: `Playlist JSON - ${playlistData.id}`,
-    content: `<pre>${JSON.stringify(playlistData, null, 2)}</pre>`,
-    size: "large",
-    customClass: "playlist-json-modal",
-    onClose: () => {
-      // Any specific cleanup for this modal
-    }
-  });
-
-  const closeBtn = modal.querySelector('.close-modal');
-  if (closeBtn) {
-    closeBtn.addEventListener('click', closeModal);
-  }
-}
 
 
 /**

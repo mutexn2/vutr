@@ -821,8 +821,13 @@ function renderCardContent(card, event) {
 }
 
 function renderJson(event, container) {
-  let jsonString = JSON.stringify(event, null, 2);
-  container.textContent = jsonString;
+  // Use the universal JSON formatter we created earlier
+  const formattedJson = formatJsonWithStyle(event);
+  container.innerHTML = `<pre>${formattedJson}</pre>`;
+  
+  // Add the JSON viewer class for styling
+  container.classList.add('json-simple-viewer');
+  container.classList.add('inline-json');
 }
 
 // Tabs & ranking

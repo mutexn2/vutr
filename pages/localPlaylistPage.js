@@ -338,12 +338,12 @@ function renderSinglePlaylist(playlist, dTag, videoEvents = []) {
       </div>
     </div>
     
-    <div class="playlist-raw-data">
-      <details>
-        <summary><strong>Raw Event JSON</strong></summary>
-        <pre>${JSON.stringify(playlist, null, 2)}</pre>
-      </details>
-    </div>
+<div class="playlist-raw-data">
+  <details>
+    <summary><strong>Raw Event JSON</strong></summary>
+    ${formatInlineJson(playlist)}
+  </details>
+</div>
   `;
 }
 

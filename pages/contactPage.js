@@ -553,7 +553,7 @@ async function contactPageHandler() {
       subscriptionFilter,
       {
         onevent(event) {
-          console.log("got event:", event);
+        //  console.log("got event:", event);
 
           if (existingEvents.has(event.id)) {
             return;
@@ -1290,23 +1290,6 @@ function hideLoadingIndicator() {
   mainContent.replaceChildren(errorDiv);
 } */
 
-function showRawData(event) {
-  const modal = openModal({
-    title: `Event JSON - ${event.id}`,
-    content: `<pre>${JSON.stringify(event, null, 2)}</pre>`,
-    size: "large",
-    customClass: "video-json-modal",
-    onClose: () => {
-      // Any specific cleanup for this modal
-    },
-  });
-
-  // Add custom close button handler if needed
-  const closeBtn = modal.querySelector(".close-modal");
-  if (closeBtn) {
-    closeBtn.addEventListener("click", closeModal);
-  }
-}
 
 function copyToClipboard(text, buttonElement) {
   navigator.clipboard

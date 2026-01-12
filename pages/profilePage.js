@@ -132,9 +132,9 @@ async function profilePageHandler() {
       </div>
     </div>
   `;
-    populateProfileData(kindZeroContent, profile, profileNpub);
+    populateProfileData(kindZero, profile, profileNpub);
 
-    setupAllProfileEventListeners(profile, kindZeroContent, extendedRelays);
+    setupAllProfileEventListeners(profile, kindZero, extendedRelays);
 
     loadProfileVideosWithIntervals(profile, extendedRelays).catch((error) => {
       console.error("Error loading profile videos:", error);
@@ -1382,7 +1382,7 @@ async function loadProfileWithRetry(profile, attempts = 0) {
 }
 
 // Consolidated event listener setup
-function setupAllProfileEventListeners(profile, kindZeroContent, extendedRelays) {
+function setupAllProfileEventListeners(profile, kindZeroEvent, extendedRelays) {
   // Setup profile click handler for video navigation
   const profileContainer = document.querySelector(".profile-container");
   if (profileContainer) {
@@ -1397,8 +1397,8 @@ function setupAllProfileEventListeners(profile, kindZeroContent, extendedRelays)
 
   setTimeout(() => {
     const tabScrollContainer = document.querySelector(".tab-scroll-container");
-  enableDragScroll(tabScrollContainer);
-  enableWheelScroll(tabScrollContainer);
+    enableDragScroll(tabScrollContainer);
+    enableWheelScroll(tabScrollContainer);
   }, 100);
 }
 
@@ -1440,8 +1440,11 @@ function getProfileNpub(profile) {
 /**
  * Populates profile page with user data
  */
-function populateProfileData(kindZeroContent, profile, profileNpub) {
+function populateProfileData(kindZeroEvent, profile, profileNpub) {
   try {
+    // Parse the content from the event
+    const kindZeroContent = JSON.parse(kindZeroEvent.content);
+    
     // Set banner image with fallback
     const bannerImg = document.querySelector(".banner-image");
     if (bannerImg) {
@@ -1474,7 +1477,7 @@ function populateProfileData(kindZeroContent, profile, profileNpub) {
 
     const username = document.querySelector(".username");
     if (username) {
-      displayName.textContent = kindZeroContent.name || "";
+      username.textContent = kindZeroContent.name || "";
     }
 
     // Set about content (with HTML links, so use innerHTML)
@@ -1487,8 +1490,8 @@ function populateProfileData(kindZeroContent, profile, profileNpub) {
       about.appendChild(processedContent);
     }
 
-createProfileLinks(kindZeroContent, profile, profileNpub);
-// profile should be the hex pubkey, profileNpub is the encoded version
+    // Pass the full kindZero event to createProfileLinks
+    createProfileLinks(kindZeroEvent, kindZeroContent, profile, profileNpub);
     createEditButton(profile, kindZeroContent);
     populateTechnicalInfo(profile, profileNpub);
     
@@ -1496,7 +1499,6 @@ createProfileLinks(kindZeroContent, profile, profileNpub);
     console.error("Error populating profile data:", error);
   }
 }
-
 
 async function verifyNip05(nip05, pubkey) {
   try {
@@ -1538,7 +1540,7 @@ function createCorsTestUrl(nip05) {
   return `https://cors-test.codehappy.dev/?url=${encodeURIComponent(wellKnownUrl)}&method=get`;
 }
 
-async function createProfileLinks(kindZeroContent, pubkey, profileNpub) {
+async function createProfileLinks(kindZeroEvent, kindZeroContent, pubkey, profileNpub) {
   const linksContainer = document.querySelector(".profile-links");
   if (!linksContainer) return;
   
@@ -1554,7 +1556,7 @@ async function createProfileLinks(kindZeroContent, pubkey, profileNpub) {
     icon: FOLLOW_ICON,
     text: isProfileFollowed(pubkey) ? "Following" : "Follow",
     className: isProfileFollowed(pubkey) ? "profile-btn following" : "profile-btn",
-    onClick: () => handleFollowClick(followBtn, pubkey) // Pass pubkey, not profile
+    onClick: () => handleFollowClick(followBtn, pubkey)
   });
   links.push(followBtn);
   
@@ -1573,7 +1575,7 @@ async function createProfileLinks(kindZeroContent, pubkey, profileNpub) {
   // NIP-05 verification
   if (kindZeroContent.nip05) {
     const nip05Btn = createProfileButton({
-      icon: VERIFICATION_ICON, // Your SVG string here
+      icon: VERIFICATION_ICON,
       text: kindZeroContent.nip05,
       className: "profile-btn nip05-btn pending",
       isVerification: true
@@ -1595,15 +1597,25 @@ async function createProfileLinks(kindZeroContent, pubkey, profileNpub) {
     return `${text.substring(0, charsToShow)}...${text.substring(text.length - charsToShow)}`;
   }
 
-if (kindZeroContent.lud16) {
-  const lightningBtn = createProfileButton({
-    icon: LIGHTNING_ICON,
-    text: truncateText(kindZeroContent.lud16, 40),
-    className: "profile-btn lightning-btn",
-    onClick: () => handleLightningClick(kindZeroContent.lud16, pubkey)
+  if (kindZeroContent.lud16) {
+    const lightningBtn = createProfileButton({
+      icon: LIGHTNING_ICON,
+      text: truncateText(kindZeroContent.lud16, 40),
+      className: "profile-btn lightning-btn",
+      onClick: () => handleLightningClick(kindZeroContent.lud16, pubkey)
+    });
+    links.push(lightningBtn);
+  }
+  
+  // Raw JSON button for kind:0 event
+  const jsonBtn = createProfileButton({
+    icon: JSON_ICON,
+    text: "View Raw JSON",
+    className: "profile-btn json-btn",
+    onClick: () => showProfileKindZeroJson(kindZeroEvent, profileNpub)
   });
-  links.push(lightningBtn);
-}
+  links.push(jsonBtn);
+  
   const shareBtn = createProfileButton({
     icon: SHARE_ICON,
     text: "Copy Link",
@@ -1698,6 +1710,11 @@ const SHARE_ICON = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox=
   <path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
 </svg>
 `;
+
+const JSON_ICON = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+  <path stroke-linecap="round" stroke-linejoin="round" d="M14.25 9.75 16.5 12l-2.25 2.25m-4.5 0L7.5 12l2.25-2.25M6 20.25h12A2.25 2.25 0 0 0 20.25 18V6A2.25 2.25 0 0 0 18 3.75H6A2.25 2.25 0 0 0 3.75 6v12A2.25 2.25 0 0 0 6 20.25Z" />
+</svg>`;
+
 
 function handleFollowClick(button, pubkey) {
   // Validate that pubkey is in hex format (64 characters, hex only)

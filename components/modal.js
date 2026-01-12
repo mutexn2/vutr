@@ -567,7 +567,7 @@ function setupUniversalModalHandlers(modalElement, options) {
     }
   }
 
-  // Overlay click handler (using your existing pattern)
+  // Overlay click handler
   if (closeOnOverlay) {
     window.addEventListener("click", function handleOverlayClick(event) {
       if (event.target === modalElement) {
@@ -667,8 +667,69 @@ function setupQrModalHandlers(modalElement, data) {
 
 
 function showVideoJsonModal(videoData) {
+    return showJsonModal(videoData, `Video JSON - ${videoData.id}`, {
+        customClass: "video-json-modal"
+    });
+}
+
+// For any Nostr event
+function showRawData(event) {
+    return showJsonModal(event, `Event JSON - ${event.id}`, {
+        customClass: "event-json-modal"
+    });
+}
+
+// For playlist events (kind:30005)
+function showPlaylistJsonModal(playlistData) {
+    return showJsonModal(playlistData, `Playlist JSON - ${playlistData.id}`, {
+        customClass: "playlist-json-modal"
+    });
+}
+
+/**
+ * Show kind:0 event JSON in a modal
+ * @param {Object} kindZeroEvent - The full kind:0 event object
+ * @param {string} profileNpub - The profile's npub
+ */
+function showProfileKindZeroJson(kindZeroEvent, profileNpub) {
+  // Use the universal JSON modal function
+  showJsonModal(kindZeroEvent, `Profile JSON - ${profileNpub.substring(0, 16)}...`, {
+    customClass: "profile-kind0-modal",
+    size: "large"
+  });
+}
+
+/* function showVideoJsonModal(videoData) {
+  const modal = openModal({
+    title: `Video JSON - ${videoData.id}`,
+    content: `<pre>${JSON.stringify(videoData, null, 2)}</pre>`,
+    size: "large",
+    customClass: "video-json-modal",
+    onClose: () => {
+      // Any specific cleanup for this modal
+    }
+  });
+
+  // Add custom close button handler if needed
+  const closeBtn = modal.querySelector('.close-modal');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', closeModal);
+  }
+}
+
+ */
+/////////////////////////////////////////////////
+
+
+
+/**
+ * Universal JSON formatter with syntax highlighting
+ * @param {Object|Array} data - The JSON data to format
+ * @returns {string} - HTML string with syntax highlighting
+ */
+function formatJsonWithStyle(data) {
     // Function to recursively format JSON with styling
-    function formatJsonWithStyle(obj, indent = '') {
+    function formatJson(obj, indent = '') {
         if (typeof obj !== 'object' || obj === null) {
             // Handle primitive values
             const type = typeof obj;
@@ -702,7 +763,7 @@ function showVideoJsonModal(videoData) {
             const childIndent = indent + '  ';
             
             obj.forEach((item, index) => {
-                html += childIndent + formatJsonWithStyle(item, childIndent);
+                html += childIndent + formatJson(item, childIndent);
                 if (index < obj.length - 1) html += '<span class="json-punctuation">,</span>';
                 html += '<br>';
             });
@@ -732,7 +793,7 @@ function showVideoJsonModal(videoData) {
             }
             
             html += childIndent + `<span class="${keyClass}">"${key}"</span><span class="json-punctuation">: </span>`;
-            html += formatJsonWithStyle(obj[key], childIndent);
+            html += formatJson(obj[key], childIndent);
             if (index < keys.length - 1) html += '<span class="json-punctuation">,</span>';
             html += '<br>';
         });
@@ -741,37 +802,23 @@ function showVideoJsonModal(videoData) {
         return html;
     }
     
-    const formattedJson = formatJsonWithStyle(videoData);
+    return formatJson(data);
+}
+
+/**
+ * Universal function to show JSON in a modal
+ * @param {Object} data - The JSON data to display
+ * @param {string} title - Modal title (defaults to 'JSON Data')
+ * @param {Object} options - Additional options
+ */
+function showJsonModal(data, title = 'JSON Data', options = {}) {
+    const formattedJson = formatJsonWithStyle(data);
     
-    const modal = openModal({
-        title: `Video JSON - ${videoData.id}`,
+    return openModal({
+        title: title,
         content: `<div class="json-simple-viewer"><pre>${formattedJson}</pre></div>`,
-        size: "large",
-        customClass: "video-json-modal",
-        onClose: () => {
-            // Any specific cleanup for this modal
-        }
+        size: options.size || "large",
+        customClass: options.customClass || "json-modal",
+        onClose: options.onClose || (() => {})
     });
 }
-
-
-/* function showVideoJsonModal(videoData) {
-  const modal = openModal({
-    title: `Video JSON - ${videoData.id}`,
-    content: `<pre>${JSON.stringify(videoData, null, 2)}</pre>`,
-    size: "large",
-    customClass: "video-json-modal",
-    onClose: () => {
-      // Any specific cleanup for this modal
-    }
-  });
-
-  // Add custom close button handler if needed
-  const closeBtn = modal.querySelector('.close-modal');
-  if (closeBtn) {
-    closeBtn.addEventListener('click', closeModal);
-  }
-}
-
- */
-/////////////////////////////////////////////////

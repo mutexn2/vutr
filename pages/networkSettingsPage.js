@@ -1049,58 +1049,59 @@ function getPerformanceText(responseTime) {
 
 
 
-// Get relay information
+// Get relay information document
 async function getRelayInfo(relayUrl) {
-  let modal = null;
-  
-  try {
-    const httpUrl = relayUrl
-      .replace("wss://", "https://")
-      .replace("ws://", "http://");
+    let modal = null;
+    
+    try {
+        const httpUrl = relayUrl
+            .replace("wss://", "https://")
+            .replace("ws://", "http://");
 
-    // Open modal once with loading state
-    modal = openModal({
-      title: "Loading...",
-      content: `<pre>Fetching relay information...</pre>`,
-      size: "large",
-      customClass: "relay-info-modal"
-    });
+        // Open modal once with loading state
+        modal = openModal({
+            title: "Loading...",
+            content: `<pre>Fetching relay information...</pre>`,
+            size: "large",
+            customClass: "relay-info-modal"
+        });
 
-    const response = await fetch(httpUrl, {
-      headers: {
-        Accept: "application/nostr+json",
-      },
-    });
+        const response = await fetch(httpUrl, {
+            headers: {
+                Accept: "application/nostr+json",
+            },
+        });
 
-    // Update the existing modal content instead of creating a new one
-    const modalTitle = modal.querySelector('.modal-title');
-    const modalBody = modal.querySelector('.modal-body');
+        // Update the existing modal content instead of creating a new one
+        const modalTitle = modal.querySelector('.modal-title');
+        const modalBody = modal.querySelector('.modal-body');
 
-    if (response.ok) {
-      const relayDoc = await response.json();
-      if (modalTitle) modalTitle.textContent = relayUrl;
-      if (modalBody) modalBody.innerHTML = `<pre>${JSON.stringify(relayDoc, null, 2)}</pre>`;
-    } else {
-      if (modalTitle) modalTitle.textContent = relayUrl;
-      if (modalBody) modalBody.innerHTML = `<pre>Error: ${response.status} ${response.statusText}</pre>`;
+        if (response.ok) {
+            const relayDoc = await response.json();
+            const formattedJson = formatJsonWithStyle(relayDoc);
+            if (modalTitle) modalTitle.textContent = relayUrl;
+            if (modalBody) modalBody.innerHTML = `<div class="json-simple-viewer"><pre>${formattedJson}</pre></div>`;
+        } else {
+            if (modalTitle) modalTitle.textContent = relayUrl;
+            if (modalBody) modalBody.innerHTML = `<pre>Error: ${response.status} ${response.statusText}</pre>`;
+        }
+    } catch (error) {
+        // Update existing modal with error if it still exists
+        if (modal && document.body.contains(modal)) {
+            const modalTitle = modal.querySelector('.modal-title');
+            const modalBody = modal.querySelector('.modal-body');
+            if (modalTitle) modalTitle.textContent = relayUrl;
+            if (modalBody) modalBody.innerHTML = `<pre>Error: ${error.message}</pre>`;
+        } else {
+            // If modal doesn't exist anymore, create a new one with error
+            openModal({
+                title: relayUrl,
+                content: `<pre>Error: ${error.message}</pre>`,
+                size: "large",
+                customClass: "relay-info-modal"
+            });
+        }
     }
-  } catch (error) {
-    // Update existing modal with error if it still exists
-    if (modal && document.body.contains(modal)) {
-      const modalTitle = modal.querySelector('.modal-title');
-      const modalBody = modal.querySelector('.modal-body');
-      if (modalTitle) modalTitle.textContent = relayUrl;
-      if (modalBody) modalBody.innerHTML = `<pre>Error: ${error.message}</pre>`;
-    } else {
-      // If modal doesn't exist anymore, create a new one with error
-      openModal({
-        title: relayUrl,
-        content: `<pre>Error: ${error.message}</pre>`,
-        size: "large",
-        customClass: "relay-info-modal"
-      });
-    }
-  }
 }
 
 // Fetch relay info document

@@ -10000,7 +10000,7 @@ noscript {
 }
 
 /***/
-/* Simple JSON Syntax Highlighting */
+/* Universal JSON Syntax Highlighting */
 .json-simple-viewer {
     font-family: 'Monaco', 'Menlo', 'Consolas', 'Courier New', monospace;
     font-size: 13px;
@@ -10010,6 +10010,11 @@ noscript {
     background: var(--background);
     border-radius: 4px;
     padding: 16px;
+}
+
+.json-simple-viewer.inline-json {
+    max-height: none;
+    margin: 10px 0;
 }
 
 .json-simple-viewer pre {
@@ -10074,6 +10079,11 @@ noscript {
     color: #6a737d;
 }
 
+/* Modal specific styles */
+.json-modal .modal-content {
+    max-width: 90%;
+    width: 800px;
+}
 
 /*************************************************************/
 

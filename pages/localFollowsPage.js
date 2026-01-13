@@ -26,6 +26,7 @@ async function localFollowsPageHandler() {
   <div class="following-header">
     <h2>Following (local) (${followedPubkeys.length})</h2>
     <div class="following-actions">
+      <button class="kind3-btn" title="View kind:3 follows">kind:3</button>
       <button class="follows-feed-btn">📺 View Feed</button>
       ${
         app.isLoggedIn
@@ -64,6 +65,12 @@ async function localFollowsPageHandler() {
       syncBtn?.addEventListener("click", syncFollowingWithNostr);
       shareBtn?.addEventListener("click", shareFollowingList);
     }
+
+    // Handle kind:3 button
+    const kind3Btn = document.querySelector(".kind3-btn");
+    kind3Btn?.addEventListener("click", () => {
+      window.location.hash = "#kind1follows";
+    });
 
     // Handle follows feed button
     const followsFeedBtn = document.querySelector(".follows-feed-btn");

@@ -6,27 +6,16 @@ async function followsFeedPageHandler() {
   const currentHash = window.location.hash;
   const urlParams = new URLSearchParams(currentHash.split("?")[1] || "");
   const relaySource = urlParams.get("relays") || "active";
-  const pubkeySource = urlParams.get("source") || "local";
-
+  
+  // Always use local subscriptions - removed pubkeySource parameter
+  const pubkeySource = "local";
+  
   // Active set has no shorts, Extended has shorts
   const includeShorts = relaySource === "extended" ? "yes" : "no";
 
   // Initialize the page skeleton IMMEDIATELY - this always renders
   mainContent.innerHTML = `
     <div class="follows-feed-header">
-      <div class="pubkey-source-tabs">
-        <button class="source-tab-button ${
-          pubkeySource === "local" ? "active" : ""
-        }" data-source="local">
-          Local Subscriptions
-        </button>
-        <button class="source-tab-button ${
-          pubkeySource === "kind3" ? "active" : ""
-        }" data-source="kind3">
-          (kind:3)
-        </button>
-      </div>
-
       <div class="follows-feed-header-header">
         <h2 class="loading-indicator">Loading...</h2>
       </div>
@@ -53,28 +42,6 @@ async function followsFeedPageHandler() {
   const grid = document.querySelector(".videos-grid");
   const loadMoreContainer = document.querySelector(".load-more-container");
 
-  // Setup pubkey source tab event handlers
-  const sourceTabButtons = document.querySelectorAll(".source-tab-button");
-  sourceTabButtons.forEach((button) => {
-    button.addEventListener("click", () => {
-      const newSource = button.dataset.source;
-      const baseHash = "#followsfeed";
-
-      const params = new URLSearchParams();
-      const newShorts = relaySource === "extended" ? "yes" : "no";
-
-      if (newSource !== "local") params.set("source", newSource);
-      if (relaySource !== "active") params.set("relays", relaySource);
-      if (newShorts !== "no") params.set("shorts", newShorts);
-
-      const paramString = params.toString();
-      const newUrl = paramString
-        ? `${baseHash}/params?${paramString}`
-        : baseHash;
-      window.location.hash = newUrl;
-    });
-  });
-
   // Setup relay mode tab event handlers
   const tabButtons = document.querySelectorAll(".tab-button");
   tabButtons.forEach((button) => {
@@ -85,7 +52,7 @@ async function followsFeedPageHandler() {
       const params = new URLSearchParams();
       const newShorts = newRelaySource === "extended" ? "yes" : "no";
 
-      if (pubkeySource !== "local") params.set("source", pubkeySource);
+      // Always use local subscriptions, so no source parameter needed
       if (newRelaySource !== "active") params.set("relays", newRelaySource);
       if (newShorts !== "no") params.set("shorts", newShorts);
 
@@ -98,96 +65,16 @@ async function followsFeedPageHandler() {
   });
 
   try {
-    // Get pubkeys based on source
-    let followedPubkeys;
-    let sourceLabel;
+    // Get local follows - always use local subscriptions
+    const followedPubkeys = getFollowedPubkeys();
+    const sourceLabel = "Subscriptions (local)";
 
-    if (pubkeySource === "kind3") {
-      // Get kind-3 pubkeys with retry logic for app.myPk
-      let retries = 0;
-      const maxRetries = 3;
-
-      // Replace this section in the checkAndFetchKind3 function:
-      const checkAndFetchKind3 = async () => {
-        if (!app.myPk) {
-          if (retries < maxRetries) {
-            retries++;
-            console.log(
-              `app.myPk not available, retrying in 2 seconds... (attempt ${retries}/${maxRetries})`
-            );
-            headerElement.innerHTML = `<h2>Waiting for login... (${retries}/${maxRetries})</h2>`;
-
-            await new Promise((resolve) => setTimeout(resolve, 2000));
-            return checkAndFetchKind3();
-          } else {
-            headerElement.innerHTML = `
-        <h2>Login Required</h2>
-        <p>You need to be logged in to view your kind:3 feed. Please <a href="#login">log in</a> first.</p>
-      `;
-            return null;
-          }
-        }
-
-        headerElement.innerHTML = `<h2 class="loading-indicator">Loading kind-3 event...</h2>`;
-
-        // Replace NostrClient with direct nostr-tools usage
-        const kindThreeEvents = await getKind3Events(app.myPk);
-
-        if (!kindThreeEvents || kindThreeEvents.length === 0) {
-          headerElement.innerHTML = `
-      <h2>No Kind-3 Following List</h2>
-      <p>You don't have kind:3 following list published. Visit the <a href="#kind1follows">kind:3</a> page to see more details.</p>
-    `;
-          return null;
-        }
-
-        const latestEvent = kindThreeEvents.reduce((latest, current) =>
-          current.created_at > latest.created_at ? current : latest
-        );
-
-        followedPubkeys = latestEvent.tags
-          .filter((tag) => tag[0] === "p" && tag[1])
-          .map((tag) => tag[1]);
-
-        if (!followedPubkeys || followedPubkeys.length === 0) {
-          headerElement.innerHTML = `
-      <h2>No pubkeys Followed</h2>
-      <p>Your kind:3 following list exists but doesn't contain any followed users. Visit the <a href="#kind1follows">kind:3</a> page.</p>
-    `;
-          return null;
-        }
-
-        sourceLabel = "kind:3";
-        return followedPubkeys;
-      };
-      // Start the retry process
-      followedPubkeys = await checkAndFetchKind3();
-    } else {
-      // Get local follows
-      followedPubkeys = getFollowedPubkeys();
-
-      // Check if we have any local follows
-      if (!followedPubkeys || followedPubkeys.length === 0) {
-        headerElement.innerHTML = `
+    // Check if we have any local follows
+    if (!followedPubkeys || followedPubkeys.length === 0) {
+      headerElement.innerHTML = `
           <h2>No Local Subscriptions</h2>
           <p>You haven't subscribed to any users locally. Browse around and click the follow button on users to add them to your subscriptions.</p>
         `;
-        return;
-      }
-
-      sourceLabel = "Subscriptions (local)";
-    }
-
-    // Final check if we have pubkeys
-    if (!followedPubkeys || followedPubkeys.length === 0) {
-      const linkTarget =
-        pubkeySource === "kind3" ? "#kind1follows" : "#follows";
-      const linkText = pubkeySource === "kind3" ? "Kind3" : "Following";
-      headerElement.innerHTML = `
-        <h2>No Followed pubkeys</h2>
-        <p>no pubkeys found. Visit the <a href="${linkTarget}">${linkText}</a> page to start!</p>
-      `;
-      console.log("No followed pubkeys available");
       return;
     }
 
@@ -717,7 +604,20 @@ async function getFeedFromRelays(relays, options = {}) {
   }
 }
 
-// Helper function to get kind-3 events using nostr-tools directly
+// Function to cancel any active queries
+function cancelActiveQueries() {
+  if (app.activeQuery && app.isQuerying) {
+    console.log("🛑 Cancelling active queries...");
+    app.activeQuery.cancel();
+    app.activeQuery = null;
+    app.isQuerying = false;
+  }
+}
+
+
+
+
+
 async function getKind3Events(pubkey) {
   try {
     // Use your active relays for the query
@@ -799,15 +699,5 @@ async function getKind3Events(pubkey) {
   } catch (error) {
     console.error("❌ Error in getKind3Events:", error);
     return [];
-  }
-}
-
-// Function to cancel any active queries
-function cancelActiveQueries() {
-  if (app.activeQuery && app.isQuerying) {
-    console.log("🛑 Cancelling active queries...");
-    app.activeQuery.cancel();
-    app.activeQuery = null;
-    app.isQuerying = false;
   }
 }

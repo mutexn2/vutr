@@ -429,13 +429,8 @@ function getSectionTwoItems() {
     { id: "bookmarkedplaylists", icon: "🔖", text: "Playlist Bookmarks" },
     { id: "localfollows", icon: "📺", text: "Following" },
     { id: "localplaylists", icon: "📒", text: "Local Playlists" },
-    { id: "liked", icon: "👍", text: "liked" },
     { id: "history", icon: "👍", text: "history" },
     { id: "historyplaylists", icon: "👍", text: "playlist history" },
-    { id: "kind1follows", icon: "🫂", text: "kind:3" },
-  //  { id: "singlerelay", icon: "🔭", text: "Relay" },    
-  //  { id: "tag", icon: "🧩", text: "tags" },
-  //  { id: "contact", icon: "💬", text: "Help" },
   ];
 }
 

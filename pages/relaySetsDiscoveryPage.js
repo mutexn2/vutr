@@ -12,10 +12,9 @@ async function relaySetsDiscoveryPageHandler() {
   // Parse URL parameters for tab selection
   const currentHash = window.location.hash;
   const urlParams = new URLSearchParams(currentHash.split('?')[1] || '');
-  const pubkeySource = urlParams.get('source') || 'latest'; // 'latest', 'local', or 'kind3'
+  const pubkeySource = urlParams.get('source') || 'latest'; // 'latest', 'local'
 
   mainContent.innerHTML = `
-    <h1>Discovering Relay sets</h1>
     <div class="relays-discovery-page">
       <div class="pubkey-source-tabs">
         <button class="source-tab-button ${pubkeySource === 'latest' ? 'active' : ''}" data-source="latest">
@@ -24,9 +23,7 @@ async function relaySetsDiscoveryPageHandler() {
         <button class="source-tab-button ${pubkeySource === 'local' ? 'active' : ''}" data-source="local">
           Subscriptions
         </button>
-        <button class="source-tab-button ${pubkeySource === 'kind3' ? 'active' : ''}" data-source="kind3">
-          (kind-3)
-        </button>
+
       </div>
       
       <div class="discovery-tabs">
@@ -58,17 +55,21 @@ async function relaySetsDiscoveryPageHandler() {
 
   // Setup pubkey source tab event handlers
   const sourceTabButtons = document.querySelectorAll('.source-tab-button');
-  sourceTabButtons.forEach(button => {
-    button.addEventListener('click', () => {
-      const newSource = button.dataset.source;
-      const baseHash = '#relaysetsdiscover';
-      const params = new URLSearchParams();
-      if (newSource !== 'latest') params.set('source', newSource);
-      const paramString = params.toString();
-      const newUrl = paramString ? `${baseHash}/params?${paramString}` : baseHash;
-      window.location.hash = newUrl;
-    });
+sourceTabButtons.forEach(button => {
+  button.addEventListener('click', () => {
+    const newSource = button.dataset.source;
+    // Only allow 'latest' and 'local'
+    if (newSource !== 'latest' && newSource !== 'local') {
+      return; // Skip if it's not a valid source
+    }
+    const baseHash = '#relaysetsdiscover';
+    const params = new URLSearchParams();
+    if (newSource !== 'latest') params.set('source', newSource);
+    const paramString = params.toString();
+    const newUrl = paramString ? `${baseHash}/params?${paramString}` : baseHash;
+    window.location.hash = newUrl;
   });
+});
 
   // Get the appropriate pubkeys based on source
   let followedPubkeys = null;
@@ -77,55 +78,10 @@ async function relaySetsDiscoveryPageHandler() {
   if (pubkeySource === 'local') {
     followedPubkeys = getFollowedPubkeys();
     if (!followedPubkeys || followedPubkeys.length === 0) {
-      showTabContentMessage('No Local Subscriptions', 'You haven\'t subscribed to any users locally. Browse around and click the follow button on users to add them to your subscriptions.');
+      showTabContentMessage('No Local Subscriptions', 'You haven\'t subscribed to any pubkeys locally.');
       return;
     }
     sourceLabel = 'Subscriptions';
-  } else if (pubkeySource === 'kind3') {
-    // Get kind-3 pubkeys with retry logic
-    let retries = 0;
-    const maxRetries = 3;
-    
-    while (!app.myPk && retries < maxRetries) {
-      retries++;
-      console.log(`app.myPk not available, retrying in 2 seconds... (attempt ${retries}/${maxRetries})`);
-      await new Promise(resolve => setTimeout(resolve, 2000));
-    }
-    
-    if (!app.myPk) {
-      showTabContentMessage('Login Required', 'You need to be logged in to view your kind3s\' relay sets. Please <a href="#login">log in</a> first.');
-      return;
-    }
-
-    const loadingIndicator = document.querySelector('.loading-indicator');
-    if (loadingIndicator) {
-      loadingIndicator.innerHTML = '<p>Loading kind-3 event...</p>';
-    }
-    
-    const kindThreeEvents = await NostrClient.getEvents({
-      kinds: [3],
-      authors: [app.myPk],
-    });
-    
-    if (!kindThreeEvents || kindThreeEvents.length === 0) {
-      showTabContentMessage('No Kind-3 Following List', 'You don\'t have a kind-3 following list published. Visit the <a href="#kind1follows">kind:3</a> page to see more details.');
-      return;
-    }
-    
-    const latestEvent = kindThreeEvents.reduce((latest, current) =>
-      current.created_at > latest.created_at ? current : latest
-    );
-    
-    followedPubkeys = latestEvent.tags
-      .filter(tag => tag[0] === 'p' && tag[1])
-      .map(tag => tag[1]);
-    
-    if (!followedPubkeys || followedPubkeys.length === 0) {
-      showTabContentMessage('No pubkeys Followed', 'Your kind-3 following list exists but doesn\'t contain any followed users. Visit the <a href="#kind1follows">kind:3</a> page to add some.');
-      return;
-    }
-    
-    sourceLabel = '(kind-3)';
   }
 
   const rSets = document.querySelector('.videos-listview');
@@ -183,7 +139,6 @@ async function relaySetsDiscoveryPageHandler() {
     // Build the filter
     const filter = { kinds: [30002], limit: 100 };
     
-    // Add authors filter for local/kind3 mode
     if (followedPubkeys) {
       filter.authors = followedPubkeys;
       console.log(`Subscribing to kind:30002 events from ${followedPubkeys.length} followed pubkeys on ${relaysToUse.length} relays`);
@@ -529,7 +484,7 @@ function updateLoadingState(receivedEvents, container, sourceLabel = 'Latest', p
   if (receivedEvents.size === 0) {
     if (loadingIndicator) {
       const message = pubkeyCount 
-        ? `No relay sets found from ${pubkeyCount} followed users. They may not have published any relay sets yet.`
+        ? `No relay sets found from ${pubkeyCount} followed pubkeys. They may not have published any relay sets yet.`
         : 'No relay sets found. Try connecting to more relays or check your network connection.';
       loadingIndicator.innerHTML = `<p>${message}</p>`;
     }
@@ -539,8 +494,8 @@ function updateLoadingState(receivedEvents, container, sourceLabel = 'Latest', p
     const header = document.querySelector('h1');
     if (header && !document.querySelector('h2')) {
       const subtitle = pubkeyCount 
-        ? `Relay Sets from ${sourceLabel} (${pubkeyCount} users)`
-        : `Relay Sets from ${sourceLabel}`;
+        ? ` ${sourceLabel} Relay Sets (${pubkeyCount} pubkeys)`
+        : ` ${sourceLabel} Relay Sets`;
       header.insertAdjacentHTML('afterend', `<h2>${subtitle}</h2>`);
     }
   }

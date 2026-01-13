@@ -8809,6 +8809,7 @@ noscript {
 .relay-status {
   width: 99%;
   max-width: 600px;
+  background-color: var(--surface);
 }
 
 .status-checking {
@@ -9567,6 +9568,55 @@ noscript {
     padding: 15px;
   }
 }
+/***my outbox***/
+.outbox-relay-item {
+  border: 1px solid var(--border);
+}
+
+.outbox-relay-item,
+.outbox-relay-header,
+.outbox-relay-actions,
+.outbox-relay-main-info {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 4px;
+  padding: 4px;
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.outbox-relay-item,
+.outbox-relay-header,
+.outbox-relay-main-info {
+  justify-content: space-between;
+}
+
+.outbox-relay-actions {
+  justify-content: center;
+}
+
+/***my blossom servers***/
+
+.blossom-server-item,
+.blossom-server-header,
+.blossom-server-actions,
+.blossom-server-main-info {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 4px;
+  margin: 4px;
+  padding: 4px;
+  flex-wrap: wrap;
+}
+
+.blossom-server-item {
+  border: 1px solid var(--border);
+}
+
+
+
 /*******/
 /* ===================================
    ALLOWED SERVERS TAB
@@ -9677,33 +9727,29 @@ noscript {
 /* Ping Status Badges */
 .ping-status {
   padding: 3px 8px;
-  border-radius: 12px;
+  border-radius: 4px;
+  background-color: var(--surface);
   font-weight: 500;
   font-size: 0.8em;
 }
 
 .status-online {
-  background: rgba(46, 204, 113, 0.15);
   color: #2ecc71;
 }
 
 .status-slow {
-  background: rgba(241, 196, 15, 0.15);
   color: #f1c40f;
 }
 
 .status-very-slow {
-  background: rgba(230, 126, 34, 0.15);
   color: #e67e22;
 }
 
 .status-offline {
-  background: rgba(231, 76, 60, 0.15);
   color: #e74c3c;
 }
 
 .status-checking {
-  background: rgba(52, 152, 219, 0.15);
   color: #3498db;
 }
 

@@ -79,19 +79,94 @@ async function networkSettingsPageHandler() {
     </div>
   </div>
 
-  <!-- Placeholder Tab 1 -->
-  <div class="network-tab-content" id="placeholder-1-tab">
-    <div class="placeholder-content">
-      <p>Placeholder for future features1</p>
+<!-- My Relays (Outbox) Tab -->
+<div class="network-tab-content" id="placeholder-1-tab">
+  <div class="outbox-relays-container">
+    <h2>My Relays (Outbox)</h2>
+    <p class="tab-description">
+      Manage your personal relay list (kind:10002). This tells others where to find your content and where to send replies so you can read them.
+    </p>
+    
+    <div class="outbox-controls">
+      <button id="importOutboxBtn" class="btn-primary">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 7.5h-.75A2.25 2.25 0 0 0 4.5 9.75v7.5a2.25 2.25 0 0 0 2.25 2.25h7.5a2.25 2.25 0 0 0 2.25-2.25v-7.5a2.25 2.25 0 0 0-2.25-2.25h-.75m-6 3.75 3 3m0 0 3-3m-3 3V1.5m6 9h.75a2.25 2.25 0 0 1 2.25 2.25v7.5a2.25 2.25 0 0 1-2.25 2.25h-7.5a2.25 2.25 0 0 1-2.25-2.25v-.75" />
+        </svg>
+        Import My Outbox List
+      </button>
+      <button id="shareOutboxBtn" class="btn-primary">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+        </svg>
+        Share to Relays
+      </button>
+    </div>
+    
+    <div id="outboxRelaysList" class="outbox-relay-list">
+      <!-- Dynamic content will be inserted here -->
+    </div>
+    
+    <div class="add-outbox-relay-section">
+      <h3>Add Relay</h3>
+      <div class="add-outbox-relay-form">
+        <input
+          type="text"
+          id="newOutboxRelayInput"
+          placeholder="wss://relay.example.com"
+          class="relay-input"
+        />
+        <select id="outboxRelayMarker" class="relay-marker-select">
+          <option value="">Read & Write</option>
+          <option value="read">Read Only</option>
+          <option value="write">Write Only</option>
+        </select>
+        <button id="addOutboxRelayBtn" class="btn-primary">Add Relay</button>
+      </div>
     </div>
   </div>
+</div>
 
-  <!-- Placeholder Tab 2 -->
-  <div class="network-tab-content" id="placeholder-2-tab">
-    <div class="placeholder-content">
-      <p>Placeholder for future features2</p>
+<!-- Blossom Servers Tab -->
+<div class="network-tab-content" id="placeholder-2-tab">
+  <div class="blossom-servers-container">
+    <h2>Blossom Servers</h2>
+    <p class="tab-description">
+      Manage your list of Blossom media servers (kind:10063). These servers host your media files and make them discoverable.
+    </p>
+    
+    <div class="blossom-controls">
+      <button id="importBlossomBtn" class="btn-primary">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 7.5h-.75A2.25 2.25 0 0 0 4.5 9.75v7.5a2.25 2.25 0 0 0 2.25 2.25h7.5a2.25 2.25 0 0 0 2.25-2.25v-7.5a2.25 2.25 0 0 0-2.25-2.25h-.75m-6 3.75 3 3m0 0 3-3m-3 3V1.5m6 9h.75a2.25 2.25 0 0 1 2.25 2.25v7.5a2.25 2.25 0 0 1-2.25 2.25h-7.5a2.25 2.25 0 0 1-2.25-2.25v-.75" />
+        </svg>
+        Import My Blossom Servers
+      </button>
+      <button id="shareBlossomBtn" class="btn-primary">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+        </svg>
+        Share to Relays
+      </button>
+    </div>
+    
+    <div id="blossomServersList" class="blossom-server-list">
+      <!-- Dynamic content will be inserted here -->
+    </div>
+    
+    <div class="add-blossom-server-section">
+      <h3>Add Server</h3>
+      <div class="add-blossom-server-form">
+        <input
+          type="url"
+          id="newBlossomServerInput"
+          placeholder="https://blossom.example.com"
+          class="relay-input"
+        />
+        <button id="addBlossomServerBtn" class="btn-primary">Add Server</button>
+      </div>
     </div>
   </div>
+</div>
 
 
 <!-- Allowed Servers Tab -->
@@ -255,6 +330,55 @@ function setupNetworkPageEventListeners() {
   // NEW: Import my relay sets button
   document.getElementById("importMyRelaySetsBtn").addEventListener("click", importMyRelaySets);
 
+// Outbox relay controls
+const importOutboxBtn = document.getElementById("importOutboxBtn");
+const shareOutboxBtn = document.getElementById("shareOutboxBtn");
+const addOutboxRelayBtn = document.getElementById("addOutboxRelayBtn");
+const newOutboxRelayInput = document.getElementById("newOutboxRelayInput");
+
+if (importOutboxBtn) {
+  importOutboxBtn.addEventListener("click", importOutboxRelays);
+}
+
+if (shareOutboxBtn) {
+  shareOutboxBtn.addEventListener("click", shareOutboxRelays);
+}
+
+if (addOutboxRelayBtn) {
+  addOutboxRelayBtn.addEventListener("click", addOutboxRelay);
+}
+
+if (newOutboxRelayInput) {
+  newOutboxRelayInput.addEventListener("keypress", (e) => {
+    if (e.key === "Enter") addOutboxRelay();
+  });
+}
+
+
+// Blossom server controls
+const importBlossomBtn = document.getElementById("importBlossomBtn");
+const shareBlossomBtn = document.getElementById("shareBlossomBtn");
+const addBlossomServerBtn = document.getElementById("addBlossomServerBtn");
+const newBlossomServerInput = document.getElementById("newBlossomServerInput");
+
+if (importBlossomBtn) {
+  importBlossomBtn.addEventListener("click", importBlossomServers);
+}
+
+if (shareBlossomBtn) {
+  shareBlossomBtn.addEventListener("click", shareBlossomServers);
+}
+
+if (addBlossomServerBtn) {
+  addBlossomServerBtn.addEventListener("click", addBlossomServer);
+}
+
+if (newBlossomServerInput) {
+  newBlossomServerInput.addEventListener("keypress", (e) => {
+    if (e.key === "Enter") addBlossomServer();
+  });
+}
+
   // Delegate events for dynamic content
   const networkContainer = document.querySelector('.network-container-container');
 if (networkContainer) {
@@ -364,6 +488,15 @@ function switchTab(targetTab) {
     content.classList.remove('active');
   });
   document.getElementById(`${targetTab}-tab`).classList.add('active');
+  
+  // Render content based on tab
+  if (targetTab === 'placeholder-1') {
+    renderOutboxRelays();
+    setupOutboxEventListeners();
+  } else if (targetTab === 'placeholder-2') {
+    renderBlossomServers();
+    setupBlossomEventListeners();
+  }
 }
 
 function renderActiveRelaySet() {
@@ -417,7 +550,7 @@ function generateLimitationBadges(relayDoc) {
   const badges = [];
   
   // Add ALL NIP badges from the relay document
-  if (relayDoc.supported_nips?.length > 0) {
+/*   if (relayDoc.supported_nips?.length > 0) {
     // Sort NIPs numerically for better display
     const sortedNips = [...relayDoc.supported_nips].sort((a, b) => a - b);
     
@@ -425,7 +558,7 @@ function generateLimitationBadges(relayDoc) {
     sortedNips.forEach(nip => {
       badges.push(`<span class="badge badge-info" title="NIP-${nip}">NIP-${nip}</span>`);
     });
-  }
+  } */
   
   // Add limitation badges
   if (relayDoc.limitation?.auth_required) {
@@ -2172,4 +2305,847 @@ function setupAllowedServersEventListeners() {
   if (checkAllBtn) {
     checkAllBtn.addEventListener("click", checkAllServers);
   }
+}
+
+
+
+//////////////
+function loadLocalOutboxRelays() {
+  try {
+    const stored = localStorage.getItem("outboxRelays");
+    return stored ? JSON.parse(stored) : null;
+  } catch (e) {
+    console.error("Error loading outbox relays:", e);
+    return null;
+  }
+}
+
+function saveLocalOutboxRelays(relays) {
+  try {
+    localStorage.setItem("outboxRelays", JSON.stringify(relays));
+    console.log("Saved local outbox relays");
+  } catch (e) {
+    console.error("Error saving outbox relays:", e);
+  }
+}
+
+
+function renderOutboxRelays() {
+  const container = document.getElementById("outboxRelaysList");
+  if (!container) return;
+  
+  const outboxRelays = loadLocalOutboxRelays();
+  
+  if (!outboxRelays || outboxRelays.length === 0) {
+    container.innerHTML = '<p class="no-relays">No outbox relays configured.</p>';
+    return;
+  }
+  
+  container.innerHTML = outboxRelays
+    .map((relay, index) => createOutboxRelayItemHTML(relay, index))
+    .join("");
+}
+
+function createOutboxRelayItemHTML(relay, index) {
+  const { url, marker } = relay;
+  const markerBadge = marker 
+    ? `<span class="relay-marker-badge marker-${marker}">${marker}</span>`
+    : '<span class="relay-marker-badge marker-both">read & write</span>';
+  
+  return `
+    <div class="outbox-relay-item" data-relay="${url}" data-index="${index}">
+      <div class="outbox-relay-header">
+        <div class="outbox-relay-main-info">
+          <div class="relay-url">${url}</div>
+          ${markerBadge}
+        </div>
+      </div>
+      
+      <div class="outbox-relay-actions">
+        <button class="btn btn-secondary change-marker-btn" data-index="${index}">
+          <span>Change Marker</span>
+        </button>
+        <button class="btn btn-danger remove-outbox-relay-btn" data-index="${index}">
+          <span>Remove</span>
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function addOutboxRelay() {
+  const input = document.getElementById("newOutboxRelayInput");
+  const markerSelect = document.getElementById("outboxRelayMarker");
+  const url = input.value.trim();
+  const marker = markerSelect.value;
+  
+  if (!url) {
+    showTemporaryNotification("Please enter a relay URL");
+    return;
+  }
+  
+  const normalizedUrl = normalizeRelayUrl(url);
+  let outboxRelays = loadLocalOutboxRelays() || [];
+  
+  const isDuplicate = outboxRelays.some(r => isUrlEquivalent(r.url, normalizedUrl));
+  
+  if (isDuplicate) {
+    showTemporaryNotification("Relay already exists in your outbox list");
+    return;
+  }
+  
+  outboxRelays.push({ url: normalizedUrl, marker: marker || null });
+  saveLocalOutboxRelays(outboxRelays);
+  renderOutboxRelays();
+  setupOutboxEventListeners();
+  input.value = "";
+  markerSelect.value = "";
+  showTemporaryNotification("Relay added successfully");
+}
+
+function removeOutboxRelay(index) {
+  const outboxRelays = loadLocalOutboxRelays() || [];
+  const relay = outboxRelays[index];
+  
+  if (confirm(`Remove relay: ${relay.url}?`)) {
+    outboxRelays.splice(index, 1);
+    saveLocalOutboxRelays(outboxRelays);
+    renderOutboxRelays();
+    setupOutboxEventListeners();
+    showTemporaryNotification("Relay removed");
+  }
+}
+
+function changeRelayMarker(index) {
+  const outboxRelays = loadLocalOutboxRelays() || [];
+  const relay = outboxRelays[index];
+  
+  const markers = [
+    { value: null, label: "Read & Write" },
+    { value: "read", label: "Read Only" },
+    { value: "write", label: "Write Only" }
+  ];
+  
+  const currentIndex = markers.findIndex(m => m.value === relay.marker);
+  const nextIndex = (currentIndex + 1) % markers.length;
+  
+  relay.marker = markers[nextIndex].value;
+  saveLocalOutboxRelays(outboxRelays);
+  renderOutboxRelays();
+  setupOutboxEventListeners();
+  showTemporaryNotification(`Marker changed to: ${markers[nextIndex].label}`);
+}
+
+async function importOutboxRelays() {
+  if (!app.myPk) {
+    showTemporaryNotification("You must be logged in to import your outbox list");
+    return;
+  }
+  
+  showTemporaryNotification("Fetching your published outbox list...");
+  
+  try {
+    const extendedRelays = await getExtendedRelaysForProfile(app.myPk);
+    const allRelays = [...new Set([...app.globalRelays, ...extendedRelays])];
+    
+    const outboxEvents = await NostrClient.getEvents({
+      kinds: [10002],
+      authors: [app.myPk],
+      limit: 1
+    }, allRelays);
+    
+    if (!outboxEvents || outboxEvents.length === 0) {
+      showTemporaryNotification("No published outbox list found");
+      return;
+    }
+    
+    const latestEvent = outboxEvents.sort((a, b) => b.created_at - a.created_at)[0];
+    const relayTags = latestEvent.tags.filter(tag => tag[0] === 'r');
+    
+    const publishedRelays = relayTags.map(tag => ({
+      url: tag[1],
+      marker: tag[2] || null
+    }));
+    
+    showImportOutboxModal(publishedRelays);
+    
+  } catch (error) {
+    console.error("Error importing outbox relays:", error);
+    showTemporaryNotification("Failed to import outbox relays: " + error.message);
+  }
+}
+
+function showImportOutboxModal(publishedRelays) {
+  const localRelays = loadLocalOutboxRelays() || [];
+  
+  const newRelays = publishedRelays.filter(pr => 
+    !localRelays.some(lr => isUrlEquivalent(lr.url, pr.url))
+  );
+  
+  const conflictingRelays = publishedRelays.filter(pr =>
+    localRelays.some(lr => {
+      if (!isUrlEquivalent(lr.url, pr.url)) return false;
+      return lr.marker !== pr.marker;
+    })
+  );
+  
+  const hasConflicts = conflictingRelays.length > 0;
+  
+  const relaysList = publishedRelays.map(r => {
+    const markerText = r.marker ? ` (${r.marker})` : ' (read & write)';
+    return `<li><strong>${escapeHtml(r.url)}</strong>${markerText}</li>`;
+  }).join('');
+  
+  const conflictsList = conflictingRelays.map(r => {
+    const markerText = r.marker ? ` (${r.marker})` : ' (read & write)';
+    const local = localRelays.find(lr => isUrlEquivalent(lr.url, r.url));
+    const localMarkerText = local.marker ? ` (${local.marker})` : ' (read & write)';
+    return `<li><strong>${escapeHtml(r.url)}</strong> - Local${localMarkerText} → Published${markerText}</li>`;
+  }).join('');
+  
+  const content = `
+    <div class="import-outbox-modal">
+      <div class="import-summary">
+        <p><strong>Found ${publishedRelays.length} relay${publishedRelays.length !== 1 ? 's' : ''} in your published list:</strong></p>
+        
+        ${newRelays.length > 0 ? `<p>✅ ${newRelays.length} new relay${newRelays.length !== 1 ? 's' : ''} will be imported</p>` : ''}
+        
+        ${hasConflicts ? `
+          <div class="conflict-warning">
+            <p>⚠️ ${conflictingRelays.length} relay${conflictingRelays.length !== 1 ? 's have' : ' has'} different markers:</p>
+            <ul>${conflictsList}</ul>
+            <p><strong>Do you want to overwrite local markers with published ones?</strong></p>
+          </div>
+        ` : ''}
+        
+        ${!hasConflicts && newRelays.length === 0 ? `
+          <p>✓ Your local list is already in sync with your published list!</p>
+        ` : ''}
+      </div>
+      <div class="import-actions">
+        <button class="btn-secondary" id="modalCancelBtn">Cancel</button>
+        ${hasConflicts ? `
+          <button class="btn-secondary" id="modalImportNewOnlyBtn">Import New Only</button>
+          <button class="btn-primary" id="modalImportAllBtn">Import All (Overwrite)</button>
+        ` : newRelays.length > 0 ? `
+          <button class="btn-primary" id="modalImportAllBtn">Import New</button>
+        ` : ''}
+      </div>
+    </div>
+  `;
+  
+  const modal = openModal({
+    title: "Import Outbox Relays",
+    content,
+    size: "medium"
+  });
+  
+  modal.querySelector("#modalCancelBtn").addEventListener("click", closeModal);
+  
+  const importAllBtn = modal.querySelector("#modalImportAllBtn");
+  if (importAllBtn) {
+    importAllBtn.addEventListener("click", () => {
+      performOutboxImport(publishedRelays, true);
+      closeModal();
+    });
+  }
+  
+  const importNewOnlyBtn = modal.querySelector("#modalImportNewOnlyBtn");
+  if (importNewOnlyBtn) {
+    importNewOnlyBtn.addEventListener("click", () => {
+      performOutboxImport(publishedRelays, false);
+      closeModal();
+    });
+  }
+}
+
+function performOutboxImport(publishedRelays, allowOverwrite) {
+  const localRelays = loadLocalOutboxRelays() || [];
+  let importedCount = 0;
+  let updatedCount = 0;
+  
+  publishedRelays.forEach(pr => {
+    const existingIndex = localRelays.findIndex(lr => isUrlEquivalent(lr.url, pr.url));
+    
+    if (existingIndex === -1) {
+      // New relay
+      localRelays.push(pr);
+      importedCount++;
+    } else if (allowOverwrite && localRelays[existingIndex].marker !== pr.marker) {
+      // Update marker
+      localRelays[existingIndex].marker = pr.marker;
+      updatedCount++;
+    }
+  });
+  
+  saveLocalOutboxRelays(localRelays);
+  renderOutboxRelays();
+  setupOutboxEventListeners();
+  
+  let message = '';
+  if (importedCount > 0) message += `Imported ${importedCount} new relay${importedCount !== 1 ? 's' : ''}`;
+  if (updatedCount > 0) {
+    if (message) message += ', ';
+    message += `updated ${updatedCount} marker${updatedCount !== 1 ? 's' : ''}`;
+  }
+  if (!message) message = 'No changes needed';
+  
+  showTemporaryNotification(message);
+}
+
+async function shareOutboxRelays() {
+  const outboxRelays = loadLocalOutboxRelays() || [];
+  
+  if (outboxRelays.length === 0) {
+    showTemporaryNotification("No outbox relays to share");
+    return;
+  }
+  
+  showShareOutboxModal(outboxRelays);
+}
+
+function showShareOutboxModal(outboxRelays) {
+  const relaysList = outboxRelays.map(r => {
+    const markerText = r.marker ? ` (${r.marker})` : ' (read & write)';
+    return r.url + markerText;
+  }).join('\n');
+  
+  const content = `
+    <div class="share-outbox-modal">
+      <div class="relay-preview">
+        <h4>Outbox Relay List</h4>
+        <p><strong>Relays (${outboxRelays.length}):</strong></p>
+        <pre class="relay-list-preview">${relaysList}</pre>
+      </div>
+      <div class="share-actions">
+        <button class="btn-secondary" id="modalCancelBtn">Cancel</button>
+        <button class="btn-primary" id="modalShareBtn">Share to Nostr</button>
+      </div>
+    </div>
+  `;
+  
+  const modal = openModal({
+    title: "Share Outbox Relays",
+    content,
+    size: "medium"
+  });
+  
+  modal.querySelector("#modalShareBtn").addEventListener("click", () => {
+    publishOutboxToNostr(outboxRelays);
+    closeModal();
+  });
+  modal.querySelector("#modalCancelBtn").addEventListener("click", closeModal);
+}
+
+async function publishOutboxToNostr(outboxRelays) {
+  try {
+    showTemporaryNotification("Publishing outbox list...");
+    
+    const tags = outboxRelays.map(r => {
+      const tag = ['r', r.url];
+      if (r.marker) tag.push(r.marker);
+      return tag;
+    });
+    
+    const eventData = {
+      kind: 10002,
+      created_at: Math.floor(Date.now() / 1000),
+      content: "",
+      tags: tags
+    };
+    
+    console.log("Outbox event data:", eventData);
+    
+    const signedEvent = await handleEventSigning(eventData);
+    console.log("Outbox event signed successfully!");
+    
+    const result = await publishEvent(signedEvent, app.globalRelays, {
+      successMessage: "✅ Outbox list shared successfully!",
+      errorMessage: "Failed to publish outbox list"
+    });
+    
+    if (result.success) {
+      console.dir(signedEvent, { depth: null });
+      showTemporaryNotification("Event published successfully!");
+    } else {
+      throw new Error(result.error);
+    }
+    
+  } catch (error) {
+    console.error("Error publishing outbox list:", error);
+    showTemporaryNotification("❌ Failed to publish outbox list: " + error.message);
+  }
+}
+
+function setupOutboxEventListeners() {
+  const container = document.getElementById("outboxRelaysList");
+  if (!container) return;
+  
+  container.querySelectorAll(".remove-outbox-relay-btn").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      const index = parseInt(e.target.closest("button").dataset.index);
+      removeOutboxRelay(index);
+    });
+  });
+  
+  container.querySelectorAll(".change-marker-btn").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      const index = parseInt(e.target.closest("button").dataset.index);
+      changeRelayMarker(index);
+    });
+  });
+}
+
+
+///////////////////
+
+function loadLocalBlossomServers() {
+  try {
+    const stored = localStorage.getItem("blossomServers");
+    return stored ? JSON.parse(stored) : null;
+  } catch (e) {
+    console.error("Error loading blossom servers:", e);
+    return null;
+  }
+}
+
+function saveLocalBlossomServers(servers) {
+  try {
+    localStorage.setItem("blossomServers", JSON.stringify(servers));
+    console.log("Saved local blossom servers");
+  } catch (e) {
+    console.error("Error saving blossom servers:", e);
+  }
+}
+
+function renderBlossomServers() {
+  const container = document.getElementById("blossomServersList");
+  if (!container) return;
+  
+  const blossomServers = loadLocalBlossomServers();
+  
+  if (!blossomServers || blossomServers.length === 0) {
+    container.innerHTML = '<p class="no-relays">No blossom servers configured.</p>';
+    return;
+  }
+  
+  container.innerHTML = blossomServers
+    .map((server, index) => createBlossomServerItemHTML(server, index))
+    .join("");
+  
+  // Auto-ping servers after rendering
+  blossomServers.forEach((server, index) => {
+    setTimeout(() => pingBlossomServer(server.url, index), 100 * index);
+  });
+}
+
+function createBlossomServerItemHTML(server, index) {
+  const { url } = server;
+  
+  return `
+    <div class="blossom-server-item" data-server="${url}" data-index="${index}">
+      <div class="blossom-server-header">
+        <div class="blossom-server-main-info">
+          <div class="server-url">${url}</div>
+          <div class="server-ping-status" id="blossom-ping-${index}">
+            <span class="ping-indicator">⏳</span>
+            <span class="ping-latency"></span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="blossom-server-actions">
+        <button class="btn btn-secondary ping-blossom-btn" data-index="${index}">
+          <span>Ping</span>
+        </button>
+        <button class="btn btn-secondary visit-blossom-btn" data-index="${index}">
+          <span>Visit</span>
+        </button>
+        <button class="btn btn-danger remove-blossom-btn" data-index="${index}">
+          <span>Remove</span>
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+async function pingBlossomServer(url, index) {
+  const statusContainer = document.getElementById(`blossom-ping-${index}`);
+  if (!statusContainer) return;
+  
+  const indicator = statusContainer.querySelector('.ping-indicator');
+  const latencySpan = statusContainer.querySelector('.ping-latency');
+  
+  if (indicator) {
+    indicator.textContent = "⏳";
+    indicator.title = "Pinging...";
+  }
+  if (latencySpan) {
+    latencySpan.textContent = "";
+  }
+  
+  try {
+    const testHash = "b1674191a88ec5cdd733e4240a81803105dc412d6c6708d53ab94fc248f4f553";
+    const testUrl = `${url}/${testHash}`;
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    
+    const startTime = performance.now();
+    const response = await fetch(testUrl, {
+      method: "HEAD",
+      signal: controller.signal,
+    });
+    const endTime = performance.now();
+    
+    clearTimeout(timeoutId);
+    
+    const pingTime = Math.round(endTime - startTime);
+    
+    if (indicator) {
+      if (response.ok || response.status === 404) {
+        indicator.textContent = "✓";
+        indicator.title = `Online (${pingTime}ms)`;
+        indicator.style.color = "#22c55e";
+      } else if (response.status === 401 || response.status === 403) {
+        indicator.textContent = "🔐";
+        indicator.title = `Requires Authentication (${pingTime}ms)`;
+        indicator.style.color = "#3b82f6";
+      } else if (response.status === 402) {
+        indicator.textContent = "💰";
+        indicator.title = `Requires Payment (${pingTime}ms)`;
+        indicator.style.color = "#f59e0b";
+      } else {
+        indicator.textContent = "⚠";
+        const reason = response.headers.get("X-Reason") || `HTTP ${response.status}`;
+        indicator.title = `${reason} (${pingTime}ms)`;
+        indicator.style.color = "#f59e0b";
+      }
+    }
+    
+    if (latencySpan) {
+      latencySpan.textContent = `${pingTime}ms`;
+      if (pingTime < 300) {
+        latencySpan.style.color = "#22c55e";
+      } else if (pingTime < 1000) {
+        latencySpan.style.color = "#f59e0b";
+      } else {
+        latencySpan.style.color = "#ef4444";
+      }
+    }
+    
+    console.log(`✓ Blossom ping result: ${url} (${pingTime}ms, status: ${response.status})`);
+  } catch (error) {
+    if (indicator) {
+      indicator.textContent = "✗";
+      indicator.title = `Offline or unreachable: ${error.message}`;
+      indicator.style.color = "#ef4444";
+    }
+    if (latencySpan) {
+      latencySpan.textContent = "";
+    }
+    console.log(`✗ Blossom ping failed: ${url} - ${error.message}`);
+  }
+}
+
+function addBlossomServer() {
+  const input = document.getElementById("newBlossomServerInput");
+  const url = input.value.trim();
+  
+  if (!url) {
+    showTemporaryNotification("Please enter a server URL");
+    return;
+  }
+  
+  // Validate URL format
+  try {
+    new URL(url);
+  } catch (e) {
+    showTemporaryNotification("Invalid URL format");
+    return;
+  }
+  
+  // Ensure it's https
+  if (!url.startsWith("https://") && !url.startsWith("http://")) {
+    showTemporaryNotification("URL must start with https:// or http://");
+    return;
+  }
+  
+  let blossomServers = loadLocalBlossomServers() || [];
+  
+  const isDuplicate = blossomServers.some(s => s.url === url);
+  
+  if (isDuplicate) {
+    showTemporaryNotification("Server already exists in your list");
+    return;
+  }
+  
+  blossomServers.push({ url });
+  saveLocalBlossomServers(blossomServers);
+  renderBlossomServers();
+  setupBlossomEventListeners();
+  input.value = "";
+  showTemporaryNotification("Server added successfully");
+}
+
+function removeBlossomServer(index) {
+  const blossomServers = loadLocalBlossomServers() || [];
+  const server = blossomServers[index];
+  
+  if (confirm(`Remove server: ${server.url}?`)) {
+    blossomServers.splice(index, 1);
+    saveLocalBlossomServers(blossomServers);
+    renderBlossomServers();
+    setupBlossomEventListeners();
+    showTemporaryNotification("Server removed");
+  }
+}
+
+function visitBlossomServer(index) {
+  const blossomServers = loadLocalBlossomServers() || [];
+  const server = blossomServers[index];
+  
+  if (server && server.url) {
+    window.open(server.url, '_blank');
+  }
+}
+
+async function importBlossomServers() {
+  if (!app.myPk) {
+    showTemporaryNotification("You must be logged in to import your blossom servers");
+    return;
+  }
+  
+  showTemporaryNotification("Fetching your published blossom servers...");
+  
+  try {
+    const extendedRelays = await getExtendedRelaysForProfile(app.myPk);
+    const allRelays = [...new Set([...app.globalRelays, ...extendedRelays])];
+    
+    const blossomEvents = await NostrClient.getEvents({
+      kinds: [10063],
+      authors: [app.myPk],
+      limit: 1
+    }, allRelays);
+    
+    if (!blossomEvents || blossomEvents.length === 0) {
+      showTemporaryNotification("No published blossom server list found");
+      return;
+    }
+    
+    const latestEvent = blossomEvents.sort((a, b) => b.created_at - a.created_at)[0];
+    const serverTags = latestEvent.tags.filter(tag => tag[0] === 'server');
+    
+    const publishedServers = serverTags.map(tag => ({
+      url: tag[1]
+    }));
+    
+    if (publishedServers.length === 0) {
+      showTemporaryNotification("No servers found in published event");
+      return;
+    }
+    
+    showImportBlossomModal(publishedServers);
+    
+  } catch (error) {
+    console.error("Error importing blossom servers:", error);
+    showTemporaryNotification("Failed to import blossom servers: " + error.message);
+  }
+}
+
+function showImportBlossomModal(publishedServers) {
+  const localServers = loadLocalBlossomServers() || [];
+  
+  const newServers = publishedServers.filter(ps => 
+    !localServers.some(ls => ls.url === ps.url)
+  );
+  
+  const serversList = publishedServers.map(s => 
+    `<li><strong>${escapeHtml(s.url)}</strong></li>`
+  ).join('');
+  
+  const content = `
+    <div class="import-blossom-modal">
+      <div class="import-summary">
+        <p><strong>Found ${publishedServers.length} server${publishedServers.length !== 1 ? 's' : ''} in your published list:</strong></p>
+        <ul>${serversList}</ul>
+        
+        ${newServers.length > 0 ? `
+          <p>✅ ${newServers.length} new server${newServers.length !== 1 ? 's' : ''} will be imported</p>
+        ` : `
+          <p>✓ All servers from your published list are already in your local list!</p>
+        `}
+      </div>
+      <div class="import-actions">
+        <button class="btn-secondary" id="modalCancelBtn">Cancel</button>
+        ${newServers.length > 0 ? `
+          <button class="btn-primary" id="modalImportBtn">Import New Servers</button>
+        ` : ''}
+        <button class="btn-primary" id="modalOverwriteBtn">Overwrite Local List</button>
+      </div>
+    </div>
+  `;
+  
+  const modal = openModal({
+    title: "Import Blossom Servers",
+    content,
+    size: "medium"
+  });
+  
+  modal.querySelector("#modalCancelBtn").addEventListener("click", closeModal);
+  
+  const importBtn = modal.querySelector("#modalImportBtn");
+  if (importBtn) {
+    importBtn.addEventListener("click", () => {
+      performBlossomImport(publishedServers, false);
+      closeModal();
+    });
+  }
+  
+  const overwriteBtn = modal.querySelector("#modalOverwriteBtn");
+  if (overwriteBtn) {
+    overwriteBtn.addEventListener("click", () => {
+      performBlossomImport(publishedServers, true);
+      closeModal();
+    });
+  }
+}
+
+function performBlossomImport(publishedServers, overwrite) {
+  if (overwrite) {
+    // Replace entire local list
+    saveLocalBlossomServers(publishedServers);
+    renderBlossomServers();
+    setupBlossomEventListeners();
+    showTemporaryNotification(`Imported ${publishedServers.length} server${publishedServers.length !== 1 ? 's' : ''} (overwrite)`);
+  } else {
+    // Add only new servers
+    const localServers = loadLocalBlossomServers() || [];
+    let addedCount = 0;
+    
+    publishedServers.forEach(ps => {
+      if (!localServers.some(ls => ls.url === ps.url)) {
+        localServers.push(ps);
+        addedCount++;
+      }
+    });
+    
+    saveLocalBlossomServers(localServers);
+    renderBlossomServers();
+    setupBlossomEventListeners();
+    
+    if (addedCount > 0) {
+      showTemporaryNotification(`Imported ${addedCount} new server${addedCount !== 1 ? 's' : ''}`);
+    } else {
+      showTemporaryNotification("No new servers to import");
+    }
+  }
+}
+
+async function shareBlossomServers() {
+  const blossomServers = loadLocalBlossomServers() || [];
+  
+  if (blossomServers.length === 0) {
+    showTemporaryNotification("No blossom servers to share");
+    return;
+  }
+  
+  showShareBlossomModal(blossomServers);
+}
+
+function showShareBlossomModal(blossomServers) {
+  const serversList = blossomServers.map(s => s.url).join('\n');
+  
+  const content = `
+    <div class="share-blossom-modal">
+      <div class="server-preview">
+        <h4>Blossom Server List</h4>
+        <p><strong>Servers (${blossomServers.length}):</strong></p>
+        <pre class="server-list-preview">${serversList}</pre>
+        <p class="note">Note: The order matters - your most reliable servers should be first.</p>
+      </div>
+      <div class="share-actions">
+        <button class="btn-secondary" id="modalCancelBtn">Cancel</button>
+        <button class="btn-primary" id="modalShareBtn">Share to Nostr</button>
+      </div>
+    </div>
+  `;
+  
+  const modal = openModal({
+    title: "Share Blossom Servers",
+    content,
+    size: "medium"
+  });
+  
+  modal.querySelector("#modalShareBtn").addEventListener("click", () => {
+    publishBlossomToNostr(blossomServers);
+    closeModal();
+  });
+  modal.querySelector("#modalCancelBtn").addEventListener("click", closeModal);
+}
+
+async function publishBlossomToNostr(blossomServers) {
+  try {
+    showTemporaryNotification("Publishing blossom server list...");
+    
+    const tags = blossomServers.map(s => ['server', s.url]);
+    
+    const eventData = {
+      kind: 10063,
+      created_at: Math.floor(Date.now() / 1000),
+      content: "",
+      tags: tags
+    };
+    
+    console.log("Blossom event data:", eventData);
+    
+    const signedEvent = await handleEventSigning(eventData);
+    console.log("Blossom event signed successfully!");
+    
+    const result = await publishEvent(signedEvent, app.globalRelays, {
+      successMessage: "✅ Blossom server list shared successfully!",
+      errorMessage: "Failed to publish blossom server list"
+    });
+    
+    if (result.success) {
+      console.dir(signedEvent, { depth: null });
+      showTemporaryNotification("Event published successfully!");
+    } else {
+      throw new Error(result.error);
+    }
+    
+  } catch (error) {
+    console.error("Error publishing blossom server list:", error);
+    showTemporaryNotification("❌ Failed to publish blossom server list: " + error.message);
+  }
+}
+
+function setupBlossomEventListeners() {
+  const container = document.getElementById("blossomServersList");
+  if (!container) return;
+  
+  container.querySelectorAll(".remove-blossom-btn").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      const index = parseInt(e.target.closest("button").dataset.index);
+      removeBlossomServer(index);
+    });
+  });
+  
+  container.querySelectorAll(".ping-blossom-btn").forEach(btn => {
+    btn.addEventListener("click", async (e) => {
+      const index = parseInt(e.target.closest("button").dataset.index);
+      const blossomServers = loadLocalBlossomServers() || [];
+      const server = blossomServers[index];
+      if (server) {
+        await pingBlossomServer(server.url, index);
+      }
+    });
+  });
+  
+  container.querySelectorAll(".visit-blossom-btn").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      const index = parseInt(e.target.closest("button").dataset.index);
+      visitBlossomServer(index);
+    });
+  });
 }

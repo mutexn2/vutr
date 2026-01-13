@@ -204,44 +204,7 @@ async function settingsPageHandler() {
           </div>
         </div>
 
-        <!-- Media Servers Section -->
-        <div class="settings-section">
-          <h2>Media Servers</h2>
-          <div class="settings-group">
-            <div class="media-whitelist-section">
-              <div class="setting-info">
-                <label>Trusted Domains</label>
-                <span class="setting-description">Manage domains allowed to serve video content</span>
-              </div>
-              <button class="add-domain-btn settings-btn secondary">Add Domain</button>
-              <div class="whitelist-domains"></div>
-              <div class="add-domain-form" style="display: none;">
-                <input type="text" class="domain-input" placeholder="Enter domain (e.g., cdn.example.com)">
-                <div class="form-actions">
-                  <button class="confirm-add-btn settings-btn primary">Add</button>
-                  <button class="cancel-add-btn settings-btn secondary">Cancel</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
 
-<!-- Blossom Section -->
-<div class="settings-section" style="display: none;">
-  <h2>Blossom</h2>
-  <div class="settings-group">
-    <div class="setting-item setting-toggle">
-      <div class="setting-info">
-        <label for="auto-blossom-toggle">Auto Validation</label>
-        <span class="setting-description">Automatically validate Blossom URLs when video is buffered</span>
-      </div>
-      <label class="toggle-switch">
-        <input type="checkbox" id="auto-blossom-toggle" checked>
-        <span class="toggle-slider"></span>
-      </label>
-    </div>
-  </div>
-</div>    
 
         <!-- Notifications Section -->
         <div class="settings-section strikethrough" style="display: none;">
@@ -314,9 +277,7 @@ async function settingsPageHandler() {
     // Setup collapsible sections
     setupCollapsibleSections();
 
-    // Setup media whitelist
-    const mediaSection = mainContent.querySelector(".media-whitelist-section");
-    setupMediaWhitelistSettings(mediaSection);
+
 
     // Setup search relay
     const searchSection = mainContent.querySelector(".search-relay-section");
@@ -365,15 +326,7 @@ document
     );
   });
 
-// Blossom auto-validation toggle
-document
-  .getElementById("auto-blossom-toggle")
-  .addEventListener("change", (e) => {
-    localStorage.setItem("autoBlossomValidation", e.target.checked);
-    showTemporaryNotification(
-      `Auto Blossom validation ${e.target.checked ? "enabled" : "disabled"}`
-    );
-  });
+
 
     document
       .getElementById("autoplay-toggle")
@@ -557,9 +510,7 @@ function loadSettings() {
     localStorage.getItem("notifications") === "true";
   document.getElementById("desktop-notifications").checked =
     localStorage.getItem("desktopNotifications") === "true";
-// Load blossom settings
-document.getElementById("auto-blossom-toggle").checked =
-  localStorage.getItem("autoBlossomValidation") !== "false"; // Default true
+
 
   // Load content warning settings
   document.getElementById("show-content-warning-toggle").checked =
@@ -683,112 +634,6 @@ function removeTag(tagValue) {
   }
 }
 
-function setupMediaWhitelistSettings(container) {
-  // Render the domains list
-  renderWhitelistDomains(container);
-
-  // Setup event listeners
-  const addDomainBtn = container.querySelector(".add-domain-btn");
-  const addDomainForm = container.querySelector(".add-domain-form");
-  const domainInput = container.querySelector(".domain-input");
-  const confirmAddBtn = container.querySelector(".confirm-add-btn");
-  const cancelAddBtn = container.querySelector(".cancel-add-btn");
-
-  addDomainBtn.addEventListener("click", () => {
-    addDomainForm.style.display = "flex";
-    domainInput.focus();
-  });
-
-  cancelAddBtn.addEventListener("click", () => {
-    addDomainForm.style.display = "none";
-    domainInput.value = "";
-  });
-
-  confirmAddBtn.addEventListener("click", () => {
-    const domain = domainInput.value.trim().toLowerCase();
-    if (addDomainToWhitelistManually(domain)) {
-      renderWhitelistDomains(container);
-      addDomainForm.style.display = "none";
-      domainInput.value = "";
-    }
-  });
-
-  domainInput.addEventListener("keypress", (e) => {
-    if (e.key === "Enter") {
-      confirmAddBtn.click();
-    } else if (e.key === "Escape") {
-      cancelAddBtn.click();
-    }
-  });
-}
-
-function renderWhitelistDomains(container) {
-  const domainsContainer = container.querySelector(".whitelist-domains");
-
-  if (app.mediaServerWhitelist.length === 0) {
-    domainsContainer.innerHTML =
-      '<div class="empty-whitelist">No trusted domains added yet.</div>';
-    return;
-  }
-
-  domainsContainer.innerHTML = app.mediaServerWhitelist
-    .map(
-      (domain) => `
-      <div class="domain-item" data-domain="${escapeHtml(domain)}">
-        <span class="domain-name">${escapeHtml(domain)}</span>
-        <button class="remove-domain-btn">Remove</button>
-      </div>
-    `
-    )
-    .join("");
-
-  // Add remove event listeners
-  domainsContainer.querySelectorAll(".remove-domain-btn").forEach((btn) => {
-    btn.addEventListener("click", (e) => {
-      const domainItem = e.target.closest(".domain-item");
-      const domain = domainItem.dataset.domain;
-      removeDomainFromWhitelist(domain);
-      renderWhitelistDomains(container);
-    });
-  });
-}
-
-function addDomainToWhitelistManually(domain) {
-  if (!domain) {
-    alert("Please enter a domain");
-    return false;
-  }
-
-  if (!isValidDomain(domain)) {
-    alert("Please enter a valid domain format (e.g., cdn.example.com)");
-    return false;
-  }
-
-  if (app.mediaServerWhitelist.includes(domain)) {
-    alert("Domain is already in the whitelist");
-    return false;
-  }
-
-  app.mediaServerWhitelist.push(domain);
-  localStorage.setItem(
-    "mediaServerWhitelist",
-    JSON.stringify(app.mediaServerWhitelist)
-  );
-  console.log(`Added ${domain} to media server whitelist`);
-  return true;
-}
-
-function removeDomainFromWhitelist(domain) {
-  const index = app.mediaServerWhitelist.indexOf(domain);
-  if (index > -1) {
-    app.mediaServerWhitelist.splice(index, 1);
-    localStorage.setItem(
-      "mediaServerWhitelist",
-      JSON.stringify(app.mediaServerWhitelist)
-    );
-    console.log(`Removed ${domain} from media server whitelist`);
-  }
-}
 
 //////////////////
 function setupSearchRelaySettings(container) {

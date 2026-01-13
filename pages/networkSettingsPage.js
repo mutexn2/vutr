@@ -14,13 +14,30 @@ async function networkSettingsPageHandler() {
     <button class="network-tab-button active" data-tab="active-set">
       Content relay sets
     </button>
-    <button class="network-tab-button" data-tab="placeholder-1" style="display: none;">1</button>
-    <button class="network-tab-button" data-tab="placeholder-2" style="display: none;">2</button>
+    <button class="network-tab-button" data-tab="placeholder-1">my relays</button>
+    <button class="network-tab-button" data-tab="placeholder-2">blossom servers</button>
+    <button class="network-tab-button" data-tab="allowed-servers">Allowed Servers</button>
 
   </div>
 
-  <!-- Active Set Tab -->
+<!-- Active Set Tab -->
   <div class="network-tab-content active" id="active-set-tab">
+<!-- Actions bar above the header -->
+<div class="relay-set-actions-bar">
+  <button id="createNewSetBtn" class="btn-primary">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M12 4.5v15m7.5-7.5h-15" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    Create New
+  </button>
+  <button id="importMyRelaySetsBtn" class="btn-primary">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 7.5h-.75A2.25 2.25 0 0 0 4.5 9.75v7.5a2.25 2.25 0 0 0 2.25 2.25h7.5a2.25 2.25 0 0 0 2.25-2.25v-7.5a2.25 2.25 0 0 0-2.25-2.25h-.75m-6 3.75 3 3m0 0 3-3m-3 3V1.5m6 9h.75a2.25 2.25 0 0 1 2.25 2.25v7.5a2.25 2.25 0 0 1-2.25 2.25h-7.5a2.25 2.25 0 0 1-2.25-2.25v-.75" />
+    </svg>
+    Import My Relay Sets
+  </button>
+</div>
+
 <div class="active-set-header">
   <div class="set-selector">
     <label for="activeSetSelect">Active Relay Set:</label>
@@ -32,7 +49,6 @@ async function networkSettingsPageHandler() {
   <button id="editActiveSetMetadataBtn" class="btn-secondary" ${isGlobalSet(app.activeRelayList) ? 'style="display:none"' : ''}>Edit Metadata</button>
   <button id="shareActiveSetBtn" class="btn-primary" ${isGlobalSet(app.activeRelayList) ? 'style="display:none"' : ''}>Share</button>
   <button id="deleteActiveSetBtn" class="btn-danger" ${isGlobalSet(app.activeRelayList) ? 'style="display:none"' : ''}>Delete</button>
-  <button id="createNewSetBtn" class="btn-primary">Create New</button>
 </div>
 </div>
 
@@ -66,16 +82,48 @@ async function networkSettingsPageHandler() {
   <!-- Placeholder Tab 1 -->
   <div class="network-tab-content" id="placeholder-1-tab">
     <div class="placeholder-content">
-      <p>Placeholder for future features</p>
+      <p>Placeholder for future features1</p>
     </div>
   </div>
 
   <!-- Placeholder Tab 2 -->
   <div class="network-tab-content" id="placeholder-2-tab">
     <div class="placeholder-content">
-      <p>Placeholder for future features</p>
+      <p>Placeholder for future features2</p>
     </div>
   </div>
+
+
+<!-- Allowed Servers Tab -->
+<div class="network-tab-content" id="allowed-servers-tab">
+  <div class="allowed-servers-container">
+    <h2>Trusted Media Servers</h2>
+    <p class="allowed-servers-description">Manage domains allowed to serve media content across the app</p>
+    
+    <div class="server-controls">
+      <button id="checkAllServersBtn" class="btn-primary">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15.91 11.672a.375.375 0 010 .656l-5.603 3.113a.375.375 0 01-.557-.328V8.887c0-.286.307-.466.557-.327l5.603 3.112z" />
+        </svg>
+        Check All Servers
+      </button>
+      <button class="add-domain-btn settings-btn primary">Add Domain</button>
+    </div>
+    
+    <div class="whitelist-domains" id="whitelistDomainsContainer">
+      <!-- Domains will be rendered here -->
+    </div>
+    
+    <div class="add-domain-form" style="display: none;">
+      <input type="text" class="domain-input" placeholder="Enter domain (e.g., cdn.example.com)">
+      <div class="form-actions">
+        <button class="confirm-add-btn settings-btn primary">Add</button>
+        <button class="cancel-add-btn settings-btn secondary">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
 </div>
 </div>
 
@@ -89,8 +137,15 @@ async function networkSettingsPageHandler() {
     setupNetworkPageEventListeners();
 
 
-
-
+// Setup media whitelist in the allowed servers tab
+const allowedServersTab = mainContent.querySelector("#allowed-servers-tab");
+if (allowedServersTab) {
+  const mediaSection = allowedServersTab.querySelector(".allowed-servers-container");
+  if (mediaSection) {
+    setupMediaWhitelistSettings(mediaSection);
+    setupAllowedServersEventListeners();
+  }
+}
 
 
     
@@ -156,9 +211,9 @@ function renderSetInfo() {
 
 function setupNetworkPageEventListeners() {
 
-document.getElementById("relay-set-discovery-btn").addEventListener("click", function () {
-  window.location.hash = "relaysetsdiscover";
-});
+  document.getElementById("relay-set-discovery-btn").addEventListener("click", function () {
+    window.location.hash = "relaysetsdiscover";
+  });
 
   // Tab switching
   document.querySelectorAll('.network-tab-button').forEach(button => {
@@ -174,11 +229,13 @@ document.getElementById("relay-set-discovery-btn").addEventListener("click", fun
     setActiveRelaySet(newActiveSet);
   });
 
-// Share active set
-document.getElementById("shareActiveSetBtn").addEventListener("click", () => {
-  shareActiveRelaySet();
-});
-document.getElementById("deleteActiveSetBtn").addEventListener("click", deleteActiveSet);
+  // Share active set
+  document.getElementById("shareActiveSetBtn").addEventListener("click", () => {
+    shareActiveRelaySet();
+  });
+  
+  document.getElementById("deleteActiveSetBtn").addEventListener("click", deleteActiveSet);
+  
   // Add relay button
   document.getElementById("addRelayBtn").addEventListener("click", addRelay);
   
@@ -192,11 +249,14 @@ document.getElementById("deleteActiveSetBtn").addEventListener("click", deleteAc
     editSetMetadata(app.activeRelayList);
   });
   
-  // Create new set button
+  // NEW: Create new set button (moved to actions bar)
   document.getElementById("createNewSetBtn").addEventListener("click", createNewEmptySet);
+  
+  // NEW: Import my relay sets button
+  document.getElementById("importMyRelaySetsBtn").addEventListener("click", importMyRelaySets);
 
-// Delegate events for dynamic content
-const networkContainer = document.querySelector('.network-container-container');
+  // Delegate events for dynamic content
+  const networkContainer = document.querySelector('.network-container-container');
 if (networkContainer) {
   networkContainer.addEventListener("click", (e) => {
     // Helper function to get button text from SVG structure
@@ -1288,10 +1348,224 @@ function buildRelaySetEventData(setData) {
     kind: 30002,
     created_at: now,
     content: "", // Kind 30002 events typically have empty content
-    tags: [...setData.tags] // Use the existing tags from the set
+    tags: [...setData.tags] // Use the existing tags (including d-tag) from the set
   };
 }
+////
+async function importMyRelaySets() {
+  if (!app.myPk) {
+    showTemporaryNotification("You must be logged in to import your relay sets");
+    return;
+  }
 
+  showTemporaryNotification("Fetching your published relay sets...");
+
+  try {
+    // Get extended relays for the user
+    const extendedRelays = await getExtendedRelaysForProfile(app.myPk);
+    const allRelays = [...new Set([...app.globalRelays, ...extendedRelays])];
+
+    // Fetch user's kind:30002 events
+    const relaySetEvents = await NostrClient.getEvents({
+      kinds: [30002],
+      authors: [app.myPk],
+    }, allRelays);
+
+    if (!relaySetEvents || relaySetEvents.length === 0) {
+      showTemporaryNotification("No published relay sets found");
+      return;
+    }
+
+    // Deduplicate by d-tag (keep only latest)
+    const eventsByDtag = new Map();
+    relaySetEvents.forEach(event => {
+      const dTag = event.tags.find(tag => tag[0] === 'd');
+      const dValue = dTag ? dTag[1] : '';
+      const key = dValue;
+      
+      const existing = eventsByDtag.get(key);
+      if (!existing || event.created_at > existing.created_at) {
+        eventsByDtag.set(key, event);
+      }
+    });
+
+    const uniqueEvents = Array.from(eventsByDtag.values());
+
+    // Check for conflicts with local d-tags
+    const conflicts = [];
+    const localDtags = new Set();
+    
+    Object.values(app.relayLists).forEach(localSet => {
+      const dTag = localSet.tags.find(tag => tag[0] === 'd');
+      if (dTag) localDtags.add(dTag[1]);
+    });
+
+    uniqueEvents.forEach(event => {
+      const dTag = event.tags.find(tag => tag[0] === 'd');
+      const dValue = dTag ? dTag[1] : '';
+      if (localDtags.has(dValue)) {
+        const titleTag = event.tags.find(tag => tag[0] === 'title');
+        const title = titleTag ? titleTag[1] : 'Untitled';
+        conflicts.push({ event, title, dValue });
+      }
+    });
+
+    // Show preview modal
+    showImportMyRelaySetsModal(uniqueEvents, conflicts);
+
+  } catch (error) {
+    console.error("Error importing relay sets:", error);
+    showTemporaryNotification("Failed to import relay sets: " + error.message);
+  }
+}
+
+function showImportMyRelaySetsModal(events, conflicts) {
+  const hasConflicts = conflicts.length > 0;
+  const uniqueCount = events.length - conflicts.length;
+
+  // Create list of all events with titles for display
+  const allEventsList = events.map(event => {
+    const titleTag = event.tags.find(tag => tag[0] === 'title');
+    const dTag = event.tags.find(tag => tag[0] === 'd');
+    const title = titleTag ? titleTag[1] : 'Untitled';
+    const dValue = dTag ? dTag[1] : 'no d-tag';
+    return `<li><strong>${escapeHtml(title)}</strong> <span style="color: var(--text-secondary); font-size: 0.9em;">(d-tag: ${escapeHtml(dValue)})</span></li>`;
+  }).join('');
+
+  const conflictsList = conflicts.map(c => 
+    `<li><strong>${escapeHtml(c.title)}</strong> <span style="color: var(--text-secondary); font-size: 0.9em;">(d-tag: ${escapeHtml(c.dValue)})</span></li>`
+  ).join('');
+
+  const content = `
+    <div class="import-my-relay-sets-modal">
+      <div class="import-summary">
+        <p><strong>Found ${events.length} relay set${events.length !== 1 ? 's' : ''} published by you:</strong></p>
+        
+        ${!hasConflicts ? `
+          <div class="sets-list">
+            <ul>${allEventsList}</ul>
+          </div>
+        ` : ''}
+        
+        ${uniqueCount > 0 && hasConflicts ? `<p>✅ ${uniqueCount} new set${uniqueCount !== 1 ? 's' : ''} will be imported</p>` : ''}
+        
+        ${hasConflicts ? `
+          <div class="conflict-warning">
+            <p>⚠️ ${conflicts.length} set${conflicts.length !== 1 ? 's' : ''} already exist${conflicts.length === 1 ? 's' : ''} locally:</p>
+            <ul>${conflictsList}</ul>
+            <p><strong>Do you want to overwrite the existing sets with your published versions?</strong></p>
+          </div>
+        ` : ''}
+      </div>
+      <div class="import-actions">
+        <button class="btn-secondary" id="modalCancelBtn">Cancel</button>
+        ${hasConflicts ? `
+          <button class="btn-secondary" id="modalImportUniqueBtn">Import New Only</button>
+          <button class="btn-primary" id="modalImportAllBtn">Import All (Overwrite)</button>
+        ` : `
+          <button class="btn-primary" id="modalImportAllBtn">Import All</button>
+        `}
+      </div>
+    </div>
+  `;
+
+  const modal = openModal({
+    title: "Import My Relay Sets",
+    content,
+    size: "medium"
+  });
+
+  modal.querySelector("#modalCancelBtn").addEventListener("click", closeModal);
+  
+  const importAllBtn = modal.querySelector("#modalImportAllBtn");
+  if (importAllBtn) {
+    importAllBtn.addEventListener("click", () => {
+      performImport(events, true);
+      closeModal();
+    });
+  }
+
+  const importUniqueBtn = modal.querySelector("#modalImportUniqueBtn");
+  if (importUniqueBtn) {
+    importUniqueBtn.addEventListener("click", () => {
+      performImport(events, false);
+      closeModal();
+    });
+  }
+}
+
+function performImport(events, allowOverwrite) {
+  let importedCount = 0;
+  let skippedCount = 0;
+
+  const localDtags = new Set();
+  Object.values(app.relayLists).forEach(localSet => {
+    const dTag = localSet.tags.find(tag => tag[0] === 'd');
+    if (dTag) localDtags.add(dTag[1]);
+  });
+
+  events.forEach(event => {
+    const dTag = event.tags.find(tag => tag[0] === 'd');
+    const dValue = dTag ? dTag[1] : crypto.randomUUID().replace(/-/g, '').slice(0, 15);
+    
+    const titleTag = event.tags.find(tag => tag[0] === 'title');
+    let title = titleTag ? titleTag[1] : 'Imported Set';
+
+    // Check if d-tag exists locally
+    const dtagExists = localDtags.has(dValue);
+
+    if (dtagExists && !allowOverwrite) {
+      skippedCount++;
+      return; // Skip this one
+    }
+
+    // If d-tag exists and we're overwriting, find and update the existing set
+    if (dtagExists && allowOverwrite) {
+      // Find the set with this d-tag
+      const existingSetName = Object.keys(app.relayLists).find(setName => {
+        const set = app.relayLists[setName];
+        const existingDtag = set.tags.find(tag => tag[0] === 'd');
+        return existingDtag && existingDtag[1] === dValue;
+      });
+
+      if (existingSetName) {
+        // Overwrite the existing set while keeping the d-tag
+        app.relayLists[existingSetName] = {
+          kind: 30002,
+          tags: [...event.tags] // Keep all tags including the original d-tag
+        };
+        importedCount++;
+        return;
+      }
+    }
+
+    // For new sets, make sure title is unique
+    let finalTitle = title;
+    let counter = 1;
+    while (app.relayLists[finalTitle]) {
+      finalTitle = `${title} (${counter})`;
+      counter++;
+    }
+
+    // Create new set preserving the d-tag
+    app.relayLists[finalTitle] = {
+      kind: 30002,
+      tags: [...event.tags] // This includes the original d-tag
+    };
+    importedCount++;
+  });
+
+  saveRelayLists();
+  updateAllNetworkUI();
+
+  if (importedCount > 0 && skippedCount > 0) {
+    showTemporaryNotification(`Imported ${importedCount} set${importedCount !== 1 ? 's' : ''}, skipped ${skippedCount} duplicate${skippedCount !== 1 ? 's' : ''}`);
+  } else if (importedCount > 0) {
+    showTemporaryNotification(`Successfully imported ${importedCount} relay set${importedCount !== 1 ? 's' : ''}!`);
+  } else {
+    showTemporaryNotification("No new relay sets to import");
+  }
+}
 
 
 // =============================================
@@ -1518,5 +1792,384 @@ function updateButtonVisibility() {
     if (regularSets.length <= 1) {
       deleteBtn.style.display = 'none';
     }
+  }
+}
+
+
+
+////////////////////////////
+// ALLOWED MEDIA SERVERS - SIMPLIFIED
+////////////////////////////
+
+function setupMediaWhitelistSettings(container) {
+  renderWhitelistDomains(container);
+
+  const addDomainBtn = container.querySelector(".add-domain-btn");
+  const addDomainForm = container.querySelector(".add-domain-form");
+  const domainInput = container.querySelector(".domain-input");
+  const confirmAddBtn = container.querySelector(".confirm-add-btn");
+  const cancelAddBtn = container.querySelector(".cancel-add-btn");
+
+  addDomainBtn.addEventListener("click", () => {
+    addDomainForm.style.display = "flex";
+    domainInput.focus();
+  });
+
+  cancelAddBtn.addEventListener("click", () => {
+    addDomainForm.style.display = "none";
+    domainInput.value = "";
+  });
+
+  confirmAddBtn.addEventListener("click", () => {
+    const domain = domainInput.value.trim().toLowerCase();
+    if (addDomainToWhitelistManually(domain)) {
+      renderWhitelistDomains(container);
+      addDomainForm.style.display = "none";
+      domainInput.value = "";
+    }
+  });
+
+  domainInput.addEventListener("keypress", (e) => {
+    if (e.key === "Enter") {
+      confirmAddBtn.click();
+    } else if (e.key === "Escape") {
+      cancelAddBtn.click();
+    }
+  });
+}
+
+function renderWhitelistDomains(container) {
+  const domainsContainer = container.querySelector("#whitelistDomainsContainer");
+  if (!domainsContainer) return;
+  
+  const domains = app.mediaServerWhitelist;
+  
+  if (domains.length === 0) {
+    domainsContainer.innerHTML = '<div class="empty-whitelist">No trusted domains added yet.</div>';
+    return;
+  }
+
+  domainsContainer.innerHTML = domains
+    .map((domain, index) => createDomainItemHTML(domain, index))
+    .join("");
+
+  // Add remove event listeners
+  domainsContainer.querySelectorAll(".remove-domain-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      const domainItem = e.target.closest(".domain-item");
+      const domain = domainItem.dataset.domain;
+      removeDomainFromWhitelist(domain);
+      renderWhitelistDomains(container);
+    });
+  });
+}
+
+function createDomainItemHTML(domain, index) {
+  // Get ping data from dataset if available
+  const domainElement = document.querySelector(`[data-domain="${domain}"]`);
+  const pingTime = domainElement?.dataset.pingTime || '';
+  const pingStatus = domainElement?.dataset.pingStatus || '';
+  
+  let statusHTML = '';
+  if (pingStatus === 'checking') {
+    statusHTML = '<span class="ping-status status-checking">Checking...</span>';
+  } else if (pingTime) {
+    const timeClass = getPingTimeClass(parseInt(pingTime));
+    const statusClass = getStatusClassFromTime(parseInt(pingTime));
+    statusHTML = `
+      <span class="ping-status ${statusClass}">${getPingStatusText(statusClass)}</span>
+      <span class="ping-time ${timeClass}">${pingTime}ms</span>
+    `;
+  }
+  
+  return `
+    <div class="domain-item" data-domain="${escapeHtml(domain)}" data-index="${index}" data-ping-time="${pingTime}" data-ping-status="${pingStatus}">
+      <div class="domain-info">
+        <div class="domain-name-row">
+          <span class="domain-name">${escapeHtml(domain)}</span>
+          <span class="domain-index">#${index + 1}</span>
+        </div>
+        <div class="domain-ping-info">
+          ${statusHTML}
+        </div>
+      </div>
+      <div class="domain-actions">
+        <button class="remove-domain-btn">Remove</button>
+      </div>
+    </div>
+  `;
+}
+
+function getPingTimeClass(time) {
+  if (time < 300) return 'ping-fast';
+  if (time < 1000) return 'ping-medium';
+  if (time < 2000) return 'ping-slow';
+  return 'ping-very-slow';
+}
+
+function getStatusClassFromTime(time) {
+  if (time < 1000) return 'status-online';
+  if (time < 2000) return 'status-slow';
+  return 'status-very-slow';
+}
+
+function getPingStatusText(statusClass) {
+  switch (statusClass) {
+    case 'status-online': return '✓ Fast';
+    case 'status-slow': return '⚠ Slow';
+    case 'status-very-slow': return '⚠ Very Slow';
+    case 'status-offline': return '✗ Offline';
+    default: return '';
+  }
+}
+
+function addDomainToWhitelistManually(domain) {
+  if (!domain) {
+    showTemporaryNotification("Please enter a domain");
+    return false;
+  }
+  
+  const normalizedDomain = normalizeDomain(domain);
+  
+  if (!isValidDomain(normalizedDomain)) {
+    showTemporaryNotification("Please enter a valid domain format (e.g., cdn.example.com)");
+    return false;
+  }
+
+  if (app.mediaServerWhitelist.includes(normalizedDomain)) {
+    showTemporaryNotification("Domain is already in the whitelist");
+    return false;
+  }
+
+  app.mediaServerWhitelist.push(normalizedDomain);
+  localStorage.setItem("mediaServerWhitelist", JSON.stringify(app.mediaServerWhitelist));
+  showTemporaryNotification(`Added ${normalizedDomain} to whitelist`);
+  return true;
+}
+
+function removeDomainFromWhitelist(domain) {
+  const index = app.mediaServerWhitelist.indexOf(domain);
+  if (index > -1) {
+    app.mediaServerWhitelist.splice(index, 1);
+    localStorage.setItem("mediaServerWhitelist", JSON.stringify(app.mediaServerWhitelist));
+    showTemporaryNotification(`Removed ${domain} from whitelist`);
+  }
+}
+
+function isValidDomain(domain) {
+  domain = domain.trim().toLowerCase();
+  domain = domain.replace(/^(https?:\/\/)?/, '');
+  domain = domain.replace(/\/$/, '');
+  
+  if (domain.includes('/')) return false;
+  
+  const withPortRegex = /^([a-z0-9.-]+|\[[a-f0-9:]+\])(:\d+)?$/i;
+  if (!withPortRegex.test(domain)) return false;
+  
+  const domainPart = domain.split(':')[0];
+  const domainRegex = /^(?:(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]|localhost|\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|\[[a-f0-9:]+\])$/i;
+  
+  if (!domainRegex.test(domainPart)) return false;
+  
+  if (domainPart.match(/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/)) {
+    const parts = domainPart.split('.');
+    if (parts.some(part => parseInt(part) > 255)) return false;
+  }
+  
+  return true;
+}
+
+function normalizeDomain(domain) {
+  let normalized = domain.trim().toLowerCase();
+  normalized = normalized.replace(/^(https?:\/\/)?/, '');
+  normalized = normalized.replace(/\/$/, '');
+  normalized = normalized.split('/')[0];
+  return normalized;
+}
+
+// Main check all function - pings and sorts automatically
+async function checkAllServers() {
+  const container = document.querySelector(".allowed-servers-container");
+  if (!container) return;
+  
+  const domains = app.mediaServerWhitelist;
+  if (domains.length === 0) {
+    showTemporaryNotification("No servers to check");
+    return;
+  }
+  
+  const checkButton = document.getElementById("checkAllServersBtn");
+  if (checkButton) {
+    checkButton.disabled = true;
+    checkButton.innerHTML = `
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spinner">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+      </svg>
+      Checking...
+    `;
+  }
+  
+  // Mark all as checking
+  const domainItems = container.querySelectorAll('.domain-item');
+  domainItems.forEach(item => {
+    item.dataset.pingStatus = 'checking';
+    const pingInfo = item.querySelector('.domain-ping-info');
+    if (pingInfo) {
+      pingInfo.innerHTML = '<span class="ping-status status-checking">Checking...</span>';
+    }
+  });
+  
+  // Ping all servers and update as results come in
+  const results = [];
+  for (const domain of domains) {
+    try {
+      const result = await pingServer(domain);
+      results.push({ domain, ...result });
+      
+      // Update this specific domain immediately
+      const domainItem = container.querySelector(`[data-domain="${domain}"]`);
+      if (domainItem && result.time) {
+        domainItem.dataset.pingTime = result.time;
+        domainItem.dataset.pingStatus = result.status;
+        const pingInfo = domainItem.querySelector('.domain-ping-info');
+        const timeClass = getPingTimeClass(result.time);
+        const statusClass = getStatusClassFromTime(result.time);
+        if (pingInfo) {
+          pingInfo.innerHTML = `
+            <span class="ping-status ${statusClass}">${getPingStatusText(statusClass)}</span>
+            <span class="ping-time ${timeClass}">${result.time}ms</span>
+          `;
+        }
+      } else if (domainItem) {
+        domainItem.dataset.pingStatus = 'offline';
+        const pingInfo = domainItem.querySelector('.domain-ping-info');
+        if (pingInfo) {
+          pingInfo.innerHTML = '<span class="ping-status status-offline">✗ Offline</span>';
+        }
+      }
+    } catch (error) {
+      results.push({ domain, time: null, status: 'offline' });
+      const domainItem = container.querySelector(`[data-domain="${domain}"]`);
+      if (domainItem) {
+        domainItem.dataset.pingStatus = 'offline';
+        const pingInfo = domainItem.querySelector('.domain-ping-info');
+        if (pingInfo) {
+          pingInfo.innerHTML = '<span class="ping-status status-offline">✗ Offline</span>';
+        }
+      }
+    }
+  }
+  
+  // Sort the list
+  sortDomainsByPing(container);
+  
+  // Re-enable button
+  if (checkButton) {
+    checkButton.disabled = false;
+    checkButton.innerHTML = `
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15.91 11.672a.375.375 0 010 .656l-5.603 3.113a.375.375 0 01-.557-.328V8.887c0-.286.307-.466.557-.327l5.603 3.112z" />
+      </svg>
+      Check All Servers
+    `;
+  }
+  
+  const onlineCount = results.filter(r => r.time !== null).length;
+  showTemporaryNotification(`Check complete: ${onlineCount}/${domains.length} servers responding`);
+}
+
+async function pingServer(domain) {
+  return new Promise((resolve) => {
+    const startTime = Date.now();
+    const timeout = 3000;
+    let resolved = false;
+    
+    const protocols = ['https://', 'http://'];
+    let currentProtocol = 0;
+    
+    const tryPing = () => {
+      if (currentProtocol >= protocols.length) {
+        if (!resolved) {
+          resolved = true;
+          resolve({ time: null, status: 'offline' });
+        }
+        return;
+      }
+      
+      const url = protocols[currentProtocol] + domain;
+      const controller = new AbortController();
+      
+      const timeoutId = setTimeout(() => {
+        controller.abort();
+        currentProtocol++;
+        tryPing();
+      }, timeout);
+      
+      fetch(url, {
+        method: 'HEAD',
+        mode: 'no-cors',
+        signal: controller.signal,
+        cache: 'no-cache'
+      })
+      .then(() => {
+        clearTimeout(timeoutId);
+        if (!resolved) {
+          resolved = true;
+          const pingTime = Date.now() - startTime;
+          let status = 'online';
+          if (pingTime >= 1000) status = 'slow';
+          if (pingTime >= 2000) status = 'very-slow';
+          resolve({ time: pingTime, status });
+        }
+      })
+      .catch(() => {
+        clearTimeout(timeoutId);
+        currentProtocol++;
+        tryPing();
+      });
+    };
+    
+    tryPing();
+  });
+}
+
+function sortDomainsByPing(container) {
+  const domainsContainer = container.querySelector("#whitelistDomainsContainer");
+  if (!domainsContainer) return;
+  
+  const items = Array.from(domainsContainer.querySelectorAll('.domain-item'));
+  
+  items.sort((a, b) => {
+    const timeA = parseInt(a.dataset.pingTime) || 999999;
+    const timeB = parseInt(b.dataset.pingTime) || 999999;
+    const statusA = a.dataset.pingStatus;
+    const statusB = b.dataset.pingStatus;
+    
+    // Offline items go to the end
+    if (statusA === 'offline' && statusB !== 'offline') return 1;
+    if (statusB === 'offline' && statusA !== 'offline') return -1;
+    if (statusA === 'offline' && statusB === 'offline') return 0;
+    
+    // Sort by time
+    return timeA - timeB;
+  });
+  
+  // Re-append in sorted order and update indices
+  items.forEach((item, index) => {
+    item.dataset.index = index;
+    const indexSpan = item.querySelector('.domain-index');
+    if (indexSpan) {
+      indexSpan.textContent = `#${index + 1}`;
+    }
+    domainsContainer.appendChild(item);
+  });
+}
+
+function setupAllowedServersEventListeners() {
+  const checkAllBtn = document.getElementById("checkAllServersBtn");
+  
+  if (checkAllBtn) {
+    checkAllBtn.addEventListener("click", checkAllServers);
   }
 }

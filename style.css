@@ -637,8 +637,7 @@ h1 {
 
 .settings-section .settings-group,
 .settings-section .tags-management-section,
-.settings-section .search-relay-section,
-.settings-section .media-whitelist-section {
+.settings-section .search-relay-section {
   transition: all 0.3s ease;
   overflow: hidden;
 }
@@ -1018,50 +1017,6 @@ h1 {
   font-size: 14px;
 }
 
-/* Domain Whitelist */
-.settings-container .whitelist-domains {
-  margin-top: 16px;
-}
-
-.settings-container .domain-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px;
-  margin-bottom: 8px;
-  background-color: var(--background);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-}
-
-.settings-container .domain-name {
-  font-family: "Courier New", monospace;
-  font-size: 13px;
-  color: var(--text);
-}
-
-.settings-container .remove-domain-btn {
-  padding: 6px 12px;
-  background-color: var(--background);
-  color: var(--text);
-  border: 1px solid red;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.settings-container .remove-domain-btn:hover {
-  background-color: var(--surface);
-}
-
-.settings-container .empty-whitelist {
-  padding: 20px;
-  text-align: center;
-  color: var(--text-secondary);
-  font-style: italic;
-  font-size: 14px;
-}
 
 /* Debug Section */
 .settings-container .debug {
@@ -8609,6 +8564,64 @@ noscript {
   font-size: 1.2em;
 }
 
+.relay-set-actions-bar {
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0;
+}
+
+.relay-set-actions-bar button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.relay-set-actions-bar button svg {
+  width: 18px;
+  height: 18px;
+}
+
+.conflict-warning {
+  margin-top: 16px;
+  padding: 12px;
+  background: rgba(255, 193, 7, 0.1);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  border-radius: 4px;
+}
+
+.conflict-warning ul {
+  margin: 8px 0;
+  padding-left: 24px;
+}
+
+.import-my-relay-sets-modal .import-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
+  justify-content: flex-end;
+}
+
+.sets-list {
+  margin: 12px 0;
+  padding: 12px;
+  background: var(--background, rgba(0, 0, 0, 0.1));
+  border-radius: 4px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.sets-list ul {
+  margin: 0;
+  padding-left: 24px;
+}
+
+.sets-list li {
+  margin: 6px 0;
+}
+
 .active-set-title {
   margin-top: -1rem;
   margin-bottom: 1.5rem;
@@ -9245,7 +9258,6 @@ noscript {
 .network-tab-button.active {
   color: var(--primary);
   border-bottom-color: var(--primary);
-  font-weight: bold;
 }
 
 /* Tab Content */
@@ -9553,6 +9565,294 @@ noscript {
 
   .create-option {
     padding: 15px;
+  }
+}
+/*******/
+/* ===================================
+   ALLOWED SERVERS TAB
+   =================================== */
+
+.allowed-servers-container {
+  padding: 20px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.allowed-servers-container h2 {
+  margin-bottom: 8px;
+}
+
+.allowed-servers-description {
+  color: var(--text-secondary);
+  margin-bottom: 24px;
+  font-size: 0.95em;
+}
+
+/* Server Controls */
+.server-controls {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+/* Domain List */
+.whitelist-domains {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 100px;
+}
+
+.empty-whitelist {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-secondary);
+  font-style: italic;
+  border: 2px dashed var(--border);
+  border-radius: 8px;
+}
+
+/* Domain Item */
+.domain-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  background: var(--background);
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  transition: all 0.2s ease;
+}
+
+.domain-item:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.domain-item.sorting {
+  opacity: 0.7;
+  transform: scale(0.98);
+}
+
+/* Domain Info */
+.domain-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.domain-name-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  gap: 12px;
+}
+
+.domain-name {
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+  font-size: 0.95em;
+  color: var(--text);
+  word-break: break-all;
+  flex: 1;
+}
+
+.domain-index {
+  display: none;
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: 0.75em;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.domain-ping-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85em;
+  flex-wrap: wrap;
+}
+
+/* Ping Status Badges */
+.ping-status {
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-weight: 500;
+  font-size: 0.8em;
+}
+
+.status-online {
+  background: rgba(46, 204, 113, 0.15);
+  color: #2ecc71;
+}
+
+.status-slow {
+  background: rgba(241, 196, 15, 0.15);
+  color: #f1c40f;
+}
+
+.status-very-slow {
+  background: rgba(230, 126, 34, 0.15);
+  color: #e67e22;
+}
+
+.status-offline {
+  background: rgba(231, 76, 60, 0.15);
+  color: #e74c3c;
+}
+
+.status-checking {
+  background: rgba(52, 152, 219, 0.15);
+  color: #3498db;
+}
+
+/* Ping Time Colors */
+.ping-time {
+  font-weight: 500;
+  font-size: 0.85em;
+}
+
+.ping-fast {
+  color: #2ecc71;
+}
+
+.ping-medium {
+  color: #f1c40f;
+}
+
+.ping-slow {
+  color: #e67e22;
+}
+
+.ping-very-slow {
+  color: #e74c3c;
+}
+
+/* Domain Actions */
+.domain-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-left: 16px;
+}
+
+.remove-domain-btn {
+  padding: 8px 16px;
+  background: var(--background);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9em;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.remove-domain-btn:hover {
+  background: var(--surface);
+  border-color: var(--danger, #e74c3c);
+  color: var(--danger, #e74c3c);
+}
+
+/* Add Domain Form */
+.add-domain-form {
+  display: none;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 16px;
+  background: var(--surface);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.add-domain-form[style*="display: flex"] {
+  display: flex;
+}
+
+.domain-input {
+  flex: 1;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--background);
+  color: var(--text);
+  font-size: 0.95em;
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+}
+
+.domain-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(var(--primary-rgb, 52, 152, 219), 0.1);
+}
+
+.form-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* Loading Animation */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+/* Ranking Highlights (after sort) */
+.domain-item.top-server {
+  border-left: 4px solid #2ecc71;
+  background: linear-gradient(90deg, rgba(46, 204, 113, 0.05) 0%, transparent 100%);
+}
+
+.domain-item.second-server {
+  border-left: 4px solid #f1c40f;
+  background: linear-gradient(90deg, rgba(241, 196, 15, 0.05) 0%, transparent 100%);
+}
+
+.domain-item.third-server {
+  border-left: 4px solid #3498db;
+  background: linear-gradient(90deg, rgba(52, 152, 219, 0.05) 0%, transparent 100%);
+}
+
+/* Responsive Design */
+@media (max-width: 640px) {
+  .allowed-servers-container {
+    padding: 16px;
+  }
+  
+  .domain-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .domain-actions {
+    width: 100%;
+    margin-left: 0;
+  }
+  
+  .remove-domain-btn {
+    flex: 1;
+  }
+  
+  .server-controls {
+    flex-direction: column;
+  }
+  
+  .add-domain-form {
+    flex-direction: column;
+  }
+  
+  .form-actions {
+    width: 100%;
+  }
+  
+  .form-actions button {
+    flex: 1;
   }
 }
 /*******************************/

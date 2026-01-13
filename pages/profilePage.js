@@ -92,14 +92,15 @@ async function profilePageHandler() {
         </div>
       </div>
       
-      <div class="profile-tabs">
-        <div class="tab-scroll-container">
-          <button class="profile-tab-button active" data-tab="videos">Videos</button>
-          <button class="profile-tab-button" data-tab="playlists">Playlists</button>
-          <button class="profile-tab-button" data-tab="relay-sets">Relay Sets</button>
-          <button class="profile-tab-button" data-tab="posts">Posts</button>
-        </div>
-      </div>
+<div class="profile-tabs">
+  <div class="tab-scroll-container">
+    <button class="profile-tab-button active" data-tab="videos">Videos</button>
+    <button class="profile-tab-button" data-tab="playlists">Playlists</button>
+    <button class="profile-tab-button" data-tab="relay-sets">Relay Sets</button>
+    <button class="profile-tab-button" data-tab="posts">Posts</button>
+    <button class="profile-tab-button" data-tab="liked-videos">Liked Videos</button>
+  </div>
+</div>
 
       <div class="profile-tab-content">
         <div id="videos-tab" class="profile-tab-panel active">
@@ -129,6 +130,13 @@ async function profilePageHandler() {
             <p>Coming soon...</p>
           </div>
         </div>
+
+<div id="liked-videos-tab" class="profile-tab-panel">
+  <div id="channelLikedVideos">
+    <h1>Searching for liked videos</h1>
+    <p>Loading liked video events...</p>
+  </div>
+</div>        
       </div>
     </div>
   `;
@@ -1224,6 +1232,83 @@ async function loadProfileRelaySets(profile, extendedRelays) {
   relaySetsContent.dataset.loaded = "true";
 }
 
+async function loadProfileLikedVideos(profile, extendedRelays) {
+  const likedVideosContent = document.getElementById("channelLikedVideos");
+  if (!likedVideosContent) return;
+
+  // Check if already loaded
+  if (likedVideosContent.dataset.loaded === "true") {
+    return;
+  }
+
+  const allRelays = [...new Set([...app.globalRelays, ...extendedRelays])];
+  
+  console.log(`Loading liked videos from ${allRelays.length} relays`);
+
+  app.profileLikedVideosPool = new window.NostrTools.SimplePool();
+
+  // Register cleanup for this tab
+  const cleanup = () => {
+    console.log("Cleaning up profile liked videos resources");
+    
+    if (app.profileLikedVideosPool) {
+      app.profileLikedVideosPool.close(allRelays);
+      app.profileLikedVideosPool = null;
+    }
+  };
+
+  profileTabState.cleanupFunctions['liked-videos'] = cleanup;
+  registerCleanup(cleanup);
+
+  likedVideosContent.innerHTML = `
+    <h1>Liked Videos</h1>
+    <p>Searching for liked videos...</p>
+    <div class="videos-grid"></div>
+  `;
+
+  const grid = likedVideosContent.querySelector(".videos-grid");
+
+  try {
+    console.log(`Fetching liked videos for user: ${profile.slice(0, 8)}...`);
+    
+    let videos = await NostrClient.getLikedVideosByUser(profile);
+    videos = videos.map(sanitizeNostrEvent).filter(v => v !== null);
+    
+    const headerP = likedVideosContent.querySelector("h1 + p");
+    
+    if (videos.length === 0) {
+      if (headerP) {
+        headerP.textContent = 'No liked videos found';
+      }
+      likedVideosContent.dataset.loaded = "true";
+      return;
+    }
+    
+    console.log(`Displaying ${videos.length} liked videos`);
+    
+    if (headerP) {
+      headerP.textContent = `Found ${videos.length} liked video${videos.length !== 1 ? 's' : ''}`;
+    }
+    
+    // Render videos with stagger effect
+    videos.forEach((video, index) => {
+      setTimeout(() => {
+        const card = createVideoCard(video);
+        grid.appendChild(card);
+      }, index * 50);
+    });
+    
+  } catch (error) {
+    console.error("Error loading liked videos:", error);
+    const headerP = likedVideosContent.querySelector("h1 + p");
+    if (headerP) {
+      headerP.textContent = 'Error loading liked videos';
+    }
+  }
+
+  likedVideosContent.dataset.loaded = "true";
+}
+
 // Helper function to render relay set card content
 function renderRelaySetCardContent(card, event) {
   const getValueFromTags = (tags, key, defaultValue = "") => {
@@ -2053,6 +2138,14 @@ function setupProfileTabEventListeners(profile, extendedRelays) {
         case "posts":
           console.log("Posts tab selected (placeholder)");
           break;
+
+  case "liked-videos":
+    console.log("Liked videos tab selected");
+    const likedVideosContent = document.getElementById("channelLikedVideos");
+    if (likedVideosContent && !likedVideosContent.dataset.loaded) {
+      await loadProfileLikedVideos(profile, extendedRelays);
+    }
+    break;          
       }
 
       // Scroll the active button into view

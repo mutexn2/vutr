@@ -48,17 +48,17 @@ async function homePageHandler() {
     
     // Infinite scroll state
     const scrollState = {
-      currentTimestamp: Math.floor(Date.now() / 1000), // Current time in seconds
-      oldestTimestamp: null, // Will be set to the oldest event we've loaded
+      currentTimestamp: Math.floor(Date.now() / 1000),
       isLoading: false,
       hasMoreContent: true,
       eventsPerPage: 40,
       loadedEventsCount: 0,
       existingEventIds: new Set(),
       filterParams: filterParams,
-      emptyPeriodCount: 0, // Track consecutive empty periods
-      maxEmptyPeriods: 3, // Stop after 3 consecutive empty periods at max size
-      currentPeriodSize: 24 * 60 * 60, // Start with 1 day in seconds
+      // GLOBAL period management (shared across all relays)
+      emptyPeriodCount: 0,
+      maxEmptyPeriods: 3,
+      currentPeriodSize: 24 * 60 * 60, // Start with 1 day
       periodSizes: [
         1 * 24 * 60 * 60,    // 1 day
         7 * 24 * 60 * 60,    // 1 week
@@ -67,8 +67,19 @@ async function homePageHandler() {
         180 * 24 * 60 * 60,  // 6 months
         365 * 24 * 60 * 60,  // 1 year
       ],
-      periodIndex: 0, // Current position in periodSizes array
+      periodIndex: 0,
+      // Per-relay state tracking
+      relayStates: {},
     };
+
+    // Initialize per-relay state
+    app.relays.forEach(relay => {
+      scrollState.relayStates[relay] = {
+        oldestTimestamp: null,
+        hasMoreContent: true,
+        isActive: true,
+      };
+    });
 
     // Initialize SimplePool
     app.homePool = new window.NostrTools.SimplePool();
@@ -90,41 +101,40 @@ async function homePageHandler() {
       }
     });
 
-function renderEventImmediately(event) {
-  // Filter before creating the card
-  if (!shouldDisplayVideo(event)) {
-    return; // Don't render, don't increment count
-  }
-  
-  const card = createVideoCard(event);
-  grid.appendChild(card);
-  
-  // Add entrance animation
-  card.style.opacity = '0';
-  card.style.transform = 'translateY(-10px)';
-  
-  requestAnimationFrame(() => {
-    card.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-    card.style.opacity = '1';
-    card.style.transform = 'translateY(0)';
-  });
-  
-  scrollState.loadedEventsCount++;
-}
-    // Function to increase period size adaptively
+    function renderEventImmediately(event) {
+      // Filter before creating the card
+      if (!shouldDisplayVideo(event)) {
+        return;
+      }
+      
+      const card = createVideoCard(event);
+      grid.appendChild(card);
+      
+      // Add entrance animation
+      card.style.opacity = '0';
+      card.style.transform = 'translateY(-10px)';
+      
+      requestAnimationFrame(() => {
+        card.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+        card.style.opacity = '1';
+        card.style.transform = 'translateY(0)';
+      });
+      
+      scrollState.loadedEventsCount++;
+    }
+
+    // Function to increase period size GLOBALLY
     function increasePeriodSize() {
       if (scrollState.periodIndex < scrollState.periodSizes.length - 1) {
         scrollState.periodIndex++;
         scrollState.currentPeriodSize = scrollState.periodSizes[scrollState.periodIndex];
-      //  const periodName = ['1 day', '1 week', '1 month', '3 months', '6 months', '1 year'][scrollState.periodIndex];
-      //  console.log(`Increasing search period to: ${periodName}`);
         return true;
       }
-      return false; // Already at maximum period size
+      return false;
     }
 
-    // Function to load events for a time period with immediate rendering
-    async function loadEventsForPeriod(since, until, renderImmediately = false) {
+    // Function to load events from a SINGLE relay for a time period
+    async function loadEventsForPeriodFromRelay(relay, since, until, renderImmediately = false) {
       return new Promise((resolve) => {
         const events = [];
         let isComplete = false;
@@ -140,23 +150,21 @@ function renderEventImmediately(event) {
           filter["#t"] = scrollState.filterParams.tags;
         }
 
-        // Add user's date filter if specified (affects initial load only)
-        if (scrollState.filterParams.dateFilter !== "any" && !scrollState.oldestTimestamp) {
+        // Add user's date filter if specified
+        const relayState = scrollState.relayStates[relay];
+        if (scrollState.filterParams.dateFilter !== "any" && !relayState.oldestTimestamp) {
           const userSince = getDateFilterTimestamp(scrollState.filterParams.dateFilter);
           if (userSince && userSince > since) {
             filter.since = userSince;
           }
         }
 
-      //  const periodName = ['1 day', '1 week', '1 month', '3 months', '6 months', '1 year'][scrollState.periodIndex];
-      //  console.log(`Loading events with ${periodName} period, filter:`, filter);
-
         const sub = app.homePool.subscribe(
-          app.relays,
+          [relay], // Single relay only
           filter,
           {
             onevent(event) {
-              // Skip duplicates
+              // Skip duplicates (global check)
               if (!scrollState.existingEventIds.has(event.id)) {
                 const sanitizedEvent = sanitizeNostrEvent(event);
                 if (sanitizedEvent) {
@@ -174,7 +182,6 @@ function renderEventImmediately(event) {
               if (!isComplete) {
                 isComplete = true;
                 sub.close();
-          //      console.log(`Loaded ${events.length} events for period ${since} to ${until}`);
                 resolve(events);
               }
             },
@@ -187,7 +194,7 @@ function renderEventImmediately(event) {
           }
         );
 
-        // Timeout fallback
+        // Timeout fallback (per relay)
         setTimeout(() => {
           if (!isComplete) {
             isComplete = true;
@@ -198,7 +205,54 @@ function renderEventImmediately(event) {
       });
     }
 
-    // Function to load more events going back in time
+    // Function to load from a single relay continuously
+    async function loadFromSingleRelay(relay, targetEventCount) {
+      const relayState = scrollState.relayStates[relay];
+      
+      if (!relayState.isActive || !relayState.hasMoreContent) {
+        return 0;
+      }
+
+      const startCount = scrollState.loadedEventsCount;
+      let currentUntil = relayState.oldestTimestamp || scrollState.currentTimestamp;
+      let currentSince = currentUntil - scrollState.currentPeriodSize; // Use GLOBAL period size
+
+      // Keep loading from this relay until global target is reached or relay exhausted
+      while (scrollState.loadedEventsCount < targetEventCount && relayState.hasMoreContent && relayState.isActive) {
+        const periodEvents = await loadEventsForPeriodFromRelay(relay, currentSince, currentUntil, true);
+        
+        if (periodEvents.length === 0) {
+          // Move to previous period with GLOBAL period size
+          currentUntil = currentSince;
+          currentSince = currentUntil - scrollState.currentPeriodSize;
+          
+          if (currentUntil < 0) {
+            relayState.hasMoreContent = false;
+            relayState.isActive = false;
+            break;
+          }
+          
+          continue;
+        }
+
+        // Update relay's position
+        const oldestEvent = periodEvents.reduce((oldest, event) => 
+          event.created_at < oldest.created_at ? event : oldest
+        );
+        relayState.oldestTimestamp = oldestEvent.created_at;
+        currentUntil = oldestEvent.created_at;
+        currentSince = currentUntil - scrollState.currentPeriodSize; // Use GLOBAL period size
+        
+        // Check if we've reached global target
+        if (scrollState.loadedEventsCount >= targetEventCount) {
+          break;
+        }
+      }
+
+      return scrollState.loadedEventsCount - startCount;
+    }
+
+    // Main function to load events from all relays in parallel
     async function loadMoreEvents() {
       if (scrollState.isLoading || !scrollState.hasMoreContent) {
         return;
@@ -210,71 +264,58 @@ function renderEventImmediately(event) {
       loadMoreStatus.style.display = 'block';
 
       const startLoadedCount = scrollState.loadedEventsCount;
-      
-      // Start from where we left off, or from now
-      let currentUntil = scrollState.oldestTimestamp || scrollState.currentTimestamp;
-      let currentSince = currentUntil - scrollState.currentPeriodSize;
+      const targetCount = startLoadedCount + scrollState.eventsPerPage;
 
-   //   console.log(`Loading more events, starting from timestamp: ${currentUntil}`);
-
-      // Keep loading until we get enough events
-      while ((scrollState.loadedEventsCount - startLoadedCount) < scrollState.eventsPerPage && scrollState.hasMoreContent) {
-        const periodEvents = await loadEventsForPeriod(currentSince, currentUntil, true); // true = render immediately
+      // Keep loading until we get enough events or run out of content
+      while (scrollState.loadedEventsCount < targetCount && scrollState.hasMoreContent) {
+        const batchStartCount = scrollState.loadedEventsCount;
         
-        if (periodEvents.length === 0) {
-          // No events found in this period
+        // Start all relays in parallel for this time period
+        const relayPromises = app.relays.map(relay => 
+          loadFromSingleRelay(relay, targetCount)
+        );
+
+        // Wait for all relays to complete this batch
+        await Promise.all(relayPromises);
+
+        const eventsInThisBatch = scrollState.loadedEventsCount - batchStartCount;
+        
+        if (eventsInThisBatch === 0) {
+          // No events found in this period across ALL relays
           scrollState.emptyPeriodCount++;
-        //  console.log(`No events found for current period, empty count: ${scrollState.emptyPeriodCount}/${scrollState.maxEmptyPeriods}`);
           
           // Check if we should increase period size
-          if (scrollState.emptyPeriodCount >= 2) { // After 2 empty periods, increase size
+          if (scrollState.emptyPeriodCount >= 2) {
             const increased = increasePeriodSize();
             if (increased) {
-              // Reset empty counter and try with new period size
               scrollState.emptyPeriodCount = 0;
-              currentSince = currentUntil - scrollState.currentPeriodSize;
+              // Continue with new period size
               continue;
             } else {
-              // Already at max period size, check if we should stop
+              // Already at max period size
               if (scrollState.emptyPeriodCount >= scrollState.maxEmptyPeriods) {
-              //  console.log(`Reached ${scrollState.maxEmptyPeriods} consecutive empty periods at maximum period size, stopping`);
                 scrollState.hasMoreContent = false;
                 break;
               }
             }
           }
           
-          // Move to previous period
-          currentUntil = currentSince;
-          currentSince = currentUntil - scrollState.currentPeriodSize;
+          // Check if ANY relay still has content
+          const anyRelayHasContent = Object.values(scrollState.relayStates).some(
+            state => state.hasMoreContent && state.isActive
+          );
           
-          // Safety check: don't go before Unix epoch start
-          if (currentUntil < 0) {
-            console.log("Reached beginning of time, stopping");
+          if (!anyRelayHasContent) {
             scrollState.hasMoreContent = false;
             break;
           }
-          
-          continue;
-        }
-
-        // Reset empty counter since we found events
-        scrollState.emptyPeriodCount = 0;
-
-        // Update our position to the oldest event in this batch
-        const oldestEvent = periodEvents.reduce((oldest, event) => 
-          event.created_at < oldest.created_at ? event : oldest
-        );
-        scrollState.oldestTimestamp = oldestEvent.created_at;
-        currentUntil = oldestEvent.created_at;
-        currentSince = currentUntil - scrollState.currentPeriodSize;
-        
-      //  console.log(`Loaded ${periodEvents.length} events, total loaded this batch: ${scrollState.loadedEventsCount - startLoadedCount}`);
-        
-        // If we got fewer events than a full page, try the previous period
-        if ((scrollState.loadedEventsCount - startLoadedCount) < scrollState.eventsPerPage) {
-          continue;
         } else {
+          // Reset empty counter since we found events
+          scrollState.emptyPeriodCount = 0;
+        }
+        
+        // If we got enough events, stop
+        if (scrollState.loadedEventsCount >= targetCount) {
           break;
         }
       }
@@ -283,7 +324,12 @@ function renderEventImmediately(event) {
       loadMoreStatus.style.display = 'none';
 
       const loadedThisBatch = scrollState.loadedEventsCount - startLoadedCount;
-    //  console.log(`Finished loading batch: ${loadedThisBatch} new events, total: ${scrollState.loadedEventsCount}`);
+      
+      // Check if ANY relay still has content
+      const anyRelayHasContent = Object.values(scrollState.relayStates).some(
+        state => state.hasMoreContent && state.isActive
+      );
+      scrollState.hasMoreContent = anyRelayHasContent;
       
       if (scrollState.hasMoreContent && loadedThisBatch > 0) {
         loadMoreBtn.style.display = 'block';
@@ -291,7 +337,6 @@ function renderEventImmediately(event) {
         loadMoreStatus.textContent = 'No more videos to load';
         loadMoreStatus.style.display = 'block';
       } else if (loadedThisBatch === 0) {
-        // No new events loaded
         loadMoreStatus.textContent = 'No more videos to load';
         loadMoreStatus.style.display = 'block';
         scrollState.hasMoreContent = false;
@@ -341,7 +386,7 @@ function renderEventImmediately(event) {
       app.relays,
       {
         kinds: [21],
-        since: scrollState.currentTimestamp, // Only new events from now on
+        since: scrollState.currentTimestamp,
         "#t": scrollState.filterParams.tags.length > 0 ? scrollState.filterParams.tags : undefined,
       },
       {
@@ -371,21 +416,18 @@ function renderEventImmediately(event) {
 }
 
 function renderNewVideoAtTop(video, grid) {
-  // Filter before creating the card
   if (!shouldDisplayVideo(video)) {
     return;
   }
   
   let card = createVideoCard(video);
   
-  // Insert at the beginning of the grid
   if (grid.firstChild) {
     grid.insertBefore(card, grid.firstChild);
   } else {
     grid.appendChild(card);
   }
   
-  // Optional: Add a visual indicator for new videos
   card.classList.add("new-video");
   setTimeout(() => {
     card.classList.remove("new-video");
@@ -393,12 +435,10 @@ function renderNewVideoAtTop(video, grid) {
 }
 
 function shouldDisplayVideo(event) {
-  // Check if author is muted
   if (isProfileMuted(event.pubkey)) {
     return false;
   }
   
-  // Check content warning settings
   const contentWarnings = event.tags?.filter((tag) => tag[0] === "content-warning") || [];
   const hasContentWarning = contentWarnings.length > 0;
   const showContentWarning = localStorage.getItem("showContentWarning") !== "false";

@@ -132,6 +132,7 @@ function setupDrawerEventDelegation() {
 }
 
 function handleDrawerClick(e) {
+
   const drawerItem = e.target.closest(".drawer-item[data-id]");
   if (!drawerItem) return;
 
@@ -278,14 +279,15 @@ function getDrawerSections() {
     },
     {
       items: getSectionTwoItems(),
-      id: "",
-      title: "",
+      id: "local-storage-section",
+      title: "Local",
+      tooltip: "Local storage is unrelated to logged in keys",
       isDynamic: false,
     },
     {
       items: getChannelItems(),
       id: "drawer-channels",
-      title: "Favorite Channels", // Changed title
+      title: "Favorite Channels",
       isDynamic: true,
     },
     {
@@ -302,7 +304,6 @@ function getDrawerSections() {
     },
   ];
 }
-
 function createDynamicSection(section) {
   const container = document.createElement("div");
   container.className = "drawer-section-content";
@@ -383,9 +384,7 @@ function generateStaticSectionHTML(section) {
     .map((item) => {
       const isActive = item.id === app.currentPage;
       return `
-        <div class="drawer-item ${isActive ? "active" : ""}" data-id="${
-        item.id
-      }">
+        <div class="drawer-item ${isActive ? "active" : ""}" data-id="${item.id}">
           <span class="drawer-icon">${item.icon}</span>
           <span class="drawer-text">${item.text}</span>
         </div>
@@ -393,19 +392,25 @@ function generateStaticSectionHTML(section) {
     })
     .join("");
 
+  let titleHTML = "";
+  if (section.title) {
+    if (section.tooltip) {
+      // Simple native tooltip using title attribute
+      titleHTML = `<div class="drawer-section-title" title="${section.tooltip}">${section.title}</div>`;
+    } else {
+      titleHTML = `<div class="drawer-section-title">${section.title}</div>`;
+    }
+  }
+
   return `
-    <div class="drawer-section-content" ${
-      section.id ? `id="${section.id}"` : ""
-    }>
-      ${
-        section.title
-          ? `<div class="drawer-section-title">${section.title}</div>`
-          : ""
-      }
+    <div class="drawer-section-content" ${section.id ? `id="${section.id}"` : ""}>
+      ${titleHTML}
       ${itemsHTML}
     </div>
   `;
 }
+
+
 
 // Data functions - first two sections remain the same
 function getSectionOneItems() {

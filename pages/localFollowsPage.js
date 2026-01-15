@@ -26,7 +26,7 @@ async function localFollowsPageHandler() {
   <div class="following-header">
     <h2>Following (local) (${followedPubkeys.length})</h2>
     <div class="following-actions">
-      <button class="kind3-btn" title="View kind:3 follows">kind:3</button>
+      <button class="kind3-btn" title="View kind:3 follows">kind:3 follows</button>
       <button class="follows-feed-btn">📺 View Feed</button>
       ${
         app.isLoggedIn

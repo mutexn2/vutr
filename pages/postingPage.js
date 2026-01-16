@@ -999,7 +999,7 @@ if (!canFetch || !metadata.blossomValidated) {
     `⚠️ CORS Restriction Detected\n\n` +
     `This video URL blocks direct access (no CORS headers).\n\n` +
     `Available metadata:\n` +
-    `✅ Video will play in your app\n` +
+    `✅ Video will play\n` +
     `✅ Dimensions: ${videoElementMetadata.dimensions}\n` +
     `✅ Duration: ${videoElementMetadata.duration.toFixed(2)}s\n\n` +
     `NOT available:\n` +

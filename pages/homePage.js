@@ -45,7 +45,7 @@ async function homePageHandler() {
     const grid = document.querySelector(".videos-grid");
     const loadMoreBtn = document.getElementById("load-more-btn");
     const loadMoreStatus = document.getElementById("load-more-status");
-    
+
     // Infinite scroll state
     const scrollState = {
       currentTimestamp: Math.floor(Date.now() / 1000),
@@ -70,6 +70,10 @@ async function homePageHandler() {
       periodIndex: 0,
       // Per-relay state tracking
       relayStates: {},
+      // Final sweep state
+      finalSweepComplete: false,
+      bufferedEvents: [],
+      bufferedEventIndex: 0,
     };
 
     // Initialize per-relay state
@@ -87,13 +91,13 @@ async function homePageHandler() {
     // ========== REGISTER CLEANUP ==========
     registerCleanup(() => {
       console.log("Cleaning up home page resources");
-      
+
       // Close home subscription
       if (app.homeSubscription) {
         app.homeSubscription.close();
         app.homeSubscription = null;
       }
-      
+
       // Close home pool
       if (app.homePool) {
         app.homePool.close(app.relays);
@@ -106,20 +110,20 @@ async function homePageHandler() {
       if (!shouldDisplayVideo(event)) {
         return;
       }
-      
+
       const card = createVideoCard(event);
       grid.appendChild(card);
-      
+
       // Add entrance animation
       card.style.opacity = '0';
       card.style.transform = 'translateY(-10px)';
-      
+
       requestAnimationFrame(() => {
         card.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
         card.style.opacity = '1';
         card.style.transform = 'translateY(0)';
       });
-      
+
       scrollState.loadedEventsCount++;
     }
 
@@ -170,7 +174,7 @@ async function homePageHandler() {
                 if (sanitizedEvent) {
                   scrollState.existingEventIds.add(event.id);
                   events.push(sanitizedEvent);
-                  
+
                   // Render immediately if flag is set
                   if (renderImmediately) {
                     renderEventImmediately(sanitizedEvent);
@@ -205,10 +209,116 @@ async function homePageHandler() {
       });
     }
 
+    // Function to make a final sweep request when we're not finding events
+    async function makeFinalSweepRequest() {
+      console.log("Making final sweep request for remaining events");
+
+      const allEvents = [];
+      const promises = app.relays.map(relay => {
+        return new Promise((resolve) => {
+          const events = [];
+          let isComplete = false;
+
+          let filter = {
+            kinds: [21],
+            limit: 500, // Get up to 500 events from each relay
+          };
+
+          // Add tags to filter if specified
+          if (scrollState.filterParams.tags.length > 0) {
+            filter["#t"] = scrollState.filterParams.tags;
+          }
+
+          // Add user's date filter if specified
+          if (scrollState.filterParams.dateFilter !== "any") {
+            const userSince = getDateFilterTimestamp(scrollState.filterParams.dateFilter);
+            if (userSince) {
+              filter.since = userSince;
+            }
+          }
+
+          const sub = app.homePool.subscribe(
+            [relay],
+            filter,
+            {
+              onevent(event) {
+                if (!scrollState.existingEventIds.has(event.id)) {
+                  const sanitizedEvent = sanitizeNostrEvent(event);
+                  if (sanitizedEvent) {
+                    events.push(sanitizedEvent);
+                  }
+                }
+              },
+              oneose() {
+                if (!isComplete) {
+                  isComplete = true;
+                  sub.close();
+                  resolve(events);
+                }
+              },
+              onclose() {
+                if (!isComplete) {
+                  isComplete = true;
+                  resolve(events);
+                }
+              },
+            }
+          );
+
+          setTimeout(() => {
+            if (!isComplete) {
+              isComplete = true;
+              sub.close();
+              resolve(events);
+            }
+          }, 8000); // Longer timeout for final sweep
+        });
+      });
+
+      const resultsPerRelay = await Promise.all(promises);
+
+      // Merge and sort all events by created_at (newest first)
+      resultsPerRelay.forEach(relayEvents => {
+        allEvents.push(...relayEvents);
+      });
+
+      allEvents.sort((a, b) => b.created_at - a.created_at);
+
+      // Store for pagination
+      scrollState.bufferedEvents = allEvents;
+      scrollState.bufferedEventIndex = 0;
+      scrollState.finalSweepComplete = true;
+
+      console.log(`Final sweep found ${allEvents.length} total events`);
+
+      return allEvents;
+    }
+
+    // Function to load events from buffer
+    function loadFromBuffer(count) {
+      const events = [];
+      const endIndex = Math.min(
+        scrollState.bufferedEventIndex + count,
+        scrollState.bufferedEvents.length
+      );
+
+      for (let i = scrollState.bufferedEventIndex; i < endIndex; i++) {
+        const event = scrollState.bufferedEvents[i];
+        if (!scrollState.existingEventIds.has(event.id)) {
+          scrollState.existingEventIds.add(event.id);
+          events.push(event);
+          renderEventImmediately(event);
+        }
+      }
+
+      scrollState.bufferedEventIndex = endIndex;
+      return events;
+    }
+
     // Function to load from a single relay continuously
     async function loadFromSingleRelay(relay, targetEventCount) {
       const relayState = scrollState.relayStates[relay];
-      
+
       if (!relayState.isActive || !relayState.hasMoreContent) {
         return 0;
       }
@@ -220,29 +330,29 @@ async function homePageHandler() {
       // Keep loading from this relay until global target is reached or relay exhausted
       while (scrollState.loadedEventsCount < targetEventCount && relayState.hasMoreContent && relayState.isActive) {
         const periodEvents = await loadEventsForPeriodFromRelay(relay, currentSince, currentUntil, true);
-        
+
         if (periodEvents.length === 0) {
           // Move to previous period with GLOBAL period size
           currentUntil = currentSince;
           currentSince = currentUntil - scrollState.currentPeriodSize;
-          
+
           if (currentUntil < 0) {
             relayState.hasMoreContent = false;
             relayState.isActive = false;
             break;
           }
-          
+
           continue;
         }
 
         // Update relay's position
-        const oldestEvent = periodEvents.reduce((oldest, event) => 
+        const oldestEvent = periodEvents.reduce((oldest, event) =>
           event.created_at < oldest.created_at ? event : oldest
         );
         relayState.oldestTimestamp = oldestEvent.created_at;
         currentUntil = oldestEvent.created_at;
         currentSince = currentUntil - scrollState.currentPeriodSize; // Use GLOBAL period size
-        
+
         // Check if we've reached global target
         if (scrollState.loadedEventsCount >= targetEventCount) {
           break;
@@ -266,26 +376,46 @@ async function homePageHandler() {
       const startLoadedCount = scrollState.loadedEventsCount;
       const targetCount = startLoadedCount + scrollState.eventsPerPage;
 
-      // Keep loading until we get enough events or run out of content
-      while (scrollState.loadedEventsCount < targetCount && scrollState.hasMoreContent) {
-        const batchStartCount = scrollState.loadedEventsCount;
-        
-        // Start all relays in parallel for this time period
-        const relayPromises = app.relays.map(relay => 
-          loadFromSingleRelay(relay, targetCount)
-        );
+      // Check if we should do a final sweep
+      if (!scrollState.finalSweepComplete && scrollState.emptyPeriodCount >= 2) {
+        // Make final sweep request
+        await makeFinalSweepRequest();
+      }
 
-        // Wait for all relays to complete this batch
-        await Promise.all(relayPromises);
+      // Load from buffer if final sweep is complete
+      if (scrollState.finalSweepComplete) {
+        const neededCount = targetCount - scrollState.loadedEventsCount;
+        const loadedFromBuffer = loadFromBuffer(neededCount);
 
-        const eventsInThisBatch = scrollState.loadedEventsCount - batchStartCount;
-        
-        if (eventsInThisBatch === 0) {
-          // No events found in this period across ALL relays
-          scrollState.emptyPeriodCount++;
-          
-          // Check if we should increase period size
-          if (scrollState.emptyPeriodCount >= 2) {
+        if (scrollState.bufferedEventIndex >= scrollState.bufferedEvents.length) {
+          scrollState.hasMoreContent = false;
+        }
+      } else {
+        // Keep loading until we get enough events or run out of content
+        while (scrollState.loadedEventsCount < targetCount && scrollState.hasMoreContent) {
+          const batchStartCount = scrollState.loadedEventsCount;
+
+          // Start all relays in parallel for this time period
+          const relayPromises = app.relays.map(relay =>
+            loadFromSingleRelay(relay, targetCount)
+          );
+
+          // Wait for all relays to complete this batch
+          await Promise.all(relayPromises);
+
+          const eventsInThisBatch = scrollState.loadedEventsCount - batchStartCount;
+
+          if (eventsInThisBatch === 0) {
+            // No events found in this period across ALL relays
+            scrollState.emptyPeriodCount++;
+
+            // Check if we should do final sweep
+            if (scrollState.emptyPeriodCount >= 2) {
+              // Trigger final sweep on next iteration
+              break;
+            }
+
+            // Check if we should increase period size
             const increased = increasePeriodSize();
             if (increased) {
               scrollState.emptyPeriodCount = 0;
@@ -298,25 +428,15 @@ async function homePageHandler() {
                 break;
               }
             }
+          } else {
+            // Reset empty counter since we found events
+            scrollState.emptyPeriodCount = 0;
           }
-          
-          // Check if ANY relay still has content
-          const anyRelayHasContent = Object.values(scrollState.relayStates).some(
-            state => state.hasMoreContent && state.isActive
-          );
-          
-          if (!anyRelayHasContent) {
-            scrollState.hasMoreContent = false;
+
+          // If we got enough events, stop
+          if (scrollState.loadedEventsCount >= targetCount) {
             break;
           }
-        } else {
-          // Reset empty counter since we found events
-          scrollState.emptyPeriodCount = 0;
-        }
-        
-        // If we got enough events, stop
-        if (scrollState.loadedEventsCount >= targetCount) {
-          break;
         }
       }
 
@@ -324,13 +444,19 @@ async function homePageHandler() {
       loadMoreStatus.style.display = 'none';
 
       const loadedThisBatch = scrollState.loadedEventsCount - startLoadedCount;
-      
+
       // Check if ANY relay still has content
       const anyRelayHasContent = Object.values(scrollState.relayStates).some(
         state => state.hasMoreContent && state.isActive
       );
-      scrollState.hasMoreContent = anyRelayHasContent;
-      
+
+      // Update hasMoreContent based on final sweep state or relay states
+      if (scrollState.finalSweepComplete) {
+        scrollState.hasMoreContent = scrollState.bufferedEventIndex < scrollState.bufferedEvents.length;
+      } else {
+        scrollState.hasMoreContent = anyRelayHasContent;
+      }
+
       if (scrollState.hasMoreContent && loadedThisBatch > 0) {
         loadMoreBtn.style.display = 'block';
       } else if (!scrollState.hasMoreContent) {
@@ -371,7 +497,7 @@ async function homePageHandler() {
     });
 
     // ========== NOW LOAD THE DATA ==========
-    
+
     // Initial load
     await loadMoreEvents();
 
@@ -419,15 +545,15 @@ function renderNewVideoAtTop(video, grid) {
   if (!shouldDisplayVideo(video)) {
     return;
   }
-  
+
   let card = createVideoCard(video);
-  
+
   if (grid.firstChild) {
     grid.insertBefore(card, grid.firstChild);
   } else {
     grid.appendChild(card);
   }
-  
+
   card.classList.add("new-video");
   setTimeout(() => {
     card.classList.remove("new-video");
@@ -438,14 +564,14 @@ function shouldDisplayVideo(event) {
   if (isProfileMuted(event.pubkey)) {
     return false;
   }
-  
+
   const contentWarnings = event.tags?.filter((tag) => tag[0] === "content-warning") || [];
   const hasContentWarning = contentWarnings.length > 0;
   const showContentWarning = localStorage.getItem("showContentWarning") !== "false";
-  
+
   if (hasContentWarning && !showContentWarning) {
     return false;
   }
-  
+
   return true;
 }

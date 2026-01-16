@@ -460,7 +460,7 @@ function displayResults(mediaData, blob) {
   const corsWarning = mediaData.corsRestricted 
     ? `<div class="result warning">
          <p><strong>⚠️ CORS Restriction:</strong> This server doesn't allow direct access. 
-         Hash validation and file size are unavailable, but the media will play in your app.</p>
+         Hash validation and file size are unavailable, but the media will play.</p>
        </div>` 
     : '';
 

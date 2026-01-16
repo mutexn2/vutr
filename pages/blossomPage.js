@@ -1265,7 +1265,7 @@ function setupShareButton(serverList) {
       const signedEvent = await handleEventSigning(eventTemplate);
       console.log("[SHARE] Event signed:", signedEvent);
 
-      const result = await publishEvent(signedEvent, null, {
+      const result = await publishEvent(signedEvent, app.globalRelays, {
         successMessage: "Server list published successfully",
         errorMessage: "Failed to publish server list",
       });

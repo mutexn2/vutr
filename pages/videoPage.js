@@ -798,7 +798,7 @@ const validateBtnHandler = async () => {
           const pool = new window.NostrTools.SimplePool();
 
           try {
-            const result = await publishEvent(signedReactionEvent, null, {
+            const result = await publishEvent(signedReactionEvent, app.globalRelays, {
               successMessage: "Like reaction published successfully",
               errorMessage: "Failed to publish like reaction",
             });

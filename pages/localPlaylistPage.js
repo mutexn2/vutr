@@ -1027,7 +1027,7 @@ async function sharePlaylistToNetwork(dTag) {
     console.log("Playlist event data:", eventData);
     const signedEvent = await handleEventSigning(eventData);
 
-    const result = await publishEvent(signedEvent, app.relays, {
+    const result = await publishEvent(signedEvent, app.globalRelays, {
       successMessage: "Playlist published successfully",
       errorMessage: "Failed to publish playlist event",
     });

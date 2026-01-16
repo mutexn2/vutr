@@ -423,7 +423,7 @@ async function handleSaveProfile() {
     console.log("Signed profile event:", signedEvent);
     
     // Publish event
-    const result = await publishEvent(signedEvent, null, {
+    const result = await publishEvent(signedEvent, app.globalRelays, {
       successMessage: "Profile updated successfully",
       errorMessage: "Failed to publish profile update"
     });

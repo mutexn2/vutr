@@ -805,13 +805,13 @@ function sanitizeNostrEvent(event) {
   if (!event) return null;
 
   // Deep clone to avoid modifying original
-  const sanitized = JSON.parse(JSON.stringify(event));
+//  const sanitized = JSON.parse(JSON.stringify(event));
   
   // Content is displayed as text, so we don't need to process it here
   // It will be escaped when rendered via textToSafeHtml()
   
   // Sanitize URLs in tags
-  if (Array.isArray(sanitized.tags)) {
+/*   if (Array.isArray(sanitized.tags)) {
     sanitized.tags = sanitized.tags.map((tag) => {
       if (!Array.isArray(tag)) return [];
 
@@ -844,8 +844,8 @@ function sanitizeNostrEvent(event) {
       });
     });
   }
-
-  return sanitized;
+ */
+  return event;
 }
 
 // Sanitize the event ID for use in HTML IDs

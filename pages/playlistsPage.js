@@ -37,7 +37,7 @@ async function playlistsPageHandler() {
     const grid = document.querySelector(".playlists-grid");
     const loadMoreBtn = document.getElementById("load-more-btn");
     const loadMoreStatus = document.getElementById("load-more-status");
-    
+
     // Infinite scroll state
     const scrollState = {
       currentTimestamp: Math.floor(Date.now() / 1000),
@@ -62,6 +62,10 @@ async function playlistsPageHandler() {
       periodIndex: 0,
       // Per-relay state tracking
       relayStates: {},
+      // Final sweep state
+      finalSweepComplete: false,
+      bufferedEvents: [],
+      bufferedEventIndex: 0,
     };
 
     // Initialize per-relay state
@@ -79,13 +83,13 @@ async function playlistsPageHandler() {
     // ========== REGISTER CLEANUP ==========
     registerCleanup(() => {
       console.log("Cleaning up playlists page resources");
-      
+
       // Close playlist subscription
       if (app.playlistSubscription) {
         app.playlistSubscription.close();
         app.playlistSubscription = null;
       }
-      
+
       // Close playlist pool
       if (app.playlistPool) {
         app.playlistPool.close(app.relays);
@@ -96,17 +100,17 @@ async function playlistsPageHandler() {
     function renderEventImmediately(event) {
       const card = createPlaylistCard(event);
       grid.appendChild(card);
-      
+
       // Add entrance animation
       card.style.opacity = '0';
       card.style.transform = 'translateY(-10px)';
-      
+
       requestAnimationFrame(() => {
         card.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
         card.style.opacity = '1';
         card.style.transform = 'translateY(0)';
       });
-      
+
       scrollState.loadedEventsCount++;
     }
 
@@ -118,6 +122,33 @@ async function playlistsPageHandler() {
         return true;
       }
       return false;
+    }
+
+    // Helper function to validate playlist
+    function isValidPlaylist(playlist) {
+      // Check if the playlist has tags
+      if (!playlist.tags || !Array.isArray(playlist.tags)) {
+        return false;
+      }
+
+      // Look for at least one valid "e" tag reference
+/*       return playlist.tags.some(tag => {
+        // Check if it's an "e" tag with at least 2 elements
+        if (!Array.isArray(tag) || tag.length < 2 || tag[0] !== "e") {
+          return false;
+        }
+
+        const eventId = tag[1];
+
+        // Check if the ID is a string
+        if (!eventId || typeof eventId !== "string") {
+          return false;
+        }
+
+        // Check if the ID is exactly 64 characters (valid hex length)
+        return eventId.length === 64 && /^[a-fA-F0-9]{64}$/.test(eventId);
+      }); */
+      return playlist;
     }
 
     // Function to load events from a SINGLE relay for a time period
@@ -154,14 +185,14 @@ async function playlistsPageHandler() {
               // For addressable events (kind:30005), use author+d-tag as unique identifier
               const dTag = event.tags?.find(t => t[0] === 'd')?.[1] || '';
               const uniqueId = `${event.pubkey}:${dTag}`;
-              
+
               // Skip duplicates (global check)
               if (!scrollState.existingEventIds.has(uniqueId)) {
                 const sanitizedEvent = sanitizeNostrEvent(event);
                 if (sanitizedEvent && isValidPlaylist(sanitizedEvent)) {
                   scrollState.existingEventIds.add(uniqueId);
                   events.push(sanitizedEvent);
-                  
+
                   // Render immediately if flag is set
                   if (renderImmediately) {
                     renderEventImmediately(sanitizedEvent);
@@ -196,36 +227,123 @@ async function playlistsPageHandler() {
       });
     }
 
-    // Helper function to validate playlist
-    function isValidPlaylist(playlist) {
-      // Check if the playlist has tags
-      if (!playlist.tags || !Array.isArray(playlist.tags)) {
-        return false;
-      }
+    // Function to make a final sweep request when we're not finding events
+    async function makeFinalSweepRequest() {
+      console.log("Making final sweep request for remaining playlists");
 
-      // Look for at least one valid "e" tag reference
-      return playlist.tags.some(tag => {
-        // Check if it's an "e" tag with at least 2 elements
-        if (!Array.isArray(tag) || tag.length < 2 || tag[0] !== "e") {
-          return false;
-        }
+      const allEvents = [];
+      const promises = app.relays.map(relay => {
+        return new Promise((resolve) => {
+          const events = [];
+          let isComplete = false;
 
-        const eventId = tag[1];
-        
-        // Check if the ID is a string
-        if (!eventId || typeof eventId !== "string") {
-          return false;
-        }
+          let filter = {
+            kinds: [30005],
+            limit: 500, // Get up to 500 events from each relay
+          };
 
-        // Check if the ID is exactly 64 characters (valid hex length)
-        return eventId.length === 64 && /^[a-fA-F0-9]{64}$/.test(eventId);
+          // Add tags to filter if specified
+          if (scrollState.filterParams.tags.length > 0) {
+            filter["#t"] = scrollState.filterParams.tags;
+          }
+
+          // Add user's date filter if specified
+          if (scrollState.filterParams.dateFilter !== "any") {
+            const userSince = getDateFilterTimestamp(scrollState.filterParams.dateFilter);
+            if (userSince) {
+              filter.since = userSince;
+            }
+          }
+
+          const sub = app.playlistPool.subscribe(
+            [relay],
+            filter,
+            {
+              onevent(event) {
+                // For addressable events, use author+d-tag as unique identifier
+                const dTag = event.tags?.find(t => t[0] === 'd')?.[1] || '';
+                const uniqueId = `${event.pubkey}:${dTag}`;
+
+                if (!scrollState.existingEventIds.has(uniqueId)) {
+                  const sanitizedEvent = sanitizeNostrEvent(event);
+                  if (sanitizedEvent && isValidPlaylist(sanitizedEvent)) {
+                    events.push(sanitizedEvent);
+                  }
+                }
+              },
+              oneose() {
+                if (!isComplete) {
+                  isComplete = true;
+                  sub.close();
+                  resolve(events);
+                }
+              },
+              onclose() {
+                if (!isComplete) {
+                  isComplete = true;
+                  resolve(events);
+                }
+              },
+            }
+          );
+
+          setTimeout(() => {
+            if (!isComplete) {
+              isComplete = true;
+              sub.close();
+              resolve(events);
+            }
+          }, 8000); // Longer timeout for final sweep
+        });
       });
+
+      const resultsPerRelay = await Promise.all(promises);
+
+      // Merge and sort all events by created_at (newest first)
+      resultsPerRelay.forEach(relayEvents => {
+        allEvents.push(...relayEvents);
+      });
+
+      allEvents.sort((a, b) => b.created_at - a.created_at);
+
+      // Store for pagination
+      scrollState.bufferedEvents = allEvents;
+      scrollState.bufferedEventIndex = 0;
+      scrollState.finalSweepComplete = true;
+
+      console.log(`Final sweep found ${allEvents.length} total playlists`);
+
+      return allEvents;
+    }
+
+    // Function to load events from buffer
+    function loadFromBuffer(count) {
+      const events = [];
+      const endIndex = Math.min(
+        scrollState.bufferedEventIndex + count,
+        scrollState.bufferedEvents.length
+      );
+
+      for (let i = scrollState.bufferedEventIndex; i < endIndex; i++) {
+        const event = scrollState.bufferedEvents[i];
+        // For addressable events, use author+d-tag as unique identifier
+        const dTag = event.tags?.find(t => t[0] === 'd')?.[1] || '';
+        const uniqueId = `${event.pubkey}:${dTag}`;
+
+        if (!scrollState.existingEventIds.has(uniqueId)) {
+          scrollState.existingEventIds.add(uniqueId);
+          events.push(event);
+          renderEventImmediately(event);
+        }
+      }
+      scrollState.bufferedEventIndex = endIndex;
+      return events;
     }
 
     // Function to load from a single relay continuously
     async function loadFromSingleRelay(relay, targetEventCount) {
       const relayState = scrollState.relayStates[relay];
-      
+
       if (!relayState.isActive || !relayState.hasMoreContent) {
         return 0;
       }
@@ -237,29 +355,29 @@ async function playlistsPageHandler() {
       // Keep loading from this relay until global target is reached or relay exhausted
       while (scrollState.loadedEventsCount < targetEventCount && relayState.hasMoreContent && relayState.isActive) {
         const periodEvents = await loadEventsForPeriodFromRelay(relay, currentSince, currentUntil, true);
-        
+
         if (periodEvents.length === 0) {
           // Move to previous period with GLOBAL period size
           currentUntil = currentSince;
           currentSince = currentUntil - scrollState.currentPeriodSize;
-          
+
           if (currentUntil < 0) {
             relayState.hasMoreContent = false;
             relayState.isActive = false;
             break;
           }
-          
+
           continue;
         }
 
         // Update relay's position
-        const oldestEvent = periodEvents.reduce((oldest, event) => 
+        const oldestEvent = periodEvents.reduce((oldest, event) =>
           event.created_at < oldest.created_at ? event : oldest
         );
         relayState.oldestTimestamp = oldestEvent.created_at;
         currentUntil = oldestEvent.created_at;
         currentSince = currentUntil - scrollState.currentPeriodSize; // Use GLOBAL period size
-        
+
         // Check if we've reached global target
         if (scrollState.loadedEventsCount >= targetEventCount) {
           break;
@@ -283,26 +401,46 @@ async function playlistsPageHandler() {
       const startLoadedCount = scrollState.loadedEventsCount;
       const targetCount = startLoadedCount + scrollState.eventsPerPage;
 
-      // Keep loading until we get enough events or run out of content
-      while (scrollState.loadedEventsCount < targetCount && scrollState.hasMoreContent) {
-        const batchStartCount = scrollState.loadedEventsCount;
-        
-        // Start all relays in parallel for this time period
-        const relayPromises = app.relays.map(relay => 
-          loadFromSingleRelay(relay, targetCount)
-        );
+      // Check if we should do a final sweep
+      if (!scrollState.finalSweepComplete && scrollState.emptyPeriodCount >= 2) {
+        // Make final sweep request
+        await makeFinalSweepRequest();
+      }
 
-        // Wait for all relays to complete this batch
-        await Promise.all(relayPromises);
+      // Load from buffer if final sweep is complete
+      if (scrollState.finalSweepComplete) {
+        const neededCount = targetCount - scrollState.loadedEventsCount;
+        const loadedFromBuffer = loadFromBuffer(neededCount);
 
-        const eventsInThisBatch = scrollState.loadedEventsCount - batchStartCount;
-        
-        if (eventsInThisBatch === 0) {
-          // No events found in this period across ALL relays
-          scrollState.emptyPeriodCount++;
-          
-          // Check if we should increase period size
-          if (scrollState.emptyPeriodCount >= 2) {
+        if (scrollState.bufferedEventIndex >= scrollState.bufferedEvents.length) {
+          scrollState.hasMoreContent = false;
+        }
+      } else {
+        // Keep loading until we get enough events or run out of content
+        while (scrollState.loadedEventsCount < targetCount && scrollState.hasMoreContent) {
+          const batchStartCount = scrollState.loadedEventsCount;
+
+          // Start all relays in parallel for this time period
+          const relayPromises = app.relays.map(relay =>
+            loadFromSingleRelay(relay, targetCount)
+          );
+
+          // Wait for all relays to complete this batch
+          await Promise.all(relayPromises);
+
+          const eventsInThisBatch = scrollState.loadedEventsCount - batchStartCount;
+
+          if (eventsInThisBatch === 0) {
+            // No events found in this period across ALL relays
+            scrollState.emptyPeriodCount++;
+
+            // Check if we should do final sweep
+            if (scrollState.emptyPeriodCount >= 2) {
+              // Trigger final sweep on next iteration
+              break;
+            }
+
+            // Check if we should increase period size
             const increased = increasePeriodSize();
             if (increased) {
               scrollState.emptyPeriodCount = 0;
@@ -315,25 +453,15 @@ async function playlistsPageHandler() {
                 break;
               }
             }
+          } else {
+            // Reset empty counter since we found events
+            scrollState.emptyPeriodCount = 0;
           }
-          
-          // Check if ANY relay still has content
-          const anyRelayHasContent = Object.values(scrollState.relayStates).some(
-            state => state.hasMoreContent && state.isActive
-          );
-          
-          if (!anyRelayHasContent) {
-            scrollState.hasMoreContent = false;
+
+          // If we got enough events, stop
+          if (scrollState.loadedEventsCount >= targetCount) {
             break;
           }
-        } else {
-          // Reset empty counter since we found events
-          scrollState.emptyPeriodCount = 0;
-        }
-        
-        // If we got enough events, stop
-        if (scrollState.loadedEventsCount >= targetCount) {
-          break;
         }
       }
 
@@ -341,13 +469,19 @@ async function playlistsPageHandler() {
       loadMoreStatus.style.display = 'none';
 
       const loadedThisBatch = scrollState.loadedEventsCount - startLoadedCount;
-      
+
       // Check if ANY relay still has content
       const anyRelayHasContent = Object.values(scrollState.relayStates).some(
         state => state.hasMoreContent && state.isActive
       );
-      scrollState.hasMoreContent = anyRelayHasContent;
-      
+
+      // Update hasMoreContent based on final sweep state or relay states
+      if (scrollState.finalSweepComplete) {
+        scrollState.hasMoreContent = scrollState.bufferedEventIndex < scrollState.bufferedEvents.length;
+      } else {
+        scrollState.hasMoreContent = anyRelayHasContent;
+      }
+
       if (scrollState.hasMoreContent && loadedThisBatch > 0) {
         loadMoreBtn.style.display = 'block';
       } else if (!scrollState.hasMoreContent) {
@@ -369,11 +503,11 @@ async function playlistsPageHandler() {
       if (card && card.dataset.playlistId) {
         const author = card.dataset.author;
         const dtag = card.dataset.dtag;
-        
+
         const discoveryRelays = app.relays.slice(0, 3).map(cleanRelayUrl);
         const uniqueDiscoveryRelays = [...new Set(discoveryRelays)];
         const discoveryParam = uniqueDiscoveryRelays.join(",");
-        
+
         const playlistUrl = `#playlist/params?author=${author}&dtag=${dtag}&discovery=${discoveryParam}`;
         console.log("Navigating to playlist URL:", playlistUrl);
         window.location.hash = playlistUrl;
@@ -386,7 +520,7 @@ async function playlistsPageHandler() {
     });
 
     // ========== NOW LOAD THE DATA ==========
-    
+
     // Initial load
     await loadMoreEvents();
 
@@ -409,7 +543,7 @@ async function playlistsPageHandler() {
           // For addressable events, use author+d-tag as unique identifier
           const dTag = event.tags?.find(t => t[0] === 'd')?.[1] || '';
           const uniqueId = `${event.pubkey}:${dTag}`;
-          
+
           if (!scrollState.existingEventIds.has(uniqueId)) {
             const sanitizedEvent = sanitizeNostrEvent(event);
             if (sanitizedEvent && isValidPlaylist(sanitizedEvent)) {
@@ -420,7 +554,6 @@ async function playlistsPageHandler() {
         },
       }
     );
-
   } catch (error) {
     console.error("Error rendering playlists page:", error);
     let errorDiv = document.createElement("div");
@@ -433,19 +566,15 @@ async function playlistsPageHandler() {
     pageContainer.replaceChildren(errorDiv);
   }
 }
-
 function renderNewPlaylistAtTop(playlist, grid) {
   let card = createPlaylistCard(playlist);
-  
   if (grid.firstChild) {
     grid.insertBefore(card, grid.firstChild);
   } else {
     grid.appendChild(card);
   }
-  
   card.classList.add("new-video");
   setTimeout(() => {
     card.classList.remove("new-video");
   }, 2000);
 }
-

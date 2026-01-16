@@ -505,7 +505,7 @@ async function sendCommentFromModal(videoId, videoEvent, content, replyToEvent =
     const signedCommentEvent = await handleEventSigning(commentEvent);
 
     if (app.relays && app.relays.length > 0) {
-      const result = await publishEvent(signedCommentEvent, app.relays, {
+      const result = await publishEvent(signedCommentEvent, app.globalRelays, {
         successMessage: "Comment published successfully",
         errorMessage: "Failed to publish comment",
       });
@@ -662,7 +662,7 @@ async function handleCommentLike(event, likeButton, likeCountSpan) {
     };
 
     const signedReactionEvent = await handleEventSigning(reactionEvent);
-    const result = await publishEvent(signedReactionEvent, app.relays);
+    const result = await publishEvent(signedReactionEvent, app.globalRelays);
 
     if (result.success) {
       // Optimistic update

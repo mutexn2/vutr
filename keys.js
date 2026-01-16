@@ -1769,7 +1769,7 @@ function startBunkerHealthMonitoring() {
 
 ///////////////////////////////////////
 
-async function publishEvent(event, relays = null, options = {}) {
+async function publishEvent(event, relays = app.globalRelays, options = {}) {
   const {
     requireAllSuccess = false,
     successMessage = "Event published successfully",

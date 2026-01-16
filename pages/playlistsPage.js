@@ -5,67 +5,25 @@ async function playlistsPageHandler() {
     <div class="loading-indicator">
         <p>Searching for kind 30005 events...</p>
     </div>
-    </div>
+  </div>
   `;
 
   let pageContainer = document.getElementById("playlistPage-container");
 
   try {
-    // Parse URL parameters
     const filterParams = parseFilterUrl();
     console.log("Current filter params:", filterParams);
 
-    let kinds = [30005];
-    let limit = 21;
-
-    // Prepare query options
-    let queryOptions = { kinds: kinds, limit: limit };
-
-    // Add tags to query if specified
-    if (filterParams.tags.length > 0) {
-      queryOptions.tags = { t: filterParams.tags };
-    }
-
-    // Add date filter to query if specified
-    if (filterParams.dateFilter !== "any") {
-      const since = getDateFilterTimestamp(filterParams.dateFilter);
-      if (since) {
-        queryOptions.since = since;
-      }
-    }
-
-    console.log("Querying with options:", queryOptions);
-
-    let playlists = await NostrClient.getEvents(queryOptions);
-    playlists = playlists.map(sanitizeNostrEvent).filter((v) => v !== null);
-
-    // Filter to only include playlists with valid kind-21 references
-    playlists = filterValidPlaylists(playlists);
-
-    if (playlists.length === 0) {
-      let listContainer = document.getElementById("playlistPage-container");
-      listContainer.innerHTML = `
-        <h1>No playlists Found</h1>
-        <p>No playlists found.</p>
-      `;
-
-/*       setTimeout(() => {
-        window.location.hash = "playlists";
-      }, 1200); */
-
-      return;
-    }
-
-    // Apply sorting based on filter params
-    playlists = applySorting(playlists, filterParams.sortBy);
-
-    console.log(
-      `Found ${playlists.length} playlists, sorted by: ${filterParams.sortBy}`
-    );
-
     pageContainer.innerHTML = `
-      <div id="filter-container"></div>
-      <div class="playlists-grid"></div>
+<div>
+  <div id="filter-container"></div>
+</div>
+
+<div class="playlists-grid"></div>
+<div class="load-more-container" style="text-align: center; padding: 20px;">
+  <button id="load-more-btn" class="load-more-btn" style="display: none;">Load More Playlists</button>
+  <p id="load-more-status" style="display: none;"></p>
+</div>
     `;
 
     // Create and setup filter form
@@ -76,29 +34,393 @@ async function playlistsPageHandler() {
     // Initialize filter form with current URL params
     initializeFilterFromUrl(filterForm, filterParams);
 
-    // Render playlists using the new playlist card
-    let grid = document.querySelector(".playlists-grid");
-    playlists.forEach((playlist) => {
-      let card = createPlaylistCard(playlist);
-      grid.appendChild(card);
+    const grid = document.querySelector(".playlists-grid");
+    const loadMoreBtn = document.getElementById("load-more-btn");
+    const loadMoreStatus = document.getElementById("load-more-status");
+    
+    // Infinite scroll state
+    const scrollState = {
+      currentTimestamp: Math.floor(Date.now() / 1000),
+      isLoading: false,
+      hasMoreContent: true,
+      eventsPerPage: 21,
+      loadedEventsCount: 0,
+      existingEventIds: new Set(),
+      filterParams: filterParams,
+      // GLOBAL period management (shared across all relays)
+      emptyPeriodCount: 0,
+      maxEmptyPeriods: 3,
+      currentPeriodSize: 24 * 60 * 60, // Start with 1 day
+      periodSizes: [
+        1 * 24 * 60 * 60,    // 1 day
+        7 * 24 * 60 * 60,    // 1 week
+        30 * 24 * 60 * 60,   // 1 month
+        90 * 24 * 60 * 60,   // 3 months
+        180 * 24 * 60 * 60,  // 6 months
+        365 * 24 * 60 * 60,  // 1 year
+      ],
+      periodIndex: 0,
+      // Per-relay state tracking
+      relayStates: {},
+    };
+
+    // Initialize per-relay state
+    app.relays.forEach(relay => {
+      scrollState.relayStates[relay] = {
+        oldestTimestamp: null,
+        hasMoreContent: true,
+        isActive: true,
+      };
     });
 
-grid.addEventListener("click", async (event) => {
-  let card = event.target.closest(".video-card");
-  if (card && card.dataset.playlistId) {
-    const author = card.dataset.author;
-    const dtag = card.dataset.dtag;
+    // Initialize SimplePool
+    app.playlistPool = new window.NostrTools.SimplePool();
+
+    // ========== REGISTER CLEANUP ==========
+    registerCleanup(() => {
+      console.log("Cleaning up playlists page resources");
+      
+      // Close playlist subscription
+      if (app.playlistSubscription) {
+        app.playlistSubscription.close();
+        app.playlistSubscription = null;
+      }
+      
+      // Close playlist pool
+      if (app.playlistPool) {
+        app.playlistPool.close(app.relays);
+        app.playlistPool = null;
+      }
+    });
+
+    function renderEventImmediately(event) {
+      const card = createPlaylistCard(event);
+      grid.appendChild(card);
+      
+      // Add entrance animation
+      card.style.opacity = '0';
+      card.style.transform = 'translateY(-10px)';
+      
+      requestAnimationFrame(() => {
+        card.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+        card.style.opacity = '1';
+        card.style.transform = 'translateY(0)';
+      });
+      
+      scrollState.loadedEventsCount++;
+    }
+
+    // Function to increase period size GLOBALLY
+    function increasePeriodSize() {
+      if (scrollState.periodIndex < scrollState.periodSizes.length - 1) {
+        scrollState.periodIndex++;
+        scrollState.currentPeriodSize = scrollState.periodSizes[scrollState.periodIndex];
+        return true;
+      }
+      return false;
+    }
+
+    // Function to load events from a SINGLE relay for a time period
+    async function loadEventsForPeriodFromRelay(relay, since, until, renderImmediately = false) {
+      return new Promise((resolve) => {
+        const events = [];
+        let isComplete = false;
+
+        let filter = {
+          kinds: [30005],
+          since: since,
+          until: until,
+        };
+
+        // Add tags to filter if specified
+        if (scrollState.filterParams.tags.length > 0) {
+          filter["#t"] = scrollState.filterParams.tags;
+        }
+
+        // Add user's date filter if specified
+        const relayState = scrollState.relayStates[relay];
+        if (scrollState.filterParams.dateFilter !== "any" && !relayState.oldestTimestamp) {
+          const userSince = getDateFilterTimestamp(scrollState.filterParams.dateFilter);
+          if (userSince && userSince > since) {
+            filter.since = userSince;
+          }
+        }
+
+        const sub = app.playlistPool.subscribe(
+          [relay], // Single relay only
+          filter,
+          {
+            onevent(event) {
+              // For addressable events (kind:30005), use author+d-tag as unique identifier
+              const dTag = event.tags?.find(t => t[0] === 'd')?.[1] || '';
+              const uniqueId = `${event.pubkey}:${dTag}`;
+              
+              // Skip duplicates (global check)
+              if (!scrollState.existingEventIds.has(uniqueId)) {
+                const sanitizedEvent = sanitizeNostrEvent(event);
+                if (sanitizedEvent && isValidPlaylist(sanitizedEvent)) {
+                  scrollState.existingEventIds.add(uniqueId);
+                  events.push(sanitizedEvent);
+                  
+                  // Render immediately if flag is set
+                  if (renderImmediately) {
+                    renderEventImmediately(sanitizedEvent);
+                  }
+                }
+              }
+            },
+            oneose() {
+              if (!isComplete) {
+                isComplete = true;
+                sub.close();
+                resolve(events);
+              }
+            },
+            onclose() {
+              if (!isComplete) {
+                isComplete = true;
+                resolve(events);
+              }
+            },
+          }
+        );
+
+        // Timeout fallback (per relay)
+        setTimeout(() => {
+          if (!isComplete) {
+            isComplete = true;
+            sub.close();
+            resolve(events);
+          }
+        }, 5000);
+      });
+    }
+
+    // Helper function to validate playlist
+    function isValidPlaylist(playlist) {
+      // Check if the playlist has tags
+      if (!playlist.tags || !Array.isArray(playlist.tags)) {
+        return false;
+      }
+
+      // Look for at least one valid "e" tag reference
+      return playlist.tags.some(tag => {
+        // Check if it's an "e" tag with at least 2 elements
+        if (!Array.isArray(tag) || tag.length < 2 || tag[0] !== "e") {
+          return false;
+        }
+
+        const eventId = tag[1];
+        
+        // Check if the ID is a string
+        if (!eventId || typeof eventId !== "string") {
+          return false;
+        }
+
+        // Check if the ID is exactly 64 characters (valid hex length)
+        return eventId.length === 64 && /^[a-fA-F0-9]{64}$/.test(eventId);
+      });
+    }
+
+    // Function to load from a single relay continuously
+    async function loadFromSingleRelay(relay, targetEventCount) {
+      const relayState = scrollState.relayStates[relay];
+      
+      if (!relayState.isActive || !relayState.hasMoreContent) {
+        return 0;
+      }
+
+      const startCount = scrollState.loadedEventsCount;
+      let currentUntil = relayState.oldestTimestamp || scrollState.currentTimestamp;
+      let currentSince = currentUntil - scrollState.currentPeriodSize; // Use GLOBAL period size
+
+      // Keep loading from this relay until global target is reached or relay exhausted
+      while (scrollState.loadedEventsCount < targetEventCount && relayState.hasMoreContent && relayState.isActive) {
+        const periodEvents = await loadEventsForPeriodFromRelay(relay, currentSince, currentUntil, true);
+        
+        if (periodEvents.length === 0) {
+          // Move to previous period with GLOBAL period size
+          currentUntil = currentSince;
+          currentSince = currentUntil - scrollState.currentPeriodSize;
+          
+          if (currentUntil < 0) {
+            relayState.hasMoreContent = false;
+            relayState.isActive = false;
+            break;
+          }
+          
+          continue;
+        }
+
+        // Update relay's position
+        const oldestEvent = periodEvents.reduce((oldest, event) => 
+          event.created_at < oldest.created_at ? event : oldest
+        );
+        relayState.oldestTimestamp = oldestEvent.created_at;
+        currentUntil = oldestEvent.created_at;
+        currentSince = currentUntil - scrollState.currentPeriodSize; // Use GLOBAL period size
+        
+        // Check if we've reached global target
+        if (scrollState.loadedEventsCount >= targetEventCount) {
+          break;
+        }
+      }
+
+      return scrollState.loadedEventsCount - startCount;
+    }
+
+    // Main function to load events from all relays in parallel
+    async function loadMoreEvents() {
+      if (scrollState.isLoading || !scrollState.hasMoreContent) {
+        return;
+      }
+
+      scrollState.isLoading = true;
+      loadMoreBtn.style.display = 'none';
+      loadMoreStatus.textContent = 'Loading more playlists...';
+      loadMoreStatus.style.display = 'block';
+
+      const startLoadedCount = scrollState.loadedEventsCount;
+      const targetCount = startLoadedCount + scrollState.eventsPerPage;
+
+      // Keep loading until we get enough events or run out of content
+      while (scrollState.loadedEventsCount < targetCount && scrollState.hasMoreContent) {
+        const batchStartCount = scrollState.loadedEventsCount;
+        
+        // Start all relays in parallel for this time period
+        const relayPromises = app.relays.map(relay => 
+          loadFromSingleRelay(relay, targetCount)
+        );
+
+        // Wait for all relays to complete this batch
+        await Promise.all(relayPromises);
+
+        const eventsInThisBatch = scrollState.loadedEventsCount - batchStartCount;
+        
+        if (eventsInThisBatch === 0) {
+          // No events found in this period across ALL relays
+          scrollState.emptyPeriodCount++;
+          
+          // Check if we should increase period size
+          if (scrollState.emptyPeriodCount >= 2) {
+            const increased = increasePeriodSize();
+            if (increased) {
+              scrollState.emptyPeriodCount = 0;
+              // Continue with new period size
+              continue;
+            } else {
+              // Already at max period size
+              if (scrollState.emptyPeriodCount >= scrollState.maxEmptyPeriods) {
+                scrollState.hasMoreContent = false;
+                break;
+              }
+            }
+          }
+          
+          // Check if ANY relay still has content
+          const anyRelayHasContent = Object.values(scrollState.relayStates).some(
+            state => state.hasMoreContent && state.isActive
+          );
+          
+          if (!anyRelayHasContent) {
+            scrollState.hasMoreContent = false;
+            break;
+          }
+        } else {
+          // Reset empty counter since we found events
+          scrollState.emptyPeriodCount = 0;
+        }
+        
+        // If we got enough events, stop
+        if (scrollState.loadedEventsCount >= targetCount) {
+          break;
+        }
+      }
+
+      scrollState.isLoading = false;
+      loadMoreStatus.style.display = 'none';
+
+      const loadedThisBatch = scrollState.loadedEventsCount - startLoadedCount;
+      
+      // Check if ANY relay still has content
+      const anyRelayHasContent = Object.values(scrollState.relayStates).some(
+        state => state.hasMoreContent && state.isActive
+      );
+      scrollState.hasMoreContent = anyRelayHasContent;
+      
+      if (scrollState.hasMoreContent && loadedThisBatch > 0) {
+        loadMoreBtn.style.display = 'block';
+      } else if (!scrollState.hasMoreContent) {
+        loadMoreStatus.textContent = 'No more playlists to load';
+        loadMoreStatus.style.display = 'block';
+      } else if (loadedThisBatch === 0) {
+        loadMoreStatus.textContent = 'No more playlists to load';
+        loadMoreStatus.style.display = 'block';
+        scrollState.hasMoreContent = false;
+      } else {
+        loadMoreBtn.style.display = 'block';
+      }
+    }
+
+    // ========== SET UP EVENT LISTENERS BEFORE LOADING DATA ==========
+
+    grid.addEventListener("click", async (event) => {
+      let card = event.target.closest(".video-card");
+      if (card && card.dataset.playlistId) {
+        const author = card.dataset.author;
+        const dtag = card.dataset.dtag;
+        
+        const discoveryRelays = app.relays.slice(0, 3).map(cleanRelayUrl);
+        const uniqueDiscoveryRelays = [...new Set(discoveryRelays)];
+        const discoveryParam = uniqueDiscoveryRelays.join(",");
+        
+        const playlistUrl = `#playlist/params?author=${author}&dtag=${dtag}&discovery=${discoveryParam}`;
+        console.log("Navigating to playlist URL:", playlistUrl);
+        window.location.hash = playlistUrl;
+      }
+    });
+
+    // Load More button click handler
+    loadMoreBtn.addEventListener('click', () => {
+      loadMoreEvents();
+    });
+
+    // ========== NOW LOAD THE DATA ==========
     
-    // Always navigate to network playlist page (this page shows network playlists)
-    const discoveryRelays = app.relays.slice(0, 3).map(cleanRelayUrl);
-    const uniqueDiscoveryRelays = [...new Set(discoveryRelays)];
-    const discoveryParam = uniqueDiscoveryRelays.join(",");
-    
-    const playlistUrl = `#playlist/params?author=${author}&dtag=${dtag}&discovery=${discoveryParam}`;
-    console.log("Navigating to playlist URL:", playlistUrl);
-    window.location.hash = playlistUrl;
-  }
-});
+    // Initial load
+    await loadMoreEvents();
+
+    // Hide loading indicator after initial load
+    const loadingIndicator = document.querySelector(".loading-indicator");
+    if (loadingIndicator) {
+      loadingIndicator.remove();
+    }
+
+    // Subscribe to new events (real-time updates)
+    app.playlistSubscription = app.playlistPool.subscribe(
+      app.relays,
+      {
+        kinds: [30005],
+        since: scrollState.currentTimestamp,
+        "#t": scrollState.filterParams.tags.length > 0 ? scrollState.filterParams.tags : undefined,
+      },
+      {
+        onevent(event) {
+          // For addressable events, use author+d-tag as unique identifier
+          const dTag = event.tags?.find(t => t[0] === 'd')?.[1] || '';
+          const uniqueId = `${event.pubkey}:${dTag}`;
+          
+          if (!scrollState.existingEventIds.has(uniqueId)) {
+            const sanitizedEvent = sanitizeNostrEvent(event);
+            if (sanitizedEvent && isValidPlaylist(sanitizedEvent)) {
+              scrollState.existingEventIds.add(uniqueId);
+              renderNewPlaylistAtTop(sanitizedEvent, grid);
+            }
+          }
+        },
+      }
+    );
+
   } catch (error) {
     console.error("Error rendering playlists page:", error);
     let errorDiv = document.createElement("div");
@@ -112,29 +434,18 @@ grid.addEventListener("click", async (event) => {
   }
 }
 
-function filterValidPlaylists(playlists) {
-  return playlists.filter(playlist => {
-    // Check if the playlist has tags
-    if (!playlist.tags || !Array.isArray(playlist.tags)) {
-      return false;
-    }
-
-    // Look for at least one valid "e" tag reference
-    return playlist.tags.some(tag => {
-      // Check if it's an "e" tag with at least 2 elements
-      if (!Array.isArray(tag) || tag.length < 2 || tag[0] !== "e") {
-        return false;
-      }
-
-      const eventId = tag[1];
-      
-      // Check if the ID is a string
-      if (!eventId || typeof eventId !== "string") {
-        return false;
-      }
-
-      // Check if the ID is exactly 64 characters (valid hex length)
-      return eventId.length === 64 && /^[a-fA-F0-9]{64}$/.test(eventId);
-    });
-  });
+function renderNewPlaylistAtTop(playlist, grid) {
+  let card = createPlaylistCard(playlist);
+  
+  if (grid.firstChild) {
+    grid.insertBefore(card, grid.firstChild);
+  } else {
+    grid.appendChild(card);
+  }
+  
+  card.classList.add("new-video");
+  setTimeout(() => {
+    card.classList.remove("new-video");
+  }, 2000);
 }
+

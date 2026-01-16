@@ -1433,38 +1433,6 @@ function renderNewVideoAtTopProfilePage(video, grid) {
   }, 2000);
 }
 
-async function loadProfileWithRetry(profile, attempts = 0) {
-  try {
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(
-        () => reject(new Error("Profile load timeout")),
-        PROFILE_LOAD_TIMEOUT
-      );
-    });
-
-    const loadPromise = Promise.all([
-      NostrClient.getProfile(profile),
-      getExtendedRelaysForProfile(profile),
-    ]);
-
-    const [kindZero, extendedRelays] = await Promise.race([
-      loadPromise,
-      timeoutPromise,
-    ]);
-
-    return { kindZero, extendedRelays };
-  } catch (error) {
-    if (attempts < RETRY_ATTEMPTS) {
-      console.warn(
-        `Profile load attempt ${attempts + 1} failed, retrying...`,
-        error
-      );
-      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY));
-      return loadProfileWithRetry(profile, attempts + 1);
-    }
-    throw error;
-  }
-}
 
 // Consolidated event listener setup
 function setupAllProfileEventListeners(profile, kindZeroEvent, extendedRelays) {
@@ -2038,50 +2006,6 @@ function handleVideoLoadError() {
   }
 }
 
-async function getExtendedRelaysForProfile(pk) {
-  try {
-
-    let topRelayHints = [];
-    try {
-      const hints = window.NostrGadgets?.global?.hints;
-      if (hints) {
-        topRelayHints = await hints.topN(pk, 7);
-//        console.log("🌟 Top Relay Hints:", 
-//          topRelayHints.map(relay => `\n  - ${relay}`).join('')
-//        );
-      }
-    } catch (error) {
-      console.warn("❌ Failed to get relay hints for profile:", error);
-    }
-
-    const normalizeUrl = (url) => {
-      try {
-        return url.toLowerCase().replace(/\/+$/, "");
-      } catch (e) {
-        return url;
-      }
-    };
-
-    const allRelays = [
-      ...topRelayHints.map(normalizeUrl),
-      ...NostrClient.relays.map(normalizeUrl),
-    ];
-
-//    console.log("📡 All Relays:", 
-//      allRelays.map(relay => `\n  - ${relay}`).join('')
-//    );
-
-    const combinedRelays = [...new Set(allRelays)];
-//    console.log(`🔗 Extended Relays for Profile (${combinedRelays.length}):`, 
-//      combinedRelays.map(relay => `\n  - ${relay}`).join('')
-//    );
-
-    return combinedRelays;
-  } catch (error) {
-    console.error("❌ Error getting extended relays:", error);
-    return NostrClient.relays;
-  }
-}
 
 function setupProfileTabEventListeners(profile, extendedRelays) {
   const tabButtons = document.querySelectorAll(".profile-tab-button");
@@ -2298,4 +2222,211 @@ document.addEventListener("click", (event) => {
     }
   }
 });
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//////////////////////////////
+// Fetch kind:0 from a single relay
+async function fetchProfileFromRelay(relay, pubkey) {
+  return new Promise((resolve) => {
+    let profileEvent = null;
+    let isComplete = false;
+
+    const pool = new window.NostrTools.SimplePool();
+    
+    const filter = {
+      kinds: [0],
+      authors: [pubkey],
+      limit: 1
+    };
+
+    const sub = pool.subscribe(
+      [relay],
+      filter,
+      {
+        onevent(event) {
+          if (!profileEvent || event.created_at > profileEvent.created_at) {
+            profileEvent = event;
+          }
+        },
+        oneose() {
+          if (!isComplete) {
+            isComplete = true;
+            sub.close();
+            pool.close([relay]);
+            resolve(profileEvent);
+          }
+        },
+        onclose() {
+          if (!isComplete) {
+            isComplete = true;
+            pool.close([relay]);
+            resolve(profileEvent);
+          }
+        }
+      }
+    );
+
+    // Timeout per relay
+    setTimeout(() => {
+      if (!isComplete) {
+        isComplete = true;
+        sub.close();
+        pool.close([relay]);
+        resolve(profileEvent);
+      }
+    }, 3000);
+  });
+}
+
+// Fetch kind:0 from all relays in parallel
+async function fetchProfileFromAllRelays(pubkey) {
+  // Get relay hints first
+  let optimizedRelays = [];
+  try {
+    const hints = window.NostrGadgets?.global?.hints;
+    if (hints) {
+      optimizedRelays = await hints.topN(pubkey, 5);
+    }
+  } catch (error) {
+    console.warn("Failed to get relay hints:", error);
+  }
+
+  // Combine with app relays and static relays
+  const staticRelays = [
+    "wss://relay.nostr.band",
+    "wss://nos.lol",
+    "wss://nostr.mom",
+  ];
+
+  const normalizeUrl = (url) => {
+    try {
+      return url.toLowerCase().replace(/\/+$/, "");
+    } catch (e) {
+      return url;
+    }
+  };
+
+  const allRelays = [
+    ...app.relays.map(normalizeUrl),
+    ...staticRelays.map(normalizeUrl),
+    ...optimizedRelays.map(normalizeUrl),
+  ];
+
+  const combinedRelays = [...new Set(allRelays)];
+  console.log(`Fetching profile from ${combinedRelays.length} relays in parallel`);
+
+  // Race all relays - first one to return wins
+  const relayPromises = combinedRelays.map(relay => 
+    fetchProfileFromRelay(relay, pubkey)
+  );
+
+  // Get the first successful result
+  let newestProfile = null;
+  let resolvedCount = 0;
+
+  return new Promise((resolve) => {
+    relayPromises.forEach(promise => {
+      promise.then(profile => {
+        resolvedCount++;
+        
+        if (profile && (!newestProfile || profile.created_at > newestProfile.created_at)) {
+          newestProfile = profile;
+          // Resolve immediately with first profile found
+          if (resolvedCount === 1) {
+            resolve(newestProfile);
+          }
+        }
+
+        // If all relays responded and we haven't resolved yet
+        if (resolvedCount === combinedRelays.length && !newestProfile) {
+          resolve(null);
+        }
+      });
+    });
+
+    // Timeout if no relay responds
+    setTimeout(() => {
+      resolve(newestProfile);
+    }, 5000);
+  });
+}
+
+// Get extended relays separately
+async function getExtendedRelaysForProfile(pk) {
+  try {
+    let topRelayHints = [];
+    try {
+      const hints = window.NostrGadgets?.global?.hints;
+      if (hints) {
+        topRelayHints = await hints.topN(pk, 7);
+      }
+    } catch (error) {
+      console.warn("Failed to get relay hints for profile:", error);
+    }
+
+    const normalizeUrl = (url) => {
+      try {
+        return url.toLowerCase().replace(/\/+$/, "");
+      } catch (e) {
+        return url;
+      }
+    };
+
+    const allRelays = [
+      ...topRelayHints.map(normalizeUrl),
+      ...app.relays.map(normalizeUrl),
+    ];
+
+    const combinedRelays = [...new Set(allRelays)];
+    return combinedRelays;
+  } catch (error) {
+    console.error("Error getting extended relays:", error);
+    return app.relays;
+  }
+}
+
+// Main function to load profile with retry
+async function loadProfileWithRetry(profile, attempts = 0) {
+  try {
+    // Fetch profile and relay hints in parallel
+    const [kindZero, extendedRelays] = await Promise.all([
+      fetchProfileFromAllRelays(profile),
+      getExtendedRelaysForProfile(profile)
+    ]);
+
+    if (!kindZero) {
+      throw new Error("Profile not found");
+    }
+
+    return { kindZero, extendedRelays };
+  } catch (error) {
+    if (attempts < RETRY_ATTEMPTS) {
+      console.warn(`Profile load attempt ${attempts + 1} failed, retrying...`, error);
+      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY));
+      return loadProfileWithRetry(profile, attempts + 1);
+    }
+    throw error;
+  }
 }

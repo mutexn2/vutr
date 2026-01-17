@@ -1148,7 +1148,7 @@ async function createShareMenu(buttonElement, video, videoId, url) {
           <span class="item-text">Share Nostr Note</span>
         </button>
         <div class="menu-separator"></div>
-        <button class="menu-item share-download">
+        <button class="menu-item share-download" style="display: none;">
           <span class="item-icon">⬇️</span>
           <span class="item-text">Download Video</span>
         </button>

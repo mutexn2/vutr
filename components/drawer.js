@@ -433,7 +433,7 @@ function getSectionTwoItems() {
     { id: "saved", icon: "🔖", text: "Bookmarks" },
     { id: "bookmarkedplaylists", icon: "🔖", text: "Playlist Bookmarks" },
     { id: "localfollows", icon: "📺", text: "Following" },
-    { id: "localplaylists", icon: "📒", text: "Local Playlists" },
+    { id: "localplaylists", icon: "📒", text: "My Playlists" },
     { id: "history", icon: "👍", text: "history" },
     { id: "historyplaylists", icon: "👍", text: "playlist history" },
   ];

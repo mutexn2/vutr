@@ -1398,45 +1398,10 @@ async function shareActiveRelaySet() {
   }
 
   // Show preview modal first
-  showShareRelaySetModal(app.activeRelayList, activeSet);
+publishRelaySetToNostr(activeSet);
 }
 
-function showShareRelaySetModal(setName, setData) {
-  const relays = setData.tags.filter(tag => tag[0] === "relay");
-  const relayList = relays.map(relay => relay[1]).join('\n');
-  
-  // Extract description tag
-  const descriptionTag = setData.tags.find(tag => tag[0] === "description");
-  const description = descriptionTag ? descriptionTag[1] : "";
-  
-  const content = `
-    <div class="share-relay-set-modal">
-      <div class="set-preview">
-        <h4>Relay Set: ${escapeHtml(setName)}</h4>
-        ${description ? `<p><strong>Description:</strong> ${escapeHtml(description)}</p>` : ''}
-        <p><strong>Relays (${relays.length}):</strong></p>
-        <pre class="relay-list-preview">${relayList}</pre>
-      </div>
-      <div class="share-actions">
-        <button class="btn-secondary" id="modalCancelBtn">Cancel</button>
-        <button class="btn-primary" id="modalShareBtn">Share to Nostr</button>
-      </div>
-    </div>
-  `;
 
-  const modal = openModal({
-    title: "Share Relay Set",
-    content,
-    size: "medium"
-  });
-
-  // Setup handlers
-  modal.querySelector("#modalShareBtn").addEventListener("click", () => {
-    publishRelaySetToNostr(setData);
-    closeModal();
-  });
-  modal.querySelector("#modalCancelBtn").addEventListener("click", closeModal);
-}
 
 async function publishRelaySetToNostr(setData) {
   try {
@@ -2602,45 +2567,14 @@ async function shareOutboxRelays() {
     return;
   }
   
-  showShareOutboxModal(outboxRelays);
+publishOutboxToNostr(outboxRelays);
+
 }
 
-function showShareOutboxModal(outboxRelays) {
-  const relaysList = outboxRelays.map(r => {
-    const markerText = r.marker ? ` (${r.marker})` : ' (read & write)';
-    return r.url + markerText;
-  }).join('\n');
-  
-  const content = `
-    <div class="share-outbox-modal">
-      <div class="relay-preview">
-        <h4>Outbox Relay List</h4>
-        <p><strong>Relays (${outboxRelays.length}):</strong></p>
-        <pre class="relay-list-preview">${relaysList}</pre>
-      </div>
-      <div class="share-actions">
-        <button class="btn-secondary" id="modalCancelBtn">Cancel</button>
-        <button class="btn-primary" id="modalShareBtn">Share to Nostr</button>
-      </div>
-    </div>
-  `;
-  
-  const modal = openModal({
-    title: "Share Outbox Relays",
-    content,
-    size: "medium"
-  });
-  
-  modal.querySelector("#modalShareBtn").addEventListener("click", () => {
-    publishOutboxToNostr(outboxRelays);
-    closeModal();
-  });
-  modal.querySelector("#modalCancelBtn").addEventListener("click", closeModal);
-}
 
 async function publishOutboxToNostr(outboxRelays) {
   try {
-    showTemporaryNotification("Publishing outbox list...");
+  //  showTemporaryNotification("Publishing outbox list...");
     
     const tags = outboxRelays.map(r => {
       const tag = ['r', r.url];
@@ -3051,39 +2985,10 @@ async function shareBlossomServers() {
     return;
   }
   
-  showShareBlossomModal(blossomServers);
+publishBlossomToNostr(blossomServers);
 }
 
-function showShareBlossomModal(blossomServers) {
-  const serversList = blossomServers.map(s => s.url).join('\n');
-  
-  const content = `
-    <div class="share-blossom-modal">
-      <div class="server-preview">
-        <h4>Blossom Server List</h4>
-        <p><strong>Servers (${blossomServers.length}):</strong></p>
-        <pre class="server-list-preview">${serversList}</pre>
-        <p class="note">Note: The order matters - your most reliable servers should be first.</p>
-      </div>
-      <div class="share-actions">
-        <button class="btn-secondary" id="modalCancelBtn">Cancel</button>
-        <button class="btn-primary" id="modalShareBtn">Share to Nostr</button>
-      </div>
-    </div>
-  `;
-  
-  const modal = openModal({
-    title: "Share Blossom Servers",
-    content,
-    size: "medium"
-  });
-  
-  modal.querySelector("#modalShareBtn").addEventListener("click", () => {
-    publishBlossomToNostr(blossomServers);
-    closeModal();
-  });
-  modal.querySelector("#modalCancelBtn").addEventListener("click", closeModal);
-}
+
 
 async function publishBlossomToNostr(blossomServers) {
   try {

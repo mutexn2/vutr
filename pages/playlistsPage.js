@@ -15,7 +15,7 @@ async function playlistsPageHandler() {
     console.log("Current filter params:", filterParams);
 
     pageContainer.innerHTML = `
-<div>
+<div style="display: none;">
   <div id="filter-container"></div>
 </div>
 

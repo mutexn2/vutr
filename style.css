@@ -8186,7 +8186,148 @@ noscript {
     margin: 2.5% auto;
   }
 }
+/***********************/
+.publish-confirm-modal .publish-info {
+  margin-bottom: 1rem;
+}
 
+.publish-confirm-modal .publish-info p {
+  margin: 0.75rem 0;
+}
+
+.publish-confirm-modal .publish-info code {
+  background: rgba(0, 0, 0, 0.1);
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 0.9em;
+  word-break: break-all;
+}
+
+.publish-confirm-modal .relay-count {
+  color: #666;
+  font-size: 0.9em;
+  font-style: italic;
+}
+
+.publish-confirm-modal .relay-list {
+  background: rgba(0, 0, 0, 0.05);
+  padding: 0.75rem;
+  border-radius: 4px;
+  margin: 0.5rem 0;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.publish-confirm-modal .relay-item {
+  padding: 0.4rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.publish-confirm-modal .relay-item label {
+  font-family: monospace;
+  font-size: 0.85em;
+  color: #555;
+  cursor: pointer;
+  flex: 1;
+}
+
+.publish-confirm-modal .relay-checkbox {
+  cursor: pointer;
+}
+
+.publish-confirm-modal .json-simple-viewer {
+  max-height: 300px;
+  overflow-y: auto;
+  margin-top: 0.5rem;
+}
+
+.publish-status {
+  margin: 1rem 0;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+}
+
+.publish-status p {
+  margin: 0 0 0.5rem 0;
+}
+
+.publish-results {
+  margin-top: 0.5rem;
+}
+
+.result-summary {
+  font-weight: bold;
+  margin-bottom: 0.75rem;
+  padding: 0.5rem;
+  border-radius: 4px;
+}
+
+.result-summary.success {
+  background: rgba(0, 200, 0, 0.1);
+  color: #007700;
+}
+
+.result-summary.error {
+  background: rgba(200, 0, 0, 0.1);
+  color: #770000;
+}
+
+.relay-results {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.relay-result {
+  padding: 0.5rem;
+  margin: 0.25rem 0;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9em;
+}
+
+.relay-result.success {
+  background: rgba(0, 200, 0, 0.1);
+  color: #007700;
+}
+
+.relay-result.failed {
+  background: rgba(200, 0, 0, 0.1);
+  color: #770000;
+}
+
+.result-icon {
+  font-weight: bold;
+  font-size: 1.1em;
+  min-width: 20px;
+}
+
+.result-relay {
+  font-family: monospace;
+  font-size: 0.85em;
+  flex: 1;
+  word-break: break-all;
+}
+
+.result-status {
+  font-size: 0.85em;
+  font-weight: 500;
+}
+
+.result-text {
+  font-family: monospace;
+  font-size: 0.85em;
+}
+
+.modal-actions button.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 /**************************************/
 /***********local follows**************/
 

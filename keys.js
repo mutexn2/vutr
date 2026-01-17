@@ -535,10 +535,12 @@ async function publishGuestProfile(secretKey, publicKey) {
 
     console.log("%c[Guest Profile]%c Publishing guest profile:", "color: blue; font-weight: bold", "", profileData);
 
-    await publishEvent(signedEvent, null, {
+    await publishEvent(signedEvent, app.globalRelays, {
       successMessage: "Guest profile published successfully",
       errorMessage: "Failed to publish guest profile",
+      skipConfirmation: true,
     });
+
   } catch (error) {
     console.error("%c[Guest Profile]%c Error publishing guest profile:", "color: red; font-weight: bold", "", error);
     // Don't throw error - login should still work even if profile publishing fails
@@ -1773,7 +1775,8 @@ async function publishEvent(event, relays = app.globalRelays, options = {}) {
   const {
     requireAllSuccess = false,
     successMessage = "Event published successfully",
-    errorMessage = "Failed to publish event"
+    errorMessage = "Failed to publish event",
+    skipConfirmation = false
   } = options;
 
   let publishResults = [];
@@ -1784,26 +1787,86 @@ async function publishEvent(event, relays = app.globalRelays, options = {}) {
     if (!targetRelays || targetRelays.length === 0) {
       throw new Error("No relays configured");
     }
+
+    let selectedRelays = targetRelays;
+    let modalElement = null;
+    let waitForModalClose = null;
+
+    // Show confirmation modal unless explicitly skipped
+    if (!skipConfirmation) {
+      const confirmation = await confirmPublishModal(event, targetRelays);
+      
+      if (!confirmation.confirmed) {
+        console.log("Publishing cancelled by user");
+        return {
+          success: false,
+          cancelled: true,
+          message: "Publishing cancelled by user"
+        };
+      }
+      
+      selectedRelays = confirmation.selectedRelays;
+      
+      // Get the modal element to update it with progress
+      modalElement = app.modal?.element;
+      
+      // Create a promise that resolves when modal is closed
+      waitForModalClose = new Promise((resolve) => {
+        // Store the original onClose callback
+        const originalOnClose = app.modal?.onClose;
+        
+        // Override the onClose to resolve our promise
+        if (app.modal) {
+          app.modal.onClose = () => {
+            if (typeof originalOnClose === 'function') {
+              originalOnClose();
+            }
+            resolve();
+          };
+        }
+      });
+      
+      // Update modal to show publishing state
+      if (modalElement) {
+        const statusDiv = modalElement.querySelector('.publish-status');
+        const actionsDiv = modalElement.querySelector('.modal-actions');
+        const closeBtn = modalElement.querySelector('.close-modal');
+        
+        statusDiv.style.display = 'block';
+        statusDiv.querySelector('p').innerHTML = '<strong>Publishing to relays...</strong>';
+        
+        // Disable buttons during publish
+        actionsDiv.querySelectorAll('button').forEach(btn => {
+          btn.disabled = true;
+          btn.classList.add('disabled');
+        });
+        
+        // Hide close button during publish
+        if (closeBtn) closeBtn.style.display = 'none';
+      }
+    }
     
+    // Publish to selected relays
     if (typeof pool !== "undefined") {
-      publishResults = await Promise.allSettled(pool.publish(targetRelays, event));
+      publishResults = await Promise.allSettled(pool.publish(selectedRelays, event));
     } else {
       const simplePool = new window.NostrTools.SimplePool();
-      publishResults = await Promise.allSettled(simplePool.publish(targetRelays, event));
+      publishResults = await Promise.allSettled(simplePool.publish(selectedRelays, event));
     }
 
     const successfulPublishes = publishResults.filter(result => result.status === 'fulfilled');
     const failedPublishes = publishResults.filter(result => result.status === 'rejected');
 
-/*     if (failedPublishes.length > 0) {
-      console.error("Detailed publish failures:");
-      failedPublishes.forEach((failure, index) => {
-        console.error(`Relay ${index}:`, failure.reason);
-      });
-    } */
+    // Show results in modal if it's still open
+    if (modalElement && !skipConfirmation) {
+      showPublishResults(modalElement, publishResults, selectedRelays, successfulPublishes.length, selectedRelays.length);
+      
+      // Wait for user to close the modal before continuing
+      await waitForModalClose;
+    }
 
     if (successfulPublishes.length > 0) {
-      console.log(`${successMessage} to ${successfulPublishes.length}/${targetRelays.length} relays`);
+      console.log(`${successMessage} to ${successfulPublishes.length}/${selectedRelays.length} relays`);
       
       if (failedPublishes.length > 0) {
         console.warn(`Failed to publish to ${failedPublishes.length} relays:`, 
@@ -1813,11 +1876,11 @@ async function publishEvent(event, relays = app.globalRelays, options = {}) {
       return {
         success: true,
         successCount: successfulPublishes.length,
-        totalCount: targetRelays.length,
+        totalCount: selectedRelays.length,
         results: publishResults
       };
     } else {
-      throw new Error(`Failed to publish to all ${targetRelays.length} relays`);
+      throw new Error(`Failed to publish to all ${selectedRelays.length} relays`);
     }
     
   } catch (error) {
@@ -1834,6 +1897,15 @@ async function publishEvent(event, relays = app.globalRelays, options = {}) {
     throw error;
   }
 }
+
+/* 
+// Will show confirmation modal
+await publishEvent(myEvent, myRelays);
+
+// To skip confirmation (for automated processes)
+await publishEvent(myEvent, myRelays, { skipConfirmation: true });
+
+ */
 
 /////////////////////////////////////////////////
 

@@ -699,25 +699,6 @@ function showProfileKindZeroJson(kindZeroEvent, profileNpub) {
   });
 }
 
-/* function showVideoJsonModal(videoData) {
-  const modal = openModal({
-    title: `Video JSON - ${videoData.id}`,
-    content: `<pre>${JSON.stringify(videoData, null, 2)}</pre>`,
-    size: "large",
-    customClass: "video-json-modal",
-    onClose: () => {
-      // Any specific cleanup for this modal
-    }
-  });
-
-  // Add custom close button handler if needed
-  const closeBtn = modal.querySelector('.close-modal');
-  if (closeBtn) {
-    closeBtn.addEventListener('click', closeModal);
-  }
-}
-
- */
 /////////////////////////////////////////////////
 
 
@@ -821,4 +802,151 @@ function showJsonModal(data, title = 'JSON Data', options = {}) {
         customClass: options.customClass || "json-modal",
         onClose: options.onClose || (() => {})
     });
+}
+
+
+
+////////
+/**
+ * Show publish confirmation modal before publishing an event
+ * @param {Object} event - The Nostr event to publish
+ * @param {Array} relays - Array of relay URLs
+ * @returns {Promise<Object>} - Resolves to {confirmed: boolean, selectedRelays: Array}
+ */
+function confirmPublishModal(event, relays) {
+  return new Promise((resolve) => {
+    const formattedJson = formatJsonWithStyle(event);
+    
+    const content = `
+      <div class="publish-confirm-modal">
+        <div class="publish-info">
+          <p><strong>Publishing as:</strong> <code>${escapeHtml(app.myNpub || 'Not set')}</code></p>
+          
+          <p><strong>Relays:</strong> <span class="relay-count">(${relays.length} selected)</span></p>
+          <div class="relay-list">
+            ${relays.map((relay, index) => `
+              <div class="relay-item" data-relay-index="${index}">
+                <input type="checkbox" id="relay-${index}" class="relay-checkbox" checked data-relay="${escapeHtml(relay)}">
+                <label for="relay-${index}">${escapeHtml(relay)}</label>
+              </div>
+            `).join('')}
+          </div>
+          
+          <p><strong>Event JSON:</strong></p>
+          <div class="json-simple-viewer">
+            <pre>${formattedJson}</pre>
+          </div>
+        </div>
+        
+        <div class="publish-status" style="display: none;">
+          <p><strong>Publishing...</strong></p>
+          <div class="publish-progress"></div>
+        </div>
+        
+        <div class="modal-actions">
+          <button class="btn-secondary" id="publishCancel">Cancel</button>
+          <button class="btn-primary" id="publishConfirm">Publish Event</button>
+        </div>
+      </div>
+    `;
+
+    const modal = openModal({
+      title: 'Confirm Event Publishing',
+      content,
+      size: 'large',
+      customClass: 'publish-confirmation-modal',
+      closeOnOverlay: false, // Prevent closing during publish
+      showCloseButton: true,
+      onClose: () => resolve({ confirmed: false, selectedRelays: [] })
+    });
+
+    const checkboxes = modal.querySelectorAll('.relay-checkbox');
+    const relayCount = modal.querySelector('.relay-count');
+    const confirmBtn = modal.querySelector('#publishConfirm');
+    const cancelBtn = modal.querySelector('#publishCancel');
+
+    // Update count when checkboxes change
+    function updateRelayCount() {
+      const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
+      relayCount.textContent = `(${checkedCount} selected)`;
+      confirmBtn.disabled = checkedCount === 0;
+      if (checkedCount === 0) {
+        confirmBtn.classList.add('disabled');
+      } else {
+        confirmBtn.classList.remove('disabled');
+      }
+    }
+
+    checkboxes.forEach(checkbox => {
+      checkbox.addEventListener('change', updateRelayCount);
+    });
+
+    confirmBtn.addEventListener('click', () => {
+      const selectedRelays = Array.from(checkboxes)
+        .filter(cb => cb.checked)
+        .map(cb => cb.dataset.relay);
+      
+      if (selectedRelays.length === 0) {
+        alertModal('Please select at least one relay to publish to.');
+        return;
+      }
+
+      resolve({ confirmed: true, selectedRelays });
+    });
+
+    cancelBtn.addEventListener('click', () => {
+      resolve({ confirmed: false, selectedRelays: [] });
+      closeModal();
+    });
+  });
+}
+
+/**
+ * Show publishing progress and results in the modal
+ * @param {HTMLElement} modal - The modal element
+ * @param {Array} results - Array of publish results
+ * @param {Array} relays - Array of relay URLs that were attempted
+ * @param {number} successCount - Number of successful publishes
+ * @param {number} totalCount - Total number of relays
+ */
+function showPublishResults(modal, results, relays, successCount, totalCount) {
+  const statusDiv = modal.querySelector('.publish-status');
+  const progressDiv = modal.querySelector('.publish-progress');
+  const actionsDiv = modal.querySelector('.modal-actions');
+  
+  statusDiv.style.display = 'block';
+  
+  let html = `
+    <div class="publish-results">
+      <p class="result-summary ${successCount > 0 ? 'success' : 'error'}">
+        Published to ${successCount}/${totalCount} relays
+      </p>
+      <div class="relay-results">
+  `;
+  
+  results.forEach((result, index) => {
+    const status = result.status === 'fulfilled' ? 'success' : 'failed';
+    const icon = result.status === 'fulfilled' ? '✓' : '✗';
+    const relayUrl = relays[index] || 'Unknown relay';
+    const reason = result.status === 'rejected' ? `: ${result.reason}` : '';
+    
+    html += `
+      <div class="relay-result ${status}">
+        <span class="result-icon">${icon}</span>
+        <span class="result-relay">${escapeHtml(relayUrl)}</span>
+        <span class="result-status">${status}${reason}</span>
+      </div>
+    `;
+  });
+  
+  html += `
+      </div>
+    </div>
+  `;
+  
+  progressDiv.innerHTML = html;
+  
+  // Update buttons
+  actionsDiv.innerHTML = '<button class="btn-primary" id="closeResults">Close</button>';
+  modal.querySelector('#closeResults').addEventListener('click', closeModal);
 }

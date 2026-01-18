@@ -40,6 +40,7 @@ async function networkSettingsPageHandler() {
 </div>
 
 <div class="active-set-header">
+<p>active set</p>
   <div class="set-selector">
     <label for="activeSetSelect">Active Relay Set:</label>
     <select id="activeSetSelect" class="set-dropdown">
@@ -194,8 +195,8 @@ async function networkSettingsPageHandler() {
     <div class="add-domain-form" style="display: none;">
       <input type="text" class="domain-input" placeholder="Enter domain (e.g., cdn.example.com)">
       <div class="form-actions">
-        <button class="confirm-add-btn settings-btn primary">Add</button>
-        <button class="cancel-add-btn settings-btn secondary">Cancel</button>
+        <button class="confirm-add-btn">Add</button>
+        <button class="cancel-add-btn">Cancel</button>
       </div>
     </div>
   </div>
@@ -213,18 +214,18 @@ async function networkSettingsPageHandler() {
     setupNetworkPageEventListeners();
 
 
-// Setup media whitelist in the allowed servers tab
-const allowedServersTab = mainContent.querySelector("#allowed-servers-tab");
-if (allowedServersTab) {
-  const mediaSection = allowedServersTab.querySelector(".allowed-servers-container");
-  if (mediaSection) {
-    setupMediaWhitelistSettings(mediaSection);
-    setupAllowedServersEventListeners();
-  }
-}
+    // Setup media whitelist in the allowed servers tab
+    const allowedServersTab = mainContent.querySelector("#allowed-servers-tab");
+    if (allowedServersTab) {
+      const mediaSection = allowedServersTab.querySelector(".allowed-servers-container");
+      if (mediaSection) {
+        setupMediaWhitelistSettings(mediaSection);
+        setupAllowedServersEventListeners();
+      }
+    }
 
 
-    
+
   } catch (error) {
     console.error("Error rendering network page:", error);
     mainContent.innerHTML = `
@@ -239,39 +240,38 @@ if (allowedServersTab) {
 function populateActiveSetDropdown() {
   const select = document.getElementById("activeSetSelect");
   if (!select) return;
-  
+
   const listsWithGlobal = getRelayListsWithGlobal();
-  
+
   // Sort regular sets alphabetically, but keep global set at the end
   const regularSets = Object.keys(app.relayLists).sort();
   const allSets = [...regularSets, GLOBAL_SET_NAME];
-  
+
   select.innerHTML = allSets
     .map(setName => `<option value="${setName}" ${setName === app.activeRelayList ? 'selected' : ''}>${setName}</option>`)
     .join('');
 }
 
-// New function to render set info (relay count and description)
 function renderSetInfo() {
   const container = document.getElementById("setInfoSection");
   if (!container) return;
-  
+
   let activeSet;
   if (isGlobalSet(app.activeRelayList)) {
     activeSet = generateGlobalRelaySet();
   } else {
     activeSet = app.relayLists[app.activeRelayList];
   }
-  
+
   if (!activeSet) {
     container.innerHTML = '';
     return;
   }
-  
+
   const relayCount = activeSet.tags.filter(tag => tag[0] === "relay").length;
   const descriptionTag = activeSet.tags.find(tag => tag[0] === "description");
   const description = descriptionTag ? descriptionTag[1] : "No description";
-  
+
   container.innerHTML = `
     <div class="set-metadata">
       <div class="set-stat">
@@ -309,172 +309,172 @@ function setupNetworkPageEventListeners() {
   document.getElementById("shareActiveSetBtn").addEventListener("click", () => {
     shareActiveRelaySet();
   });
-  
+
   document.getElementById("deleteActiveSetBtn").addEventListener("click", deleteActiveSet);
-  
+
   // Add relay button
   document.getElementById("addRelayBtn").addEventListener("click", addRelay);
-  
+
   // Add relay on Enter key
   document.getElementById("newRelayInput").addEventListener("keypress", (e) => {
     if (e.key === "Enter") addRelay();
   });
-  
+
   // Edit active set metadata (name + description)
   document.getElementById("editActiveSetMetadataBtn").addEventListener("click", () => {
     editSetMetadata(app.activeRelayList);
   });
-  
+
   // NEW: Create new set button (moved to actions bar)
   document.getElementById("createNewSetBtn").addEventListener("click", createNewEmptySet);
-  
+
   // NEW: Import my relay sets button
   document.getElementById("importMyRelaySetsBtn").addEventListener("click", importMyRelaySets);
 
-// Outbox relay controls
-const importOutboxBtn = document.getElementById("importOutboxBtn");
-const shareOutboxBtn = document.getElementById("shareOutboxBtn");
-const addOutboxRelayBtn = document.getElementById("addOutboxRelayBtn");
-const newOutboxRelayInput = document.getElementById("newOutboxRelayInput");
+  // Outbox relay controls
+  const importOutboxBtn = document.getElementById("importOutboxBtn");
+  const shareOutboxBtn = document.getElementById("shareOutboxBtn");
+  const addOutboxRelayBtn = document.getElementById("addOutboxRelayBtn");
+  const newOutboxRelayInput = document.getElementById("newOutboxRelayInput");
 
-if (importOutboxBtn) {
-  importOutboxBtn.addEventListener("click", importOutboxRelays);
-}
+  if (importOutboxBtn) {
+    importOutboxBtn.addEventListener("click", importOutboxRelays);
+  }
 
-if (shareOutboxBtn) {
-  shareOutboxBtn.addEventListener("click", shareOutboxRelays);
-}
+  if (shareOutboxBtn) {
+    shareOutboxBtn.addEventListener("click", shareOutboxRelays);
+  }
 
-if (addOutboxRelayBtn) {
-  addOutboxRelayBtn.addEventListener("click", addOutboxRelay);
-}
+  if (addOutboxRelayBtn) {
+    addOutboxRelayBtn.addEventListener("click", addOutboxRelay);
+  }
 
-if (newOutboxRelayInput) {
-  newOutboxRelayInput.addEventListener("keypress", (e) => {
-    if (e.key === "Enter") addOutboxRelay();
-  });
-}
+  if (newOutboxRelayInput) {
+    newOutboxRelayInput.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") addOutboxRelay();
+    });
+  }
 
 
-// Blossom server controls
-const importBlossomBtn = document.getElementById("importBlossomBtn");
-const shareBlossomBtn = document.getElementById("shareBlossomBtn");
-const addBlossomServerBtn = document.getElementById("addBlossomServerBtn");
-const newBlossomServerInput = document.getElementById("newBlossomServerInput");
+  // Blossom server controls
+  const importBlossomBtn = document.getElementById("importBlossomBtn");
+  const shareBlossomBtn = document.getElementById("shareBlossomBtn");
+  const addBlossomServerBtn = document.getElementById("addBlossomServerBtn");
+  const newBlossomServerInput = document.getElementById("newBlossomServerInput");
 
-if (importBlossomBtn) {
-  importBlossomBtn.addEventListener("click", importBlossomServers);
-}
+  if (importBlossomBtn) {
+    importBlossomBtn.addEventListener("click", importBlossomServers);
+  }
 
-if (shareBlossomBtn) {
-  shareBlossomBtn.addEventListener("click", shareBlossomServers);
-}
+  if (shareBlossomBtn) {
+    shareBlossomBtn.addEventListener("click", shareBlossomServers);
+  }
 
-if (addBlossomServerBtn) {
-  addBlossomServerBtn.addEventListener("click", addBlossomServer);
-}
+  if (addBlossomServerBtn) {
+    addBlossomServerBtn.addEventListener("click", addBlossomServer);
+  }
 
-if (newBlossomServerInput) {
-  newBlossomServerInput.addEventListener("keypress", (e) => {
-    if (e.key === "Enter") addBlossomServer();
-  });
-}
+  if (newBlossomServerInput) {
+    newBlossomServerInput.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") addBlossomServer();
+    });
+  }
 
   // Delegate events for dynamic content
   const networkContainer = document.querySelector('.network-container-container');
-if (networkContainer) {
-  networkContainer.addEventListener("click", (e) => {
-    // Helper function to get button text from SVG structure
-    const getButtonText = (target) => {
-      const button = target.closest('button');
-      if (!button) return null;
-      const span = button.querySelector('span');
-      return span ? span.textContent.trim() : null;
-    };
-    
-    const buttonText = getButtonText(e.target);
-    
-    if (buttonText === "Check Status") {
-      e.stopPropagation();
-      const relayItem = e.target.closest(".relay-item");
-      const relayUrl = relayItem.dataset.relay;
-      const index = parseInt(relayItem.dataset.index);
-      
-      // Use verbose mode for manual checks
-      checkRelayStatus(relayUrl, index, true);
-    }  
+  if (networkContainer) {
+    networkContainer.addEventListener("click", (e) => {
+      // Helper function to get button text from SVG structure
+      const getButtonText = (target) => {
+        const button = target.closest('button');
+        if (!button) return null;
+        const span = button.querySelector('span');
+        return span ? span.textContent.trim() : null;
+      };
 
-    else if (buttonText === "Relay Info" || buttonText === "Info") {
-      e.preventDefault(); 
-      e.stopPropagation();
-      const relayUrl = e.target.closest(".relay-item").dataset.relay;
-      getRelayInfo(relayUrl);
-    }
+      const buttonText = getButtonText(e.target);
 
-    else if (buttonText === "Visit") {
-      e.stopPropagation();
-      let relayUrl = e.target.closest(".relay-item").dataset.relay;
-      if (relayUrl.startsWith('wss://')) {
-        relayUrl = relayUrl.slice(6);
-      } else if (relayUrl.startsWith('ws://')) {
-        relayUrl = relayUrl.slice(5);
-      }
-      window.location.hash = `#singlerelay/${relayUrl}`;
-    }
-
-
-else if (buttonText === "Block" || buttonText === "Unblock") {
-  e.stopPropagation();
-  const relayItem = e.target.closest(".relay-item");
-  const relayUrl = relayItem.dataset.relay;
-  const button = e.target.closest('button');
-  const buttonSpan = button.querySelector('span');
-  
-  if (buttonText === "Block") {
-    if (confirm(`Block all future connections to:\n${extractDomainName(relayUrl)}?`)) {
-      window.WebSocketManager.blockURL(relayUrl);
-      
-      // Update button appearance
-      button.style.backgroundColor = '#ff00005c';
-      button.style.borderColor = 'red';
-      buttonSpan.textContent = 'Unblock';
-      
-      // Optional: Show a brief feedback message
-      const originalText = buttonSpan.textContent;
-      buttonSpan.textContent = 'Blocked!';
-      setTimeout(() => {
-        buttonSpan.textContent = 'Unblock';
-      }, 1000);
-    }
-  } else if (buttonText === "Unblock") {
-    if (confirm(`Unblock connections to:\n${extractDomainName(relayUrl)}?`)) {
-      window.WebSocketManager.unblockURL(relayUrl);
-      
-      // Reset button appearance
-      button.style.backgroundColor = '';
-      button.style.borderColor = '';
-      buttonSpan.textContent = 'Block';
-      
-      // Optional: Show a brief feedback message
-      const originalText = buttonSpan.textContent;
-      buttonSpan.textContent = 'Unblocked!';
-      setTimeout(() => {
-        buttonSpan.textContent = 'Block';
-      }, 1000);
-    }
-  }
-} 
-  
-    else if (buttonText === "Delete" || buttonText === "Remove") {
-      e.stopPropagation();
-      const relayItem = e.target.closest(".relay-item");
-      if (relayItem) {
+      if (buttonText === "Check Status") {
+        e.stopPropagation();
+        const relayItem = e.target.closest(".relay-item");
+        const relayUrl = relayItem.dataset.relay;
         const index = parseInt(relayItem.dataset.index);
-        removeRelay(index);
+
+        // Use verbose mode for manual checks
+        checkRelayStatus(relayUrl, index, true);
       }
-    }
-  });
-}
+
+      else if (buttonText === "Relay Info" || buttonText === "Info") {
+        e.preventDefault();
+        e.stopPropagation();
+        const relayUrl = e.target.closest(".relay-item").dataset.relay;
+        getRelayInfo(relayUrl);
+      }
+
+      else if (buttonText === "Visit") {
+        e.stopPropagation();
+        let relayUrl = e.target.closest(".relay-item").dataset.relay;
+        if (relayUrl.startsWith('wss://')) {
+          relayUrl = relayUrl.slice(6);
+        } else if (relayUrl.startsWith('ws://')) {
+          relayUrl = relayUrl.slice(5);
+        }
+        window.location.hash = `#singlerelay/${relayUrl}`;
+      }
+
+
+      else if (buttonText === "Block" || buttonText === "Unblock") {
+        e.stopPropagation();
+        const relayItem = e.target.closest(".relay-item");
+        const relayUrl = relayItem.dataset.relay;
+        const button = e.target.closest('button');
+        const buttonSpan = button.querySelector('span');
+
+        if (buttonText === "Block") {
+          if (confirm(`Block all future connections to:\n${extractDomainName(relayUrl)}?`)) {
+            window.WebSocketManager.blockURL(relayUrl);
+
+            // Update button appearance
+            button.style.backgroundColor = '#ff00005c';
+            button.style.borderColor = 'red';
+            buttonSpan.textContent = 'Unblock';
+
+            // Optional: Show a brief feedback message
+            const originalText = buttonSpan.textContent;
+            buttonSpan.textContent = 'Blocked!';
+            setTimeout(() => {
+              buttonSpan.textContent = 'Unblock';
+            }, 1000);
+          }
+        } else if (buttonText === "Unblock") {
+          if (confirm(`Unblock connections to:\n${extractDomainName(relayUrl)}?`)) {
+            window.WebSocketManager.unblockURL(relayUrl);
+
+            // Reset button appearance
+            button.style.backgroundColor = '';
+            button.style.borderColor = '';
+            buttonSpan.textContent = 'Block';
+
+            // Optional: Show a brief feedback message
+            const originalText = buttonSpan.textContent;
+            buttonSpan.textContent = 'Unblocked!';
+            setTimeout(() => {
+              buttonSpan.textContent = 'Block';
+            }, 1000);
+          }
+        }
+      }
+
+      else if (buttonText === "Delete" || buttonText === "Remove") {
+        e.stopPropagation();
+        const relayItem = e.target.closest(".relay-item");
+        if (relayItem) {
+          const index = parseInt(relayItem.dataset.index);
+          removeRelay(index);
+        }
+      }
+    });
+  }
 }
 
 function switchTab(targetTab) {
@@ -489,7 +489,7 @@ function switchTab(targetTab) {
     content.classList.remove('active');
   });
   document.getElementById(`${targetTab}-tab`).classList.add('active');
-  
+
   // Render content based on tab
   if (targetTab === 'placeholder-1') {
     renderOutboxRelays();
@@ -503,7 +503,7 @@ function switchTab(targetTab) {
 function renderActiveRelaySet() {
   const container = document.getElementById("activeRelayList");
   let activeSet;
-  
+
   if (isGlobalSet(app.activeRelayList)) {
     activeSet = generateGlobalRelaySet();
   } else {
@@ -547,20 +547,20 @@ function saveRelayLists() {
 
 function generateLimitationBadges(relayDoc) {
   if (!relayDoc) return [];
-  
+
   const badges = [];
-  
+
   // Add ALL NIP badges from the relay document
-/*   if (relayDoc.supported_nips?.length > 0) {
-    // Sort NIPs numerically for better display
-    const sortedNips = [...relayDoc.supported_nips].sort((a, b) => a - b);
-    
-    // Show all NIPs with tooltips
-    sortedNips.forEach(nip => {
-      badges.push(`<span class="badge badge-info" title="NIP-${nip}">NIP-${nip}</span>`);
-    });
-  } */
-  
+  /*   if (relayDoc.supported_nips?.length > 0) {
+      // Sort NIPs numerically for better display
+      const sortedNips = [...relayDoc.supported_nips].sort((a, b) => a - b);
+      
+      // Show all NIPs with tooltips
+      sortedNips.forEach(nip => {
+        badges.push(`<span class="badge badge-info" title="NIP-${nip}">NIP-${nip}</span>`);
+      });
+    } */
+
   // Add limitation badges
   if (relayDoc.limitation?.auth_required) {
     badges.push('<span class="badge badge-warning">🔐 Auth Required</span>');
@@ -571,24 +571,24 @@ function generateLimitationBadges(relayDoc) {
   if (relayDoc.limitation?.restricted_writes) {
     badges.push('<span class="badge badge-warning">✏️ Restricted Writes</span>');
   }
-  
+
   return badges;
 }
 function createRelayItemHTML(relayUrl, index, relayDoc) {
   const domain = extractDomainName(relayUrl);
   const name = relayDoc?.name || domain;
   const description = relayDoc?.description || "Loading relay information...";
-  
+
   // Check if this relay is blocked
-  const isBlocked = window.WebSocketManager && window.WebSocketManager.isURLBlocked(relayUrl);  
-  
+  const isBlocked = window.WebSocketManager && window.WebSocketManager.isURLBlocked(relayUrl);
+
   // Generate all badges including NIPs and limitations
   const badges = generateLimitationBadges(relayDoc);
-  
+
   // Add software badge separately if present
-  const softwareBadge = relayDoc?.software ? 
+  const softwareBadge = relayDoc?.software ?
     `<span class="badge badge-info">${extractSoftwareName(relayDoc.software)}</span>` : '';
-  
+
   return `
     <div class="relay-item" data-relay="${relayUrl}" data-index="${index}">
       <div class="relay-header">
@@ -681,10 +681,10 @@ async function fetchRelayDocumentAndUpdate(relayUrl, index) {
     if (relayItem) {
       const newHTML = createRelayItemHTML(relayUrl, index, relayDoc);
       relayItem.outerHTML = newHTML;
-      
+
       // Load the icon using the existing fetchRelayIcon function
       fetchRelayIcon(relayUrl, index);
-      
+
       // Re-start the status check for the updated item
       checkRelayStatus(relayUrl, index);
     }
@@ -700,20 +700,20 @@ async function fetchRelayDocumentAndUpdate(relayUrl, index) {
 // Helper function to normalize relay URLs
 function normalizeRelayUrl(url) {
   let normalized = url.trim().toLowerCase(); // trim whitespace and lowercase
-  
+
   // Add protocol if missing
   if (!normalized.startsWith("wss://") && !normalized.startsWith("ws://")) {
     normalized = "wss://" + normalized;
   }
-  
+
   // Remove trailing slash
   if (normalized.endsWith('/')) {
     normalized = normalized.slice(0, -1);
   }
-  
+
   // Remove default ports (optional)
-//  normalized = normalized.replace(':80/', '/').replace(':443/', '/');
-  
+  //  normalized = normalized.replace(':80/', '/').replace(':443/', '/');
+
   return normalized;
 }
 
@@ -742,14 +742,14 @@ async function fetchRelayIcon(relayUrl, index) {
     const httpUrl = relayUrl
       .replace("wss://", "https://")
       .replace("ws://", "http://");
-    
+
     // First try to get the relay document
     const response = await fetch(httpUrl, {
       headers: {
         Accept: "application/nostr+json",
       },
     });
-    
+
     if (response.ok) {
       const relayDoc = await response.json();
       if (relayDoc.icon) {
@@ -758,7 +758,7 @@ async function fetchRelayIcon(relayUrl, index) {
         return;
       }
     }
-    
+
     // Fallback to favicon.ico
     const faviconUrl = `${httpUrl}/favicon.ico`;
     const img = new Image();
@@ -784,27 +784,27 @@ function addRelay() {
     showTemporaryNotification("Cannot add relays to the global set");
     return;
   }
-  
+
   const input = document.getElementById("newRelayInput");
   const url = input.value.trim();
-  
+
   if (!url) {
     showTemporaryNotification("Please enter a relay URL");
     return;
   }
-  
+
   const normalizedUrl = normalizeRelayUrl(url);
   const activeSet = app.relayLists[app.activeRelayList];
-  
-  const isDuplicateRelay = activeSet.tags.some(tag => 
+
+  const isDuplicateRelay = activeSet.tags.some(tag =>
     tag[0] === "relay" && isUrlEquivalent(tag[1], normalizedUrl)
   );
-  
+
   if (isDuplicateRelay) {
     showTemporaryNotification("Relay already exists in this set");
     return;
   }
-  
+
   activeSet.tags.push(["relay", normalizedUrl]);
   saveRelayLists();
   updateAllNetworkUI();
@@ -817,15 +817,15 @@ function isUrlEquivalent(url1, url2) {
   // Remove protocol (http://, https://, etc.)
   const cleanUrl1 = url1.replace(/^https?:\/\//, '');
   const cleanUrl2 = url2.replace(/^https?:\/\//, '');
-  
+
   // Remove www. if present
   const baseUrl1 = cleanUrl1.replace(/^www\./, '');
   const baseUrl2 = cleanUrl2.replace(/^www\./, '');
-  
+
   // Remove trailing slashes
   const trimmedUrl1 = baseUrl1.replace(/\/$/, '');
   const trimmedUrl2 = baseUrl2.replace(/\/$/, '');
-  
+
   // Compare cleaned URLs
   return trimmedUrl1.toLowerCase() === trimmedUrl2.toLowerCase();
 }
@@ -837,11 +837,11 @@ function removeRelay(index) {
     showTemporaryNotification("Cannot remove relays from the global set");
     return;
   }
-  
+
   const activeSet = app.relayLists[app.activeRelayList];
   const relays = activeSet.tags.filter((tag) => tag[0] === "relay");
   const relayUrl = relays[index][1];
-  
+
   showConfirmDialog(
     "Remove Relay",
     `Are you sure you want to remove ${relayUrl}?`,
@@ -849,7 +849,7 @@ function removeRelay(index) {
       const relayIndex = activeSet.tags.findIndex(
         (tag) => tag[0] === "relay" && tag[1] === relayUrl
       );
-      
+
       if (relayIndex !== -1) {
         activeSet.tags.splice(relayIndex, 1);
         saveRelayLists();
@@ -873,75 +873,75 @@ function setActiveRelaySet(setName) {
 
 // Main function to check relay status with info
 async function checkRelayStatus(relayUrl, index, verbose = false) {
-    const statusElement = document.getElementById(`status-${index}`);
-    
-    if (!verbose) {
-        statusElement.innerHTML = '<span class="status-checking">Checking...</span>';
-        return performBasicCheck(relayUrl, index, statusElement);
-    } else {
-        statusElement.innerHTML = '<span class="status-checking">Running analysis...</span>';
-        return performDetailedAnalysis(relayUrl, index, statusElement);
-    }
+  const statusElement = document.getElementById(`status-${index}`);
+
+  if (!verbose) {
+    statusElement.innerHTML = '<span class="status-checking">Checking...</span>';
+    return performBasicCheck(relayUrl, index, statusElement);
+  } else {
+    statusElement.innerHTML = '<span class="status-checking">Running analysis...</span>';
+    return performDetailedAnalysis(relayUrl, index, statusElement);
+  }
 }
 
 // Fast basic check
 async function performBasicCheck(relayUrl, index, statusElement) {
-    try {
-        const startTime = performance.now();
-        const ws = new WebSocket(relayUrl);
-        
-        const result = await new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => {
-                ws.close();
-                reject(new Error('timeout'));
-            }, 2000);
-            
-            ws.onopen = () => {
-                const connectionTime = Math.round(performance.now() - startTime);
-                clearTimeout(timeout);
-                ws.close();
-                resolve({ status: 'online', connectionTime });
-            };
-            
-            ws.onerror = () => {
-                clearTimeout(timeout);
-                reject(new Error('failed'));
-            };
-        });
-        
-        statusElement.innerHTML = '<span class="status-online">Online</span>';
-    } catch (error) {
-        statusElement.innerHTML = '<span class="status-offline">Offline</span>';
-    }
+  try {
+    const startTime = performance.now();
+    const ws = new WebSocket(relayUrl);
+
+    const result = await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        ws.close();
+        reject(new Error('timeout'));
+      }, 2000);
+
+      ws.onopen = () => {
+        const connectionTime = Math.round(performance.now() - startTime);
+        clearTimeout(timeout);
+        ws.close();
+        resolve({ status: 'online', connectionTime });
+      };
+
+      ws.onerror = () => {
+        clearTimeout(timeout);
+        reject(new Error('failed'));
+      };
+    });
+
+    statusElement.innerHTML = '<span class="status-online">Online</span>';
+  } catch (error) {
+    statusElement.innerHTML = '<span class="status-offline">Offline</span>';
+  }
 }
 
 // Enhanced detailed analysis
 async function performDetailedAnalysis(relayUrl, index, statusElement) {
-    try {
-        // First fetch relay info document
-        const relayInfo = await fetchRelayInfo(relayUrl);
-        
-        // Then perform technical analysis
-        const techAnalysis = await performTechnicalCheck(relayUrl);
-        
-        // Combine both results
-        updateDetailedStatusWithInfo(statusElement, relayInfo, techAnalysis, relayUrl);
-        
-    } catch (error) {
-        const failedResult = {
-            status: 'offline',
-            connectionTime: 0,
-            error: error.message || 'Analysis failed'
-        };
-        updateDetailedStatusWithInfo(statusElement, null, failedResult, relayUrl);
-    }
+  try {
+    // First fetch relay info document
+    const relayInfo = await fetchRelayInfo(relayUrl);
+
+    // Then perform technical analysis
+    const techAnalysis = await performTechnicalCheck(relayUrl);
+
+    // Combine both results
+    updateDetailedStatusWithInfo(statusElement, relayInfo, techAnalysis, relayUrl);
+
+  } catch (error) {
+    const failedResult = {
+      status: 'offline',
+      connectionTime: 0,
+      error: error.message || 'Analysis failed'
+    };
+    updateDetailedStatusWithInfo(statusElement, null, failedResult, relayUrl);
+  }
 }
 
 async function performTechnicalCheck(relayUrl) {
   return new Promise((resolve, reject) => {
     const startTime = performance.now();
     const ws = new WebSocket(relayUrl);
-    
+
     let result = {
       status: 'offline',
       responseTime: null,
@@ -960,22 +960,22 @@ async function performTechnicalCheck(relayUrl) {
 
     ws.onopen = () => {
       result.status = 'online';
-      
+
       // Use a simple random ID instead of nostr-tools for subscription ID
       const subId1 = Math.random().toString(36).substring(7);
       const subId2 = Math.random().toString(36).substring(7);
-      
+
       const videoReq = JSON.stringify([
         "REQ", subId1, { kinds: [21, 22], limit: 1 }
       ]);
-      
+
       const textReq = JSON.stringify([
         "REQ", subId2, { kinds: [1], limit: 1 }
       ]);
-      
+
       ws.send(videoReq);
       ws.send(textReq);
-      
+
       setTimeout(() => {
         ws.close();
         clearTimeout(timeout);
@@ -992,7 +992,7 @@ async function performTechnicalCheck(relayUrl) {
         const message = JSON.parse(event.data);
         if (Array.isArray(message)) {
           const [type, subscriptionId, ...args] = message;
-          
+
           switch (type) {
             case 'EVENT':
               result.canAccess = true;
@@ -1005,7 +1005,7 @@ async function performTechnicalCheck(relayUrl) {
                 }
               }
               break;
-              
+
             // Removed AUTH and NOTICE handling for authentication
             // Authentication is now only determined from relay document limitations
           }
@@ -1033,39 +1033,39 @@ async function performTechnicalCheck(relayUrl) {
 
 
 function updateDetailedStatusWithInfo(statusElement, relayInfo, techResult, relayUrl) {
-    // Clear existing content
-    statusElement.innerHTML = '';
-    
-    const container = document.createElement('div');
-    container.className = 'status-detailed';
-    
-    // Create relay header
-    const header = createRelayHeader(relayInfo, relayUrl);
-    container.appendChild(header);
-    
-    // Create technical analysis
-    const analysis = createTechnicalAnalysis(techResult);
-    container.appendChild(analysis);
-    
-    statusElement.appendChild(container);
+  // Clear existing content
+  statusElement.innerHTML = '';
+
+  const container = document.createElement('div');
+  container.className = 'status-detailed';
+
+  // Create relay header
+  const header = createRelayHeader(relayInfo, relayUrl);
+  container.appendChild(header);
+
+  // Create technical analysis
+  const analysis = createTechnicalAnalysis(techResult);
+  container.appendChild(analysis);
+
+  statusElement.appendChild(container);
 }
 
 function createTechnicalAnalysis(techResult) {
   const analysis = document.createElement('div');
   analysis.className = 'technical-analysis';
-  
+
   const analysisHeader = document.createElement('div');
   analysisHeader.className = 'analysis-header';
-  
+
   const statusSpan = document.createElement('span');
   const isOnline = techResult.status === 'online';
   statusSpan.className = isOnline ? 'status-online' : 'status-offline';
   statusSpan.textContent = isOnline ? '✅ Online' : '❌ Offline';
   analysisHeader.appendChild(statusSpan);
-  
+
   const details = document.createElement('div');
   details.className = 'analysis-details';
-  
+
   // Response time
   if (techResult.responseTime) {
     const perfItem = createAnalysisItem(
@@ -1075,11 +1075,11 @@ function createTechnicalAnalysis(techResult) {
     );
     details.appendChild(perfItem);
   }
-  
+
   // Content analysis
   let contentStatus = '❌ No Content';
   let contentClass = 'status-no';
-  
+
   if (techResult.hasVideoEvents) {
     contentStatus = '🎥 Has Videos';
     contentClass = 'status-yes';
@@ -1087,46 +1087,46 @@ function createTechnicalAnalysis(techResult) {
     contentStatus = '📝 Text Only';
     contentClass = 'status-warning';
   }
-  
+
   const contentItem = createAnalysisItem('📺 Content:', contentStatus, contentClass);
   details.appendChild(contentItem);
-  
+
   // Access status
   const accessStatus = techResult.canAccess ? '✅ Accessible' : '❌ No Access';
   const accessClass = techResult.canAccess ? 'status-yes' : 'status-no';
   const accessItem = createAnalysisItem('🔓 Access:', accessStatus, accessClass);
   details.appendChild(accessItem);
-  
+
   // No auth status display
-  
+
   // Error
   if (techResult.error) {
     const errorItem = createAnalysisItem('❌ Issue:', techResult.error, 'error');
     details.appendChild(errorItem);
   }
-  
+
   analysis.appendChild(analysisHeader);
   analysis.appendChild(details);
-  
+
   return analysis;
 }
 
 function createAnalysisItem(label, value, valueClass = '') {
-    const item = document.createElement('div');
-    item.className = 'analysis-item';
-    
-    const labelSpan = document.createElement('span');
-    labelSpan.className = 'item-label';
-    labelSpan.textContent = label;
-    
-    const valueSpan = document.createElement('span');
-    valueSpan.className = `item-value ${valueClass}`;
-    valueSpan.textContent = value;
-    
-    item.appendChild(labelSpan);
-    item.appendChild(valueSpan);
-    
-    return item;
+  const item = document.createElement('div');
+  item.className = 'analysis-item';
+
+  const labelSpan = document.createElement('span');
+  labelSpan.className = 'item-label';
+  labelSpan.textContent = label;
+
+  const valueSpan = document.createElement('span');
+  valueSpan.className = `item-value ${valueClass}`;
+  valueSpan.textContent = value;
+
+  item.appendChild(labelSpan);
+  item.appendChild(valueSpan);
+
+  return item;
 }
 
 
@@ -1154,14 +1154,14 @@ function createRelayHeader(relayInfo, relayUrl) {
     const description = document.createElement('div');
     description.className = 'relay-description';
     description.textContent = relayInfo.description || "No description available";
-    
+
     // Add additional info for detailed status
     const additionalInfo = document.createElement('div');
     additionalInfo.className = 'relay-additional-info';
     additionalInfo.style.fontSize = '0.8em';
     additionalInfo.style.marginTop = '4px';
     additionalInfo.style.color = 'var(--text-secondary)';
-    
+
     const infoParts = [];
     if (relayInfo.supported_nips?.length) {
       infoParts.push(`${relayInfo.supported_nips.length} NIPs`);
@@ -1170,7 +1170,7 @@ function createRelayHeader(relayInfo, relayUrl) {
       infoParts.push(extractSoftwareName(relayInfo.software));
     }
     // Removed auth_required and payment_required from here since they're in badges
-    
+
     if (infoParts.length > 0) {
       additionalInfo.textContent = infoParts.join(' • ');
     }
@@ -1190,7 +1190,7 @@ function createRelayHeader(relayInfo, relayUrl) {
     const description = document.createElement('div');
     description.className = 'relay-description';
     description.textContent = "Relay information not available";
-    
+
     header.appendChild(nameContainer);
     header.appendChild(description);
   }
@@ -1201,119 +1201,119 @@ function createRelayHeader(relayInfo, relayUrl) {
 
 // Helper functions
 function extractDomainName(url) {
-    try {
-        return new URL(url).hostname;
-    } catch {
-        return url.replace(/^wss?:\/\//, '').split('/')[0];
-    }
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return url.replace(/^wss?:\/\//, '').split('/')[0];
+  }
 }
 
 function getRelayIconUrl(relayUrl) {
-    const httpUrl = relayUrl.replace("wss://", "https://").replace("ws://", "http://");
-    return `${httpUrl}/favicon.ico`;
+  const httpUrl = relayUrl.replace("wss://", "https://").replace("ws://", "http://");
+  return `${httpUrl}/favicon.ico`;
 }
 
 function getSpeedClass(connectionTime) {
-    if (connectionTime < 100) return 'speed-fast';
-    if (connectionTime < 300) return 'speed-medium';
-    if (connectionTime < 800) return 'speed-slow';
-    return 'speed-very-slow';
+  if (connectionTime < 100) return 'speed-fast';
+  if (connectionTime < 300) return 'speed-medium';
+  if (connectionTime < 800) return 'speed-slow';
+  return 'speed-very-slow';
 }
 
 function getSpeedText(connectionTime) {
-    if (connectionTime < 100) return `Very Fast (${connectionTime}ms)`;
-    if (connectionTime < 300) return `Fast (${connectionTime}ms)`;
-    if (connectionTime < 800) return `Slow (${connectionTime}ms)`;
-    return `Very Slow (${connectionTime}ms)`;
+  if (connectionTime < 100) return `Very Fast (${connectionTime}ms)`;
+  if (connectionTime < 300) return `Fast (${connectionTime}ms)`;
+  if (connectionTime < 800) return `Slow (${connectionTime}ms)`;
+  return `Very Slow (${connectionTime}ms)`;
 }
 
 function getPerformanceClass(responseTime) {
-    if (responseTime < 200) return 'speed-fast';
-    if (responseTime < 500) return 'speed-medium';
-    if (responseTime < 1000) return 'speed-slow';
-    return 'speed-very-slow';
+  if (responseTime < 200) return 'speed-fast';
+  if (responseTime < 500) return 'speed-medium';
+  if (responseTime < 1000) return 'speed-slow';
+  return 'speed-very-slow';
 }
 
 function getPerformanceText(responseTime) {
-    if (responseTime < 200) return `Excellent (${responseTime}ms)`;
-    if (responseTime < 500) return `Good (${responseTime}ms)`;
-    if (responseTime < 1000) return `Fair (${responseTime}ms)`;
-    return `Poor (${responseTime}ms)`;
+  if (responseTime < 200) return `Excellent (${responseTime}ms)`;
+  if (responseTime < 500) return `Good (${responseTime}ms)`;
+  if (responseTime < 1000) return `Fair (${responseTime}ms)`;
+  return `Poor (${responseTime}ms)`;
 }
 
 
 
 // Get relay information document
 async function getRelayInfo(relayUrl) {
-    let modal = null;
-    
-    try {
-        const httpUrl = relayUrl
-            .replace("wss://", "https://")
-            .replace("ws://", "http://");
+  let modal = null;
 
-        // Open modal once with loading state
-        modal = openModal({
-            title: "Loading...",
-            content: `<pre>Fetching relay information...</pre>`,
-            size: "large",
-            customClass: "relay-info-modal"
-        });
+  try {
+    const httpUrl = relayUrl
+      .replace("wss://", "https://")
+      .replace("ws://", "http://");
 
-        const response = await fetch(httpUrl, {
-            headers: {
-                Accept: "application/nostr+json",
-            },
-        });
+    // Open modal once with loading state
+    modal = openModal({
+      title: "Loading...",
+      content: `<pre>Fetching relay information...</pre>`,
+      size: "large",
+      customClass: "relay-info-modal"
+    });
 
-        // Update the existing modal content instead of creating a new one
-        const modalTitle = modal.querySelector('.modal-title');
-        const modalBody = modal.querySelector('.modal-body');
+    const response = await fetch(httpUrl, {
+      headers: {
+        Accept: "application/nostr+json",
+      },
+    });
 
-        if (response.ok) {
-            const relayDoc = await response.json();
-            const formattedJson = formatJsonWithStyle(relayDoc);
-            if (modalTitle) modalTitle.textContent = relayUrl;
-            if (modalBody) modalBody.innerHTML = `<div class="json-simple-viewer"><pre>${formattedJson}</pre></div>`;
-        } else {
-            if (modalTitle) modalTitle.textContent = relayUrl;
-            if (modalBody) modalBody.innerHTML = `<pre>Error: ${response.status} ${response.statusText}</pre>`;
-        }
-    } catch (error) {
-        // Update existing modal with error if it still exists
-        if (modal && document.body.contains(modal)) {
-            const modalTitle = modal.querySelector('.modal-title');
-            const modalBody = modal.querySelector('.modal-body');
-            if (modalTitle) modalTitle.textContent = relayUrl;
-            if (modalBody) modalBody.innerHTML = `<pre>Error: ${error.message}</pre>`;
-        } else {
-            // If modal doesn't exist anymore, create a new one with error
-            openModal({
-                title: relayUrl,
-                content: `<pre>Error: ${error.message}</pre>`,
-                size: "large",
-                customClass: "relay-info-modal"
-            });
-        }
+    // Update the existing modal content instead of creating a new one
+    const modalTitle = modal.querySelector('.modal-title');
+    const modalBody = modal.querySelector('.modal-body');
+
+    if (response.ok) {
+      const relayDoc = await response.json();
+      const formattedJson = formatJsonWithStyle(relayDoc);
+      if (modalTitle) modalTitle.textContent = relayUrl;
+      if (modalBody) modalBody.innerHTML = `<div class="json-simple-viewer"><pre>${formattedJson}</pre></div>`;
+    } else {
+      if (modalTitle) modalTitle.textContent = relayUrl;
+      if (modalBody) modalBody.innerHTML = `<pre>Error: ${response.status} ${response.statusText}</pre>`;
     }
+  } catch (error) {
+    // Update existing modal with error if it still exists
+    if (modal && document.body.contains(modal)) {
+      const modalTitle = modal.querySelector('.modal-title');
+      const modalBody = modal.querySelector('.modal-body');
+      if (modalTitle) modalTitle.textContent = relayUrl;
+      if (modalBody) modalBody.innerHTML = `<pre>Error: ${error.message}</pre>`;
+    } else {
+      // If modal doesn't exist anymore, create a new one with error
+      openModal({
+        title: relayUrl,
+        content: `<pre>Error: ${error.message}</pre>`,
+        size: "large",
+        customClass: "relay-info-modal"
+      });
+    }
+  }
 }
 
 // Fetch relay info document
 async function fetchRelayInfo(relayUrl) {
-    try {
-        const httpUrl = relayUrl.replace("wss://", "https://").replace("ws://", "http://");
-        const response = await fetch(httpUrl, {
-            headers: { "Accept": "application/nostr+json" },
-            timeout: 3000
-        });
-        
-        if (response.ok) {
-            return await response.json();
-        }
-    } catch (error) {
-        // Relay info not available, continue with technical check only
+  try {
+    const httpUrl = relayUrl.replace("wss://", "https://").replace("ws://", "http://");
+    const response = await fetch(httpUrl, {
+      headers: { "Accept": "application/nostr+json" },
+      timeout: 3000
+    });
+
+    if (response.ok) {
+      return await response.json();
     }
-    return null;
+  } catch (error) {
+    // Relay info not available, continue with technical check only
+  }
+  return null;
 }
 
 
@@ -1323,21 +1323,21 @@ function createNewEmptySet() {
   // Generate a unique placeholder name
   let counter = 1;
   let setName = `New Set ${counter}`;
-  
+
   while (app.relayLists[setName]) {
     counter++;
     setName = `New Set ${counter}`;
   }
-  
+
   app.relayLists[setName] = {
     kind: 30002,
     tags: [
-      ["d", crypto.randomUUID().replace(/-/g, '').slice(0,15)],
+      ["d", crypto.randomUUID().replace(/-/g, '').slice(0, 15)],
       ["title", setName],
       ["description", ""]
     ],
   };
-  
+
   saveRelayLists();
   app.activeRelayList = setName;
   updateAllNetworkUI();
@@ -1346,37 +1346,37 @@ function createNewEmptySet() {
 
 function deleteActiveSet() {
   const currentSet = app.activeRelayList;
-  
+
   // Prevent deleting the global set
   if (isGlobalSet(currentSet)) {
     showTemporaryNotification("Cannot delete the global relay set");
     return;
   }
-  
+
   // Prevent deleting if it's the only set (besides global)
   const regularSets = Object.keys(app.relayLists).filter(set => !isGlobalSet(set));
   if (regularSets.length <= 1) {
     showTemporaryNotification("Cannot delete the only relay set");
     return;
   }
-  
+
   showConfirmDialog(
     "Delete Relay Set",
     `Are you sure you want to delete the "${currentSet}" relay set? This action cannot be undone.`,
     () => {
       // Find a new active set (pick the first available set that's not the one being deleted)
-      const availableSets = Object.keys(app.relayLists).filter(set => 
+      const availableSets = Object.keys(app.relayLists).filter(set =>
         set !== currentSet && !isGlobalSet(set)
       );
-      
+
       const newActiveSet = availableSets[0]; // Pick the first available set
-      
+
       // Delete the current set
       delete app.relayLists[currentSet];
-      
+
       // Set the new active set
       app.activeRelayList = newActiveSet;
-      
+
       // Save and update UI
       saveRelayLists();
       updateAllNetworkUI();
@@ -1386,10 +1386,10 @@ function deleteActiveSet() {
 }
 
 async function shareActiveRelaySet() {
-//  if (!app.isLoggedIn) {
-//    showTemporaryNotification("You must be logged in to share relay sets");
-//    return;
-//  }
+  //  if (!app.isLoggedIn) {
+  //    showTemporaryNotification("You must be logged in to share relay sets");
+  //    return;
+  //  }
 
   const activeSet = app.relayLists[app.activeRelayList];
   if (!activeSet) {
@@ -1398,7 +1398,7 @@ async function shareActiveRelaySet() {
   }
 
   // Show preview modal first
-publishRelaySetToNostr(activeSet);
+  publishRelaySetToNostr(activeSet);
 }
 
 
@@ -1406,25 +1406,25 @@ publishRelaySetToNostr(activeSet);
 async function publishRelaySetToNostr(setData) {
   try {
     showTemporaryNotification("Publishing relay set...");
-    
+
     const eventData = buildRelaySetEventData(setData);
     console.log("Relay set event data:", eventData);
-    
+
     const signedEvent = await handleEventSigning(eventData);
     console.log("Relay set event signed successfully!");
-  //  console.log(JSON.stringify(signedEvent, null, 4));
+    //  console.log(JSON.stringify(signedEvent, null, 4));
 
     try {
       const result = await publishEvent(signedEvent, app.globalRelays, {
         successMessage: "✅ Relay set shared successfully!",
         errorMessage: "Failed to publish relay set"
       });
-      
+
       if (result.success) {
         console.dir(signedEvent, { depth: null });
 
         showTemporaryNotification("Event published successfully!");
- 
+
       } else {
         throw new Error(result.error);
       }
@@ -1442,7 +1442,7 @@ async function publishRelaySetToNostr(setData) {
 
 function buildRelaySetEventData(setData) {
   const now = Math.floor(Date.now() / 1000);
-  
+
   return {
     kind: 30002,
     created_at: now,
@@ -1481,7 +1481,7 @@ async function importMyRelaySets() {
       const dTag = event.tags.find(tag => tag[0] === 'd');
       const dValue = dTag ? dTag[1] : '';
       const key = dValue;
-      
+
       const existing = eventsByDtag.get(key);
       if (!existing || event.created_at > existing.created_at) {
         eventsByDtag.set(key, event);
@@ -1493,7 +1493,7 @@ async function importMyRelaySets() {
     // Check for conflicts with local d-tags
     const conflicts = [];
     const localDtags = new Set();
-    
+
     Object.values(app.relayLists).forEach(localSet => {
       const dTag = localSet.tags.find(tag => tag[0] === 'd');
       if (dTag) localDtags.add(dTag[1]);
@@ -1531,7 +1531,7 @@ function showImportMyRelaySetsModal(events, conflicts) {
     return `<li><strong>${escapeHtml(title)}</strong> <span style="color: var(--text-secondary); font-size: 0.9em;">(d-tag: ${escapeHtml(dValue)})</span></li>`;
   }).join('');
 
-  const conflictsList = conflicts.map(c => 
+  const conflictsList = conflicts.map(c =>
     `<li><strong>${escapeHtml(c.title)}</strong> <span style="color: var(--text-secondary); font-size: 0.9em;">(d-tag: ${escapeHtml(c.dValue)})</span></li>`
   ).join('');
 
@@ -1575,7 +1575,7 @@ function showImportMyRelaySetsModal(events, conflicts) {
   });
 
   modal.querySelector("#modalCancelBtn").addEventListener("click", closeModal);
-  
+
   const importAllBtn = modal.querySelector("#modalImportAllBtn");
   if (importAllBtn) {
     importAllBtn.addEventListener("click", () => {
@@ -1606,7 +1606,7 @@ function performImport(events, allowOverwrite) {
   events.forEach(event => {
     const dTag = event.tags.find(tag => tag[0] === 'd');
     const dValue = dTag ? dTag[1] : crypto.randomUUID().replace(/-/g, '').slice(0, 15);
-    
+
     const titleTag = event.tags.find(tag => tag[0] === 'title');
     let title = titleTag ? titleTag[1] : 'Imported Set';
 
@@ -1668,7 +1668,7 @@ function performImport(events, allowOverwrite) {
 
 
 // =============================================
-// MODAL FUNCTIONS (using the simplified system)
+// MODAL FUNCTIONS
 // =============================================
 
 let currentEditingSet = null;
@@ -1678,13 +1678,13 @@ async function editSetMetadata(setName) {
     showTemporaryNotification("Cannot edit the global relay set");
     return;
   }
-  
+
   currentEditingSet = setName;
   const setData = app.relayLists[setName];
-  
+
   const descriptionTag = setData.tags.find(tag => tag[0] === "description");
   const currentDescription = descriptionTag ? descriptionTag[1] : "";
-  
+
   const title = "Edit Set Metadata";
   const content = `
     <div class="edit-set-modal">
@@ -1746,10 +1746,10 @@ async function editSetMetadata(setName) {
 async function saveModalMetadata() {
   const nameInput = document.querySelector("#modalNameInput");
   const descriptionInput = document.querySelector("#modalDescriptionInput");
-  
+
   const newName = nameInput?.value.trim();
   const newDescription = descriptionInput?.value.trim() || "";
-  
+
   if (!newName) {
     showTemporaryNotification("Please enter a name");
     return;
@@ -1757,25 +1757,25 @@ async function saveModalMetadata() {
 
   if (currentEditingSet) {
     let setData = app.relayLists[currentEditingSet]; // Use 'let' instead of 'const'
-    
+
     // Check if renaming
     if (newName !== currentEditingSet) {
       if (app.relayLists[newName]) {
         showTemporaryNotification("A set with this name already exists");
         return;
       }
-      
+
       // Rename the set
       app.relayLists[newName] = { ...setData };
       delete app.relayLists[currentEditingSet];
-      
+
       if (app.activeRelayList === currentEditingSet) {
         app.activeRelayList = newName;
       }
-      
+
       setData = app.relayLists[newName]; // Now update the reference
     }
-    
+
     // Update title tag
     const titleTagIndex = setData.tags.findIndex(tag => tag[0] === "title");
     if (titleTagIndex !== -1) {
@@ -1783,7 +1783,7 @@ async function saveModalMetadata() {
     } else {
       setData.tags.push(["title", newName]);
     }
-    
+
     // Update or add description tag
     const descTagIndex = setData.tags.findIndex(tag => tag[0] === "description");
     if (descTagIndex !== -1) {
@@ -1811,7 +1811,7 @@ function deleteRelaySet(setName) {
     showTemporaryNotification("Cannot delete the active relay set");
     return;
   }
-  
+
   showConfirmDialog(
     "Delete Relay Set",
     `Are you sure you want to delete the "${setName}" relay set?`,
@@ -1844,7 +1844,7 @@ const GLOBAL_SET_NAME = "🌐 All Relays (Global)";
 
 function generateGlobalRelaySet() {
   const allRelays = new Set();
-  
+
   // Collect all relays from all sets (except the global one)
   Object.entries(app.relayLists).forEach(([setName, setData]) => {
     if (setName !== GLOBAL_SET_NAME) {
@@ -1853,7 +1853,7 @@ function generateGlobalRelaySet() {
         .forEach(tag => allRelays.add(tag[1]));
     }
   });
-  
+
   // Create the global set structure
   return {
     kind: 30002,
@@ -1879,13 +1879,13 @@ function updateButtonVisibility() {
   const editBtn = document.getElementById("editActiveSetMetadataBtn");
   const shareBtn = document.getElementById("shareActiveSetBtn");
   const deleteBtn = document.getElementById("deleteActiveSetBtn");
-  
+
   if (editBtn && shareBtn && deleteBtn) {
     const shouldHide = isGlobalSet(app.activeRelayList);
     editBtn.style.display = shouldHide ? 'none' : '';
     shareBtn.style.display = shouldHide ? 'none' : '';
     deleteBtn.style.display = shouldHide ? 'none' : '';
-    
+
     // Also hide delete button if it's the only regular set
     const regularSets = Object.keys(app.relayLists).filter(set => !isGlobalSet(set));
     if (regularSets.length <= 1) {
@@ -1897,7 +1897,7 @@ function updateButtonVisibility() {
 
 
 ////////////////////////////
-// ALLOWED MEDIA SERVERS - SIMPLIFIED
+// ALLOWED MEDIA SERVERS
 ////////////////////////////
 
 function setupMediaWhitelistSettings(container) {
@@ -1940,9 +1940,9 @@ function setupMediaWhitelistSettings(container) {
 function renderWhitelistDomains(container) {
   const domainsContainer = container.querySelector("#whitelistDomainsContainer");
   if (!domainsContainer) return;
-  
+
   const domains = app.mediaServerWhitelist;
-  
+
   if (domains.length === 0) {
     domainsContainer.innerHTML = '<div class="empty-whitelist">No trusted domains added yet.</div>';
     return;
@@ -1968,7 +1968,7 @@ function createDomainItemHTML(domain, index) {
   const domainElement = document.querySelector(`[data-domain="${domain}"]`);
   const pingTime = domainElement?.dataset.pingTime || '';
   const pingStatus = domainElement?.dataset.pingStatus || '';
-  
+
   let statusHTML = '';
   if (pingStatus === 'checking') {
     statusHTML = '<span class="ping-status status-checking">Checking...</span>';
@@ -1980,7 +1980,7 @@ function createDomainItemHTML(domain, index) {
       <span class="ping-time ${timeClass}">${pingTime}ms</span>
     `;
   }
-  
+
   return `
     <div class="domain-item" data-domain="${escapeHtml(domain)}" data-index="${index}" data-ping-time="${pingTime}" data-ping-status="${pingStatus}">
       <div class="domain-info">
@@ -2027,9 +2027,9 @@ function addDomainToWhitelistManually(domain) {
     showTemporaryNotification("Please enter a domain");
     return false;
   }
-  
+
   const normalizedDomain = normalizeDomain(domain);
-  
+
   if (!isValidDomain(normalizedDomain)) {
     showTemporaryNotification("Please enter a valid domain format (e.g., cdn.example.com)");
     return false;
@@ -2059,22 +2059,22 @@ function isValidDomain(domain) {
   domain = domain.trim().toLowerCase();
   domain = domain.replace(/^(https?:\/\/)?/, '');
   domain = domain.replace(/\/$/, '');
-  
+
   if (domain.includes('/')) return false;
-  
+
   const withPortRegex = /^([a-z0-9.-]+|\[[a-f0-9:]+\])(:\d+)?$/i;
   if (!withPortRegex.test(domain)) return false;
-  
+
   const domainPart = domain.split(':')[0];
   const domainRegex = /^(?:(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]|localhost|\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|\[[a-f0-9:]+\])$/i;
-  
+
   if (!domainRegex.test(domainPart)) return false;
-  
+
   if (domainPart.match(/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/)) {
     const parts = domainPart.split('.');
     if (parts.some(part => parseInt(part) > 255)) return false;
   }
-  
+
   return true;
 }
 
@@ -2090,13 +2090,13 @@ function normalizeDomain(domain) {
 async function checkAllServers() {
   const container = document.querySelector(".allowed-servers-container");
   if (!container) return;
-  
+
   const domains = app.mediaServerWhitelist;
   if (domains.length === 0) {
     showTemporaryNotification("No servers to check");
     return;
   }
-  
+
   const checkButton = document.getElementById("checkAllServersBtn");
   if (checkButton) {
     checkButton.disabled = true;
@@ -2107,7 +2107,7 @@ async function checkAllServers() {
       Checking...
     `;
   }
-  
+
   // Mark all as checking
   const domainItems = container.querySelectorAll('.domain-item');
   domainItems.forEach(item => {
@@ -2117,14 +2117,14 @@ async function checkAllServers() {
       pingInfo.innerHTML = '<span class="ping-status status-checking">Checking...</span>';
     }
   });
-  
+
   // Ping all servers and update as results come in
   const results = [];
   for (const domain of domains) {
     try {
       const result = await pingServer(domain);
       results.push({ domain, ...result });
-      
+
       // Update this specific domain immediately
       const domainItem = container.querySelector(`[data-domain="${domain}"]`);
       if (domainItem && result.time) {
@@ -2158,10 +2158,10 @@ async function checkAllServers() {
       }
     }
   }
-  
+
   // Sort the list
   sortDomainsByPing(container);
-  
+
   // Re-enable button
   if (checkButton) {
     checkButton.disabled = false;
@@ -2173,7 +2173,7 @@ async function checkAllServers() {
       Check All Servers
     `;
   }
-  
+
   const onlineCount = results.filter(r => r.time !== null).length;
   showTemporaryNotification(`Check complete: ${onlineCount}/${domains.length} servers responding`);
 }
@@ -2183,10 +2183,10 @@ async function pingServer(domain) {
     const startTime = Date.now();
     const timeout = 3000;
     let resolved = false;
-    
+
     const protocols = ['https://', 'http://'];
     let currentProtocol = 0;
-    
+
     const tryPing = () => {
       if (currentProtocol >= protocols.length) {
         if (!resolved) {
@@ -2195,40 +2195,40 @@ async function pingServer(domain) {
         }
         return;
       }
-      
+
       const url = protocols[currentProtocol] + domain;
       const controller = new AbortController();
-      
+
       const timeoutId = setTimeout(() => {
         controller.abort();
         currentProtocol++;
         tryPing();
       }, timeout);
-      
+
       fetch(url, {
         method: 'HEAD',
         mode: 'no-cors',
         signal: controller.signal,
         cache: 'no-cache'
       })
-      .then(() => {
-        clearTimeout(timeoutId);
-        if (!resolved) {
-          resolved = true;
-          const pingTime = Date.now() - startTime;
-          let status = 'online';
-          if (pingTime >= 1000) status = 'slow';
-          if (pingTime >= 2000) status = 'very-slow';
-          resolve({ time: pingTime, status });
-        }
-      })
-      .catch(() => {
-        clearTimeout(timeoutId);
-        currentProtocol++;
-        tryPing();
-      });
+        .then(() => {
+          clearTimeout(timeoutId);
+          if (!resolved) {
+            resolved = true;
+            const pingTime = Date.now() - startTime;
+            let status = 'online';
+            if (pingTime >= 1000) status = 'slow';
+            if (pingTime >= 2000) status = 'very-slow';
+            resolve({ time: pingTime, status });
+          }
+        })
+        .catch(() => {
+          clearTimeout(timeoutId);
+          currentProtocol++;
+          tryPing();
+        });
     };
-    
+
     tryPing();
   });
 }
@@ -2236,24 +2236,24 @@ async function pingServer(domain) {
 function sortDomainsByPing(container) {
   const domainsContainer = container.querySelector("#whitelistDomainsContainer");
   if (!domainsContainer) return;
-  
+
   const items = Array.from(domainsContainer.querySelectorAll('.domain-item'));
-  
+
   items.sort((a, b) => {
     const timeA = parseInt(a.dataset.pingTime) || 999999;
     const timeB = parseInt(b.dataset.pingTime) || 999999;
     const statusA = a.dataset.pingStatus;
     const statusB = b.dataset.pingStatus;
-    
+
     // Offline items go to the end
     if (statusA === 'offline' && statusB !== 'offline') return 1;
     if (statusB === 'offline' && statusA !== 'offline') return -1;
     if (statusA === 'offline' && statusB === 'offline') return 0;
-    
+
     // Sort by time
     return timeA - timeB;
   });
-  
+
   // Re-append in sorted order and update indices
   items.forEach((item, index) => {
     item.dataset.index = index;
@@ -2267,7 +2267,7 @@ function sortDomainsByPing(container) {
 
 function setupAllowedServersEventListeners() {
   const checkAllBtn = document.getElementById("checkAllServersBtn");
-  
+
   if (checkAllBtn) {
     checkAllBtn.addEventListener("click", checkAllServers);
   }
@@ -2299,14 +2299,14 @@ function saveLocalOutboxRelays(relays) {
 function renderOutboxRelays() {
   const container = document.getElementById("outboxRelaysList");
   if (!container) return;
-  
+
   const outboxRelays = loadLocalOutboxRelays();
-  
+
   if (!outboxRelays || outboxRelays.length === 0) {
     container.innerHTML = '<p class="no-relays">No outbox relays configured.</p>';
     return;
   }
-  
+
   container.innerHTML = outboxRelays
     .map((relay, index) => createOutboxRelayItemHTML(relay, index))
     .join("");
@@ -2314,10 +2314,10 @@ function renderOutboxRelays() {
 
 function createOutboxRelayItemHTML(relay, index) {
   const { url, marker } = relay;
-  const markerBadge = marker 
+  const markerBadge = marker
     ? `<span class="relay-marker-badge marker-${marker}">${marker}</span>`
     : '<span class="relay-marker-badge marker-both">read & write</span>';
-  
+
   return `
     <div class="outbox-relay-item" data-relay="${url}" data-index="${index}">
       <div class="outbox-relay-header">
@@ -2329,9 +2329,18 @@ function createOutboxRelayItemHTML(relay, index) {
       
       <div class="outbox-relay-actions">
         <button class="btn btn-secondary change-marker-btn" data-index="${index}">
+<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+  <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+</svg>
           <span>Change Marker</span>
         </button>
         <button class="btn btn-danger remove-outbox-relay-btn" data-index="${index}">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2v2"/>
+              <line x1="10" y1="11" x2="10" y2="17"/>
+              <line x1="14" y1="11" x2="14" y2="17"/>
+            </svg>        
           <span>Remove</span>
         </button>
       </div>
@@ -2344,22 +2353,22 @@ function addOutboxRelay() {
   const markerSelect = document.getElementById("outboxRelayMarker");
   const url = input.value.trim();
   const marker = markerSelect.value;
-  
+
   if (!url) {
     showTemporaryNotification("Please enter a relay URL");
     return;
   }
-  
+
   const normalizedUrl = normalizeRelayUrl(url);
   let outboxRelays = loadLocalOutboxRelays() || [];
-  
+
   const isDuplicate = outboxRelays.some(r => isUrlEquivalent(r.url, normalizedUrl));
-  
+
   if (isDuplicate) {
     showTemporaryNotification("Relay already exists in your outbox list");
     return;
   }
-  
+
   outboxRelays.push({ url: normalizedUrl, marker: marker || null });
   saveLocalOutboxRelays(outboxRelays);
   renderOutboxRelays();
@@ -2372,7 +2381,7 @@ function addOutboxRelay() {
 function removeOutboxRelay(index) {
   const outboxRelays = loadLocalOutboxRelays() || [];
   const relay = outboxRelays[index];
-  
+
   if (confirm(`Remove relay: ${relay.url}?`)) {
     outboxRelays.splice(index, 1);
     saveLocalOutboxRelays(outboxRelays);
@@ -2385,16 +2394,16 @@ function removeOutboxRelay(index) {
 function changeRelayMarker(index) {
   const outboxRelays = loadLocalOutboxRelays() || [];
   const relay = outboxRelays[index];
-  
+
   const markers = [
     { value: null, label: "Read & Write" },
     { value: "read", label: "Read Only" },
     { value: "write", label: "Write Only" }
   ];
-  
+
   const currentIndex = markers.findIndex(m => m.value === relay.marker);
   const nextIndex = (currentIndex + 1) % markers.length;
-  
+
   relay.marker = markers[nextIndex].value;
   saveLocalOutboxRelays(outboxRelays);
   renderOutboxRelays();
@@ -2407,34 +2416,34 @@ async function importOutboxRelays() {
     showTemporaryNotification("You must be logged in to import your outbox list");
     return;
   }
-  
+
   showTemporaryNotification("Fetching your published outbox list...");
-  
+
   try {
     const extendedRelays = await getExtendedRelaysForProfile(app.myPk);
     const allRelays = [...new Set([...app.globalRelays, ...extendedRelays])];
-    
+
     const outboxEvents = await NostrClient.getEvents({
       kinds: [10002],
       authors: [app.myPk],
       limit: 1
     }, allRelays);
-    
+
     if (!outboxEvents || outboxEvents.length === 0) {
       showTemporaryNotification("No published outbox list found");
       return;
     }
-    
+
     const latestEvent = outboxEvents.sort((a, b) => b.created_at - a.created_at)[0];
     const relayTags = latestEvent.tags.filter(tag => tag[0] === 'r');
-    
+
     const publishedRelays = relayTags.map(tag => ({
       url: tag[1],
       marker: tag[2] || null
     }));
-    
+
     showImportOutboxModal(publishedRelays);
-    
+
   } catch (error) {
     console.error("Error importing outbox relays:", error);
     showTemporaryNotification("Failed to import outbox relays: " + error.message);
@@ -2443,32 +2452,32 @@ async function importOutboxRelays() {
 
 function showImportOutboxModal(publishedRelays) {
   const localRelays = loadLocalOutboxRelays() || [];
-  
-  const newRelays = publishedRelays.filter(pr => 
+
+  const newRelays = publishedRelays.filter(pr =>
     !localRelays.some(lr => isUrlEquivalent(lr.url, pr.url))
   );
-  
+
   const conflictingRelays = publishedRelays.filter(pr =>
     localRelays.some(lr => {
       if (!isUrlEquivalent(lr.url, pr.url)) return false;
       return lr.marker !== pr.marker;
     })
   );
-  
+
   const hasConflicts = conflictingRelays.length > 0;
-  
+
   const relaysList = publishedRelays.map(r => {
     const markerText = r.marker ? ` (${r.marker})` : ' (read & write)';
     return `<li><strong>${escapeHtml(r.url)}</strong>${markerText}</li>`;
   }).join('');
-  
+
   const conflictsList = conflictingRelays.map(r => {
     const markerText = r.marker ? ` (${r.marker})` : ' (read & write)';
     const local = localRelays.find(lr => isUrlEquivalent(lr.url, r.url));
     const localMarkerText = local.marker ? ` (${local.marker})` : ' (read & write)';
     return `<li><strong>${escapeHtml(r.url)}</strong> - Local${localMarkerText} → Published${markerText}</li>`;
   }).join('');
-  
+
   const content = `
     <div class="import-outbox-modal">
       <div class="import-summary">
@@ -2499,15 +2508,15 @@ function showImportOutboxModal(publishedRelays) {
       </div>
     </div>
   `;
-  
+
   const modal = openModal({
     title: "Import Outbox Relays",
     content,
     size: "medium"
   });
-  
+
   modal.querySelector("#modalCancelBtn").addEventListener("click", closeModal);
-  
+
   const importAllBtn = modal.querySelector("#modalImportAllBtn");
   if (importAllBtn) {
     importAllBtn.addEventListener("click", () => {
@@ -2515,7 +2524,7 @@ function showImportOutboxModal(publishedRelays) {
       closeModal();
     });
   }
-  
+
   const importNewOnlyBtn = modal.querySelector("#modalImportNewOnlyBtn");
   if (importNewOnlyBtn) {
     importNewOnlyBtn.addEventListener("click", () => {
@@ -2529,10 +2538,10 @@ function performOutboxImport(publishedRelays, allowOverwrite) {
   const localRelays = loadLocalOutboxRelays() || [];
   let importedCount = 0;
   let updatedCount = 0;
-  
+
   publishedRelays.forEach(pr => {
     const existingIndex = localRelays.findIndex(lr => isUrlEquivalent(lr.url, pr.url));
-    
+
     if (existingIndex === -1) {
       // New relay
       localRelays.push(pr);
@@ -2543,11 +2552,11 @@ function performOutboxImport(publishedRelays, allowOverwrite) {
       updatedCount++;
     }
   });
-  
+
   saveLocalOutboxRelays(localRelays);
   renderOutboxRelays();
   setupOutboxEventListeners();
-  
+
   let message = '';
   if (importedCount > 0) message += `Imported ${importedCount} new relay${importedCount !== 1 ? 's' : ''}`;
   if (updatedCount > 0) {
@@ -2555,57 +2564,57 @@ function performOutboxImport(publishedRelays, allowOverwrite) {
     message += `updated ${updatedCount} marker${updatedCount !== 1 ? 's' : ''}`;
   }
   if (!message) message = 'No changes needed';
-  
+
   showTemporaryNotification(message);
 }
 
 async function shareOutboxRelays() {
   const outboxRelays = loadLocalOutboxRelays() || [];
-  
+
   if (outboxRelays.length === 0) {
     showTemporaryNotification("No outbox relays to share");
     return;
   }
-  
-publishOutboxToNostr(outboxRelays);
+
+  publishOutboxToNostr(outboxRelays);
 
 }
 
 
 async function publishOutboxToNostr(outboxRelays) {
   try {
-  //  showTemporaryNotification("Publishing outbox list...");
-    
+    //  showTemporaryNotification("Publishing outbox list...");
+
     const tags = outboxRelays.map(r => {
       const tag = ['r', r.url];
       if (r.marker) tag.push(r.marker);
       return tag;
     });
-    
+
     const eventData = {
       kind: 10002,
       created_at: Math.floor(Date.now() / 1000),
       content: "",
       tags: tags
     };
-    
+
     console.log("Outbox event data:", eventData);
-    
+
     const signedEvent = await handleEventSigning(eventData);
     console.log("Outbox event signed successfully!");
-    
+
     const result = await publishEvent(signedEvent, app.globalRelays, {
       successMessage: "✅ Outbox list shared successfully!",
       errorMessage: "Failed to publish outbox list"
     });
-    
+
     if (result.success) {
       console.dir(signedEvent, { depth: null });
       showTemporaryNotification("Event published successfully!");
     } else {
       throw new Error(result.error);
     }
-    
+
   } catch (error) {
     console.error("Error publishing outbox list:", error);
     showTemporaryNotification("❌ Failed to publish outbox list: " + error.message);
@@ -2615,14 +2624,14 @@ async function publishOutboxToNostr(outboxRelays) {
 function setupOutboxEventListeners() {
   const container = document.getElementById("outboxRelaysList");
   if (!container) return;
-  
+
   container.querySelectorAll(".remove-outbox-relay-btn").forEach(btn => {
     btn.addEventListener("click", (e) => {
       const index = parseInt(e.target.closest("button").dataset.index);
       removeOutboxRelay(index);
     });
   });
-  
+
   container.querySelectorAll(".change-marker-btn").forEach(btn => {
     btn.addEventListener("click", (e) => {
       const index = parseInt(e.target.closest("button").dataset.index);
@@ -2656,18 +2665,18 @@ function saveLocalBlossomServers(servers) {
 function renderBlossomServers() {
   const container = document.getElementById("blossomServersList");
   if (!container) return;
-  
+
   const blossomServers = loadLocalBlossomServers();
-  
+
   if (!blossomServers || blossomServers.length === 0) {
     container.innerHTML = '<p class="no-relays">No blossom servers configured.</p>';
     return;
   }
-  
+
   container.innerHTML = blossomServers
     .map((server, index) => createBlossomServerItemHTML(server, index))
     .join("");
-  
+
   // Auto-ping servers after rendering
   blossomServers.forEach((server, index) => {
     setTimeout(() => pingBlossomServer(server.url, index), 100 * index);
@@ -2676,7 +2685,7 @@ function renderBlossomServers() {
 
 function createBlossomServerItemHTML(server, index) {
   const { url } = server;
-  
+
   return `
     <div class="blossom-server-item" data-server="${url}" data-index="${index}">
       <div class="blossom-server-header">
@@ -2691,12 +2700,24 @@ function createBlossomServerItemHTML(server, index) {
       
       <div class="blossom-server-actions">
         <button class="btn btn-secondary ping-blossom-btn" data-index="${index}">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+          </svg>        
           <span>Ping</span>
         </button>
         <button class="btn btn-secondary visit-blossom-btn" data-index="${index}">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M15 13.5V9M15 9H10.5M15 9L9.00019 14.9999M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z"/>
+          </svg>        
           <span>Visit</span>
         </button>
         <button class="btn btn-danger remove-blossom-btn" data-index="${index}">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2v2"/>
+              <line x1="10" y1="11" x2="10" y2="17"/>
+              <line x1="14" y1="11" x2="14" y2="17"/>
+            </svg>        
           <span>Remove</span>
         </button>
       </div>
@@ -2707,10 +2728,10 @@ function createBlossomServerItemHTML(server, index) {
 async function pingBlossomServer(url, index) {
   const statusContainer = document.getElementById(`blossom-ping-${index}`);
   if (!statusContainer) return;
-  
+
   const indicator = statusContainer.querySelector('.ping-indicator');
   const latencySpan = statusContainer.querySelector('.ping-latency');
-  
+
   if (indicator) {
     indicator.textContent = "⏳";
     indicator.title = "Pinging...";
@@ -2718,25 +2739,25 @@ async function pingBlossomServer(url, index) {
   if (latencySpan) {
     latencySpan.textContent = "";
   }
-  
+
   try {
     const testHash = "b1674191a88ec5cdd733e4240a81803105dc412d6c6708d53ab94fc248f4f553";
     const testUrl = `${url}/${testHash}`;
-    
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
-    
+
     const startTime = performance.now();
     const response = await fetch(testUrl, {
       method: "HEAD",
       signal: controller.signal,
     });
     const endTime = performance.now();
-    
+
     clearTimeout(timeoutId);
-    
+
     const pingTime = Math.round(endTime - startTime);
-    
+
     if (indicator) {
       if (response.ok || response.status === 404) {
         indicator.textContent = "✓";
@@ -2757,7 +2778,7 @@ async function pingBlossomServer(url, index) {
         indicator.style.color = "#f59e0b";
       }
     }
-    
+
     if (latencySpan) {
       latencySpan.textContent = `${pingTime}ms`;
       if (pingTime < 300) {
@@ -2768,7 +2789,7 @@ async function pingBlossomServer(url, index) {
         latencySpan.style.color = "#ef4444";
       }
     }
-    
+
     console.log(`✓ Blossom ping result: ${url} (${pingTime}ms, status: ${response.status})`);
   } catch (error) {
     if (indicator) {
@@ -2786,12 +2807,12 @@ async function pingBlossomServer(url, index) {
 function addBlossomServer() {
   const input = document.getElementById("newBlossomServerInput");
   const url = input.value.trim();
-  
+
   if (!url) {
     showTemporaryNotification("Please enter a server URL");
     return;
   }
-  
+
   // Validate URL format
   try {
     new URL(url);
@@ -2799,22 +2820,22 @@ function addBlossomServer() {
     showTemporaryNotification("Invalid URL format");
     return;
   }
-  
+
   // Ensure it's https
   if (!url.startsWith("https://") && !url.startsWith("http://")) {
     showTemporaryNotification("URL must start with https:// or http://");
     return;
   }
-  
+
   let blossomServers = loadLocalBlossomServers() || [];
-  
+
   const isDuplicate = blossomServers.some(s => s.url === url);
-  
+
   if (isDuplicate) {
     showTemporaryNotification("Server already exists in your list");
     return;
   }
-  
+
   blossomServers.push({ url });
   saveLocalBlossomServers(blossomServers);
   renderBlossomServers();
@@ -2826,7 +2847,7 @@ function addBlossomServer() {
 function removeBlossomServer(index) {
   const blossomServers = loadLocalBlossomServers() || [];
   const server = blossomServers[index];
-  
+
   if (confirm(`Remove server: ${server.url}?`)) {
     blossomServers.splice(index, 1);
     saveLocalBlossomServers(blossomServers);
@@ -2839,7 +2860,7 @@ function removeBlossomServer(index) {
 function visitBlossomServer(index) {
   const blossomServers = loadLocalBlossomServers() || [];
   const server = blossomServers[index];
-  
+
   if (server && server.url) {
     window.open(server.url, '_blank');
   }
@@ -2850,38 +2871,38 @@ async function importBlossomServers() {
     showTemporaryNotification("You must be logged in to import your blossom servers");
     return;
   }
-  
+
   showTemporaryNotification("Fetching your published blossom servers...");
-  
+
   try {
     const extendedRelays = await getExtendedRelaysForProfile(app.myPk);
     const allRelays = [...new Set([...app.globalRelays, ...extendedRelays])];
-    
+
     const blossomEvents = await NostrClient.getEvents({
       kinds: [10063],
       authors: [app.myPk],
       limit: 1
     }, allRelays);
-    
+
     if (!blossomEvents || blossomEvents.length === 0) {
       showTemporaryNotification("No published blossom server list found");
       return;
     }
-    
+
     const latestEvent = blossomEvents.sort((a, b) => b.created_at - a.created_at)[0];
     const serverTags = latestEvent.tags.filter(tag => tag[0] === 'server');
-    
+
     const publishedServers = serverTags.map(tag => ({
       url: tag[1]
     }));
-    
+
     if (publishedServers.length === 0) {
       showTemporaryNotification("No servers found in published event");
       return;
     }
-    
+
     showImportBlossomModal(publishedServers);
-    
+
   } catch (error) {
     console.error("Error importing blossom servers:", error);
     showTemporaryNotification("Failed to import blossom servers: " + error.message);
@@ -2890,15 +2911,15 @@ async function importBlossomServers() {
 
 function showImportBlossomModal(publishedServers) {
   const localServers = loadLocalBlossomServers() || [];
-  
-  const newServers = publishedServers.filter(ps => 
+
+  const newServers = publishedServers.filter(ps =>
     !localServers.some(ls => ls.url === ps.url)
   );
-  
-  const serversList = publishedServers.map(s => 
+
+  const serversList = publishedServers.map(s =>
     `<li><strong>${escapeHtml(s.url)}</strong></li>`
   ).join('');
-  
+
   const content = `
     <div class="import-blossom-modal">
       <div class="import-summary">
@@ -2920,15 +2941,15 @@ function showImportBlossomModal(publishedServers) {
       </div>
     </div>
   `;
-  
+
   const modal = openModal({
     title: "Import Blossom Servers",
     content,
     size: "medium"
   });
-  
+
   modal.querySelector("#modalCancelBtn").addEventListener("click", closeModal);
-  
+
   const importBtn = modal.querySelector("#modalImportBtn");
   if (importBtn) {
     importBtn.addEventListener("click", () => {
@@ -2936,7 +2957,7 @@ function showImportBlossomModal(publishedServers) {
       closeModal();
     });
   }
-  
+
   const overwriteBtn = modal.querySelector("#modalOverwriteBtn");
   if (overwriteBtn) {
     overwriteBtn.addEventListener("click", () => {
@@ -2957,18 +2978,18 @@ function performBlossomImport(publishedServers, overwrite) {
     // Add only new servers
     const localServers = loadLocalBlossomServers() || [];
     let addedCount = 0;
-    
+
     publishedServers.forEach(ps => {
       if (!localServers.some(ls => ls.url === ps.url)) {
         localServers.push(ps);
         addedCount++;
       }
     });
-    
+
     saveLocalBlossomServers(localServers);
     renderBlossomServers();
     setupBlossomEventListeners();
-    
+
     if (addedCount > 0) {
       showTemporaryNotification(`Imported ${addedCount} new server${addedCount !== 1 ? 's' : ''}`);
     } else {
@@ -2979,13 +3000,13 @@ function performBlossomImport(publishedServers, overwrite) {
 
 async function shareBlossomServers() {
   const blossomServers = loadLocalBlossomServers() || [];
-  
+
   if (blossomServers.length === 0) {
     showTemporaryNotification("No blossom servers to share");
     return;
   }
-  
-publishBlossomToNostr(blossomServers);
+
+  publishBlossomToNostr(blossomServers);
 }
 
 
@@ -2993,33 +3014,33 @@ publishBlossomToNostr(blossomServers);
 async function publishBlossomToNostr(blossomServers) {
   try {
     showTemporaryNotification("Publishing blossom server list...");
-    
+
     const tags = blossomServers.map(s => ['server', s.url]);
-    
+
     const eventData = {
       kind: 10063,
       created_at: Math.floor(Date.now() / 1000),
       content: "",
       tags: tags
     };
-    
+
     console.log("Blossom event data:", eventData);
-    
+
     const signedEvent = await handleEventSigning(eventData);
     console.log("Blossom event signed successfully!");
-    
+
     const result = await publishEvent(signedEvent, app.globalRelays, {
       successMessage: "✅ Blossom server list shared successfully!",
       errorMessage: "Failed to publish blossom server list"
     });
-    
+
     if (result.success) {
       console.dir(signedEvent, { depth: null });
       showTemporaryNotification("Event published successfully!");
     } else {
       throw new Error(result.error);
     }
-    
+
   } catch (error) {
     console.error("Error publishing blossom server list:", error);
     showTemporaryNotification("❌ Failed to publish blossom server list: " + error.message);
@@ -3029,14 +3050,14 @@ async function publishBlossomToNostr(blossomServers) {
 function setupBlossomEventListeners() {
   const container = document.getElementById("blossomServersList");
   if (!container) return;
-  
+
   container.querySelectorAll(".remove-blossom-btn").forEach(btn => {
     btn.addEventListener("click", (e) => {
       const index = parseInt(e.target.closest("button").dataset.index);
       removeBlossomServer(index);
     });
   });
-  
+
   container.querySelectorAll(".ping-blossom-btn").forEach(btn => {
     btn.addEventListener("click", async (e) => {
       const index = parseInt(e.target.closest("button").dataset.index);
@@ -3047,7 +3068,7 @@ function setupBlossomEventListeners() {
       }
     });
   });
-  
+
   container.querySelectorAll(".visit-blossom-btn").forEach(btn => {
     btn.addEventListener("click", (e) => {
       const index = parseInt(e.target.closest("button").dataset.index);

@@ -2869,7 +2869,6 @@ main {
 
 .playlist-title {
   font-weight: 500;
-  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--text);
@@ -3355,7 +3354,7 @@ nostr-picture::part(img) {
   border: 1px solid var(--primary);
 }
 
-.validate-blossom-btn,
+.verify-blossom-btn,
 .full-check-btn {
   background-color: var(--surface);
   border: 1px solid var(--border);
@@ -3366,7 +3365,7 @@ nostr-picture::part(img) {
   cursor: pointer;
 }
 
-.validate-blossom-btn:hover,
+.verify-blossom-btn:hover,
 .full-check-btn:hover {
   border: 1px solid var(--primary);
   background-color: var(--background);
@@ -3377,17 +3376,17 @@ nostr-picture::part(img) {
 }
 
 
-.validation-section .validation-results {
+.verification-section .verification-results {
   margin-top: 1rem;
 }
 
-.validation-section .validation-results .info-grid {
+.verification-section .verification-results .info-grid {
   display: grid;
   gap: 0.75rem;
   margin-top: 0.5rem;
 }
 
-.validation-section .validation-results .hash {
+.verification-section .verification-results .hash {
   word-break: break-all;
   background: var(--background);
   padding: 0.25rem 0.5rem;
@@ -3397,20 +3396,20 @@ nostr-picture::part(img) {
   max-width: 100%;
 }
 
-.validation-section .result {
+.verification-section .result {
   padding: 1rem;
   border-radius: 4px;
   margin-top: 0.5rem;
 }
 
-.validation-section .result.loading {
+.verification-section .result.loading {
   background: var(--surface);
   color: var(--text);
 }
 
-.validation-section .result.success,
-.validation-section .result.warning,
-.validation-section .result.error {
+.verification-section .result.success,
+.verification-section .result.warning,
+.verification-section .result.error {
   background: var(--background);
   color: var(--text);
 }
@@ -3418,8 +3417,8 @@ nostr-picture::part(img) {
 
 
 
- /* Validation Results Container */
-.video-page-layout .validation-result {
+ /* verification Results Container */
+.video-page-layout .verification-result {
   margin: 1rem 0;
 }
 
@@ -3950,7 +3949,6 @@ word-break: break-all;
   font-size: 14px;
   font-weight: 500;
   color: var(--text);
-  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -4917,7 +4915,7 @@ main {
   color: var(--primary);
 }
 
-.validation-options {
+.verification-options {
   margin-top: 1rem;
   padding: 0.75rem;
   background: var(--surface);
@@ -4925,7 +4923,7 @@ main {
   border-radius: 6px;
 }
 
-.validation-options label {
+.verification-options label {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -4934,7 +4932,7 @@ main {
   font-size: 0.95rem;
 }
 
-.validation-options input[type="checkbox"] {
+.verification-options input[type="checkbox"] {
   width: 18px;
   height: 18px;
   cursor: pointer;
@@ -6544,7 +6542,7 @@ main {
   font-family: monospace;
 }
 
-.edit-profile-container .validation-message {
+.edit-profile-container .verification-message {
   background-color: var(--surface);
   color: var(--text);
   margin-top: 8px;
@@ -6552,17 +6550,17 @@ main {
   min-height: 18px;
 }
 
-.edit-profile-container .validation-message.success {
+.edit-profile-container .verification-message.success {
   border: 1px solid #28a745;
   background-color: var(--background);
 }
 
-.edit-profile-container .validation-message.error {
+.edit-profile-container .verification-message.error {
   border: 1px solid #dc3545;
   background-color: var(--background);
 }
 
-.edit-profile-container .validation-message.warning {
+.edit-profile-container .verification-message.warning {
   border: 1px solid #ffc107;
   background-color: var(--background);
 }
@@ -8759,7 +8757,7 @@ noscript {
 .relay-set-actions-bar button {
   display: flex;
   align-items: center;
-  gap: 8px;
+  padding: 4px;
 }
 
 .relay-set-actions-bar button svg {
@@ -10020,7 +10018,7 @@ noscript {
   box-shadow: 0 0 0 3px rgba(var(--primary-rgb, 52, 152, 219), 0.1);
 }
 
-.form-actions {
+.add-domain-form .form-actions {
   display: flex;
   gap: 8px;
 }
@@ -10930,7 +10928,6 @@ noscript {
 
 .playlist-details h1 {
   margin: 0 0 0.5rem 0;
-  font-size: 1.8rem;
   line-height: 1.2;
 }
 
@@ -12410,7 +12407,7 @@ noscript {
   border-radius: 4px;
 }
 
-.hash-validation {
+.hash-verification {
   padding: 1rem;
   background: var(--surface);
   border-radius: 4px;
@@ -13331,34 +13328,11 @@ noscript {
 }
 
 .validation-status:hover .tooltip,
-.validation-status.tooltip-visible .tooltip {
+.verification-status.tooltip-visible .tooltip {
   visibility: visible;
   opacity: 1;
 }
 
-/******************************************************/
-
-/* .primary-btn {
-  background: var(--background);
-  color: var(--text);
-  border: 1px solid var(--border);
-}
-
-.primary-btn:hover {
-  background: var(--surface);
-  border: 1px solid var(--primary);
-}
-
-.secondary-btn {
-  background: var(--surface);
-  color: var(--text);
-  border: 1px solid var(--border);
-}
-
-.secondary-btn:hover {
-  border: 1px solid var(--primary);
-}
- */
 /***************************************************/
 /* WebSocket Page Styles */
 #websocketsPage-container {

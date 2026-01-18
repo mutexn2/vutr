@@ -2111,7 +2111,9 @@ async function populateTechnicalInfo(profile, profileNpub) {
     const hints = window.NostrGadgets?.global?.hints;
     if (hints) {
       const topRelayHints = await hints.topN(profile, 11);
-      populateRelayHints(topRelayHints);
+      // Filter out invalid relays
+      const validRelayHints = topRelayHints.filter(isValidRelayUrl);
+      populateRelayHints(validRelayHints);
     } else {
       hideRelayHintsSection();
     }
@@ -2307,7 +2309,8 @@ async function fetchProfileFromAllRelays(pubkey) {
   try {
     const hints = window.NostrGadgets?.global?.hints;
     if (hints) {
-      optimizedRelays = await hints.topN(pubkey, 5);
+      const hintsResult = await hints.topN(pubkey, 5);
+      optimizedRelays = hintsResult.filter(isValidRelayUrl);
     }
   } catch (error) {
     console.warn("Failed to get relay hints:", error);
@@ -2320,18 +2323,17 @@ async function fetchProfileFromAllRelays(pubkey) {
     "wss://nostr.mom",
   ];
 
-  const normalizeUrl = (url) => {
-    try {
-      return url.toLowerCase().replace(/\/+$/, "");
-    } catch (e) {
-      return url;
-    }
+  // Normalize and validate all relays
+  const normalizeAndValidate = (relays) => {
+    return relays
+      .map(normalizeAndValidateRelayUrl)
+      .filter(url => url !== null);
   };
 
   const allRelays = [
-    ...app.relays.map(normalizeUrl),
-    ...staticRelays.map(normalizeUrl),
-    ...optimizedRelays.map(normalizeUrl),
+    ...normalizeAndValidate(app.relays),
+    ...normalizeAndValidate(staticRelays),
+    ...normalizeAndValidate(optimizedRelays),
   ];
 
   const combinedRelays = [...new Set(allRelays)];
@@ -2386,24 +2388,23 @@ async function getExtendedRelaysForProfile(pk) {
       console.warn("Failed to get relay hints for profile:", error);
     }
 
-    const normalizeUrl = (url) => {
-      try {
-        return url.toLowerCase().replace(/\/+$/, "");
-      } catch (e) {
-        return url;
-      }
+    // Normalize and validate all relays
+    const normalizedAndValidatedRelays = (relays) => {
+      return relays
+        .map(normalizeAndValidateRelayUrl)
+        .filter(url => url !== null);
     };
 
     const allRelays = [
-      ...topRelayHints.map(normalizeUrl),
-      ...app.relays.map(normalizeUrl),
+      ...normalizedAndValidatedRelays(topRelayHints),
+      ...normalizedAndValidatedRelays(app.relays),
     ];
 
     const combinedRelays = [...new Set(allRelays)];
     return combinedRelays;
   } catch (error) {
     console.error("Error getting extended relays:", error);
-    return app.relays;
+    return app.relays.filter(isValidRelayUrl);
   }
 }
 

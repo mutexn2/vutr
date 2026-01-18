@@ -983,6 +983,49 @@ function validateVideoUrl(url) {
 }
 ///
 /**
+ * Validate a relay URL
+ * @param {string} url - The relay URL to validate
+ * @returns {boolean} - True if valid, false otherwise
+ */
+function isValidRelayUrl(url) {
+  if (!url || typeof url !== 'string') return false;
+  
+  // Trim whitespace
+  const trimmedUrl = url.trim();
+  if (!trimmedUrl) return false;
+  
+  // Basic URL pattern validation for WebSocket relays
+  // Accepts wss:// or ws:// protocols
+  const relayUrlPattern = /^(wss?:\/\/)[a-zA-Z0-9][a-zA-Z0-9.-]+[a-zA-Z0-9](:\d+)?(\/[a-zA-Z0-9._~:/?#[\]@!$&'()*+,;=-]*)?$/;
+  
+  return relayUrlPattern.test(trimmedUrl);
+}
+
+/**
+ * Normalize and validate a relay URL
+ * Returns the normalized URL if valid, null otherwise
+ */
+function normalizeAndValidateRelayUrl(url) {
+  if (!url || typeof url !== 'string') return null;
+  
+  try {
+    const trimmed = url.trim();
+    if (!trimmed) return null;
+    
+    // Check if it's a valid URL
+    if (!isValidRelayUrl(trimmed)) return null;
+    
+    // Normalize: lowercase and remove trailing slashes
+    let normalized = trimmed.toLowerCase();
+    normalized = normalized.replace(/\/+$/, '');
+    
+    return normalized;
+  } catch (e) {
+    return null;
+  }
+}
+///
+/**
  * Processes message/profile content with URLs, nostr URIs, and newlines
  * Returns a DOM element safe for innerHTML
  */

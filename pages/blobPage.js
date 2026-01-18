@@ -136,8 +136,8 @@ async function processMediaUrl(url) {
         const actualSize = result.size;
         const headerSize = result.contentLength;
 
-        // Step 3: Validate hash against URL
-        const hashValidation = validateHashAgainstUrl(url, blobHash);
+        // Step 3: verify hash against URL
+        const hashVerification = verifyHashAgainstUrl(url, blobHash);
 
         // Step 4: Extract metadata from blob
         showStatus('Extracting metadata...', 'loading');
@@ -181,9 +181,9 @@ async function processMediaUrl(url) {
           size: actualSize,
           headerSize: headerSize,
           hash: blobHash,
-          isHashValid: hashValidation.isValid,
-          urlHash: hashValidation.urlHash,
-          blossomValidated: true,
+          isHashValid: hashVerification.isValid,
+          urlHash: hashVerification.urlHash,
+          blossomVerified: true,
           corsRestricted: false,
           ...metadata,
           bitrate: bitrate,
@@ -193,7 +193,7 @@ async function processMediaUrl(url) {
           metadataExtracted: Object.keys(metadata).length > 0
         };
 
-        console.log('✅ Full processing with Blossom validation complete');
+        console.log('✅ Full processing with Blossom verification complete');
 
       } catch (fetchError) {
         console.warn('❌ Cannot download file (CORS):', fetchError.message);
@@ -233,7 +233,7 @@ async function processMediaUrl(url) {
         hash: '', // Cannot calculate
         isHashValid: false,
         urlHash: null,
-        blossomValidated: false,
+        blossomVerified: false,
         corsRestricted: true,
         ...elementMetadata,
         bitrate: 0, // Cannot calculate without size
@@ -460,7 +460,7 @@ function displayResults(mediaData, blob) {
   const corsWarning = mediaData.corsRestricted 
     ? `<div class="result warning">
          <p><strong>⚠️ CORS Restriction:</strong> This server doesn't allow direct access. 
-         Hash validation and file size are unavailable, but the media will play.</p>
+         Hash verification and file size are unavailable, but the media will play.</p>
        </div>` 
     : '';
 
@@ -479,7 +479,7 @@ function displayResults(mediaData, blob) {
       </div>
       ${mediaData.hash ? `
       <div>
-        <strong>Blossom Validation:</strong> 
+        <strong>Blossom Verification:</strong> 
         <span class="${mediaData.isHashValid ? 'success' : 'warning'}">
           ${mediaData.isHashValid ? '🌸 Hash matches filename' : '⚠ Hash does not match filename'}
         </span>
@@ -494,8 +494,8 @@ function displayResults(mediaData, blob) {
     `m ${mediaData.type}`,
   ];
 
-  // Only add hash if we have it (Blossom validated)
-  if (mediaData.hash && mediaData.blossomValidated) {
+  // Only add hash if we have it (Blossom Verified)
+  if (mediaData.hash && mediaData.blossomVerified) {
     imetaTag.push(`x ${mediaData.hash}`);
   }
 
@@ -574,7 +574,7 @@ function showAudioPreviewDirect(url, container) {
 }
 
 
-function validateHashAgainstUrl(url, blobHash) {
+function verifyHashAgainstUrl(url, blobHash) {
   try {
     const parsedUrl = new URL(url);
     const filename = parsedUrl.pathname.split('/').pop();
@@ -741,7 +741,7 @@ async function fetchVideoWithProgress(url, onProgress = null) {
     reader.releaseLock();
   }
 }
-async function validateBlossomInPlace(videoUrl, onProgress = null) {
+async function verifyBlossomInPlace(videoUrl, onProgress = null) {
   try {
     console.log('📥 Validating blossom for URL:', videoUrl);
 
@@ -763,19 +763,19 @@ async function validateBlossomInPlace(videoUrl, onProgress = null) {
 
     console.log('✅ Hash generated:', result.hash);
     console.log('🌸 Validating hash against URL filename...');
-    const validation = validateHashAgainstUrl(videoUrl, result.hash);
+    const verification = verifyHashAgainstUrl(videoUrl, result.hash);
 
     return {
       success: true,
       blob: result.blob, // Return the blob!
       hash: result.hash,
-      isValid: validation.isValid,
-      urlHash: validation.urlHash,
-      blobHash: validation.blobHash,
+      isValid: verification.isValid,
+      urlHash: verification.urlHash,
+      blobHash: verification.blobHash,
       size: result.blob.size
     };
   } catch (error) {
-    console.error('❌ Validation error:', error);
+    console.error('❌ verification error:', error);
     return {
       success: false,
       error: error.message
@@ -860,7 +860,7 @@ async function extractThumbnail(videoUrl) {
   });
 }
 
-function displayValidationResultWithSave(result, validationResults, mimeType = '') {
+function displayVerificationResultWithSave(result, verificationResults, mimeType = '') {
   if (result.success) {
     const statusClass = result.isValid ? 'success' : 'warning';
     const statusText = result.isValid
@@ -876,9 +876,9 @@ function displayValidationResultWithSave(result, validationResults, mimeType = '
     }
     const filename = `${result.hash}.${extension}`;
 
-    validationResults.innerHTML = `
+    verificationResults.innerHTML = `
       <div class="result ${statusClass}">
-        <h4>Blossom Validation Result</h4>
+        <h4>Blossom Verification Result</h4>
         <div class="info-grid">
           <div><strong>Status:</strong> ${statusText}</div>
           <div><strong>Calculated Hash:</strong><br><code class="hash">${result.hash}</code></div>
@@ -899,7 +899,7 @@ function displayValidationResultWithSave(result, validationResults, mimeType = '
     `;
     
     // Add event listener for save button
-    const saveBtn = validationResults.querySelector('.save-file-btn');
+    const saveBtn = verificationResults.querySelector('.save-file-btn');
     if (saveBtn && result.blob) {
       saveBtn.addEventListener('click', () => {
         const success = saveBlobToDevice(result.blob, result.hash, mimeType);
@@ -924,9 +924,9 @@ function displayValidationResultWithSave(result, validationResults, mimeType = '
     }
     
   } else {
-    validationResults.innerHTML = `
+    verificationResults.innerHTML = `
       <div class="result error">
-        <strong>Validation Error:</strong> ${result.error}
+        <strong>verification Error:</strong> ${result.error}
       </div>
     `;
   }

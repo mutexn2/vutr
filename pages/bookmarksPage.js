@@ -292,7 +292,7 @@ function setupBookmarksEventListeners() {
         syncBtn.textContent = 'Syncing...';
         syncBtn.disabled = true;
         
-        // TODO: Implement sync with Nostr
+        // TO DO: Implement sync with Nostr
         await new Promise(resolve => setTimeout(resolve, 1000));
         
         syncBtn.textContent = 'Synced!';
@@ -478,10 +478,6 @@ function reorderBookmarkVideo(fromIndex, toIndex) {
   
   if (!bookmarkedVideos) return false;
   
-  // OLD: const videoTags = bookmarkedVideos.tags.filter(tag => tag[0] === "a");
-  // OLD: const otherTags = bookmarkedVideos.tags.filter(tag => tag[0] !== "a");
-  
-  // NEW:
   const videoTags = bookmarkedVideos.tags.filter(tag => tag[0] === "e");
   const otherTags = bookmarkedVideos.tags.filter(tag => tag[0] !== "e");
   

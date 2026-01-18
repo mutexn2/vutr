@@ -376,10 +376,10 @@ function renderVideoPage(video, videoId, pageHash, shouldAutoplay = false) {
           <h4>Content Hash (x tag):</h4>
           <p class="technical-hash"></p>
         </div>
-        <div class="validation-section">
-          <button class="validate-blossom-btn">Validate Blossom</button>
+        <div class="verification-section">
+          <button class="verify-blossom-btn">verify Blossom</button>
           <button class="full-check-btn" style="display: none;">Full Metadata Check</button>
-          <div id="validationResults" class="validation-results"></div>
+          <div id="verificationResults" class="verification-results"></div>
         </div>
       </div>
     </div>
@@ -586,13 +586,13 @@ if (extraTags.length > 0) {
     // Set technical summary (collapsed state)
     const fileExtension = mimeType.split('/')[1] || 'unknown';
     
-    // Build summary with validation status
+    // Build summary with verification status
     let summaryParts = [fileExtension, dimensions];
     
-    // Check if we already have validation results cached
-/*     const cachedValidation = blossomValidationCache.get(directUrl);
-    if (cachedValidation) {
-      summaryParts.push(cachedValidation.isValid ? '🌸 verified' : '⚠ hash mismatch');
+    // Check if we already have verification results cached
+/*     const cachedVerification = blossomVerificationCache.get(directUrl);
+    if (cachedVerification) {
+      summaryParts.push(cachedVerification.isValid ? '🌸 verified' : '⚠ hash mismatch');
     } else if (isBlossomUrl) {
       summaryParts.push('blossom');
     }
@@ -616,35 +616,35 @@ if (extraTags.length > 0) {
     technicalFilename.textContent = filename;
     technicalHash.textContent = xHash;
 
-    let validateBtn = mainContent.querySelector(".validate-blossom-btn");
+    let verifyBtn = mainContent.querySelector(".verify-blossom-btn");
     let fullCheckBtn = mainContent.querySelector(".full-check-btn");
-    let validationResults = mainContent.querySelector("#validationResults");
+    let verificationResults = mainContent.querySelector("#verificationResults");
 
-    validateBtn.textContent = 'Validate Blossom';
+    verifyBtn.textContent = 'verify Blossom';
     // Update button text based on whether it's a Blossom URL
 /*     if (isBlossomUrl) {
-      validateBtn.textContent = 'Validate Blossom';
+      verifyBtn.textContent = 'verify Blossom';
     } else {
-      validateBtn.textContent = 'no blossom URL';
+      verifyBtn.textContent = 'no blossom URL';
     } */
 
-    // Validate button handler - tracked
-const validateBtnHandler = async () => {
+    // verify button handler - tracked
+const verifyBtnHandler = async () => {
 /*   if (!isBlossomUrl) {
     console.log("not a blossom URL");
     return;
   } */
   
-  console.log('Manual Blossom validation triggered for:', directUrl);
+  console.log('Manual Blossom verification triggered for:', directUrl);
   
   // Show loading state
-  validationResults.innerHTML = '<div class="result loading">Preparing validation...</div>';
-  validateBtn.disabled = true;
+  verificationResults.innerHTML = '<div class="result loading">Preparing verification...</div>';
+  verifyBtn.disabled = true;
   
-  // Download and validate with progress
+  // Download and verify with progress
   const updateProgress = (progress) => {
     if (progress.indeterminate) {
-      validationResults.innerHTML = `
+      verificationResults.innerHTML = `
         <div class="result loading">
           <div class="progress-message">Downloading video...</div>
           <div class="progress-bar-container">
@@ -655,7 +655,7 @@ const validateBtnHandler = async () => {
         </div>
       `;
     } else {
-      validationResults.innerHTML = `
+      verificationResults.innerHTML = `
         <div class="result loading">
           <div class="progress-message">Downloading video...</div>
           <div class="progress-info">
@@ -671,13 +671,13 @@ const validateBtnHandler = async () => {
     }
   };
   
-  const result = await validateBlossomInPlace(directUrl, updateProgress);
+  const result = await verifyBlossomInPlace(directUrl, updateProgress);
   
   // Display results with save button
-  displayValidationResultWithSave(result, validationResults, mimeType);
-  validateBtn.disabled = false;
+  displayVerificationResultWithSave(result, verificationResults, mimeType);
+  verifyBtn.disabled = false;
 };
-    addTrackedEventListener(validateBtn, 'click', validateBtnHandler, pageKey);
+    addTrackedEventListener(verifyBtn, 'click', verifyBtnHandler, pageKey);
 
     // Full check button handler - tracked
     const fullCheckBtnHandler = () => {
@@ -698,13 +698,13 @@ const validateBtnHandler = async () => {
     technicalFilename.textContent = 'N/A';
     technicalHash.textContent = 'N/A';
     
-    let validateBtn = mainContent.querySelector(".validate-blossom-btn");
-    validateBtn.textContent = 'Full Metadata Check';
-    const validateBtnHandler = () => {
+    let verifyBtn = mainContent.querySelector(".verify-blossom-btn");
+    verifyBtn.textContent = 'Full Metadata Check';
+    const verifyBtnHandler = () => {
     //  window.location.hash = `#blob/${encodeURIComponent(url)}`;
     console.log("full metadata clicked!");
     };
-    addTrackedEventListener(validateBtn, 'click', validateBtnHandler, pageKey);
+    addTrackedEventListener(verifyBtn, 'click', verifyBtnHandler, pageKey);
   }
 
   //////////////////////////
@@ -801,6 +801,7 @@ const validateBtnHandler = async () => {
             const result = await publishEvent(signedReactionEvent, app.globalRelays, {
               successMessage: "Like reaction published successfully",
               errorMessage: "Failed to publish like reaction",
+               skipConfirmation: true,
             });
 
             if (result.success) {

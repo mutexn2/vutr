@@ -1198,6 +1198,7 @@ async function handleLikeWithUI(event, likeButton, likeCountSpan) {
         const result = await publishEvent(signedReactionEvent, app.chatRelays, {
           successMessage: "Like reaction published successfully",
           errorMessage: "Failed to publish like reaction",
+           skipConfirmation: true,
         });
 
         if (result.success) {
@@ -1421,7 +1422,8 @@ async function sendChatMessage(content, options = {}) {
     const result = await publishEvent(signedMessageEvent, app.chatRelays, {
       successMessage: "Message published successfully",
       errorMessage: "Failed to publish message",
-      requireAllSuccess: false
+      skipConfirmation: true,
+
     });
 
     if (result.success) {

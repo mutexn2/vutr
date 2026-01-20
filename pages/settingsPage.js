@@ -39,6 +39,17 @@ async function settingsPageHandler() {
         <span class="toggle-slider"></span>
       </label>
     </div>
+    
+    <div class="setting-item setting-toggle">
+      <div class="setting-info">
+        <label for="no-profile-image-toggle">Hide All Profile Images</label>
+        <span class="setting-description">Don't display user profile pictures throughout the app</span>
+      </div>
+      <label class="toggle-switch">
+        <input type="checkbox" id="no-profile-image-toggle">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
   </div>
 </div>
 
@@ -321,12 +332,22 @@ document
   .getElementById("no-thumbnail-toggle")
   .addEventListener("change", (e) => {
     localStorage.setItem("noThumbnail", e.target.checked);
+    applyAppearanceSettings(); // Apply immediately!
     showTemporaryNotification(
       `Thumbnails ${e.target.checked ? "hidden" : "shown"}`
     );
   });
 
-
+// Appearance - No profile image toggle
+document
+  .getElementById("no-profile-image-toggle")
+  .addEventListener("change", (e) => {
+    localStorage.setItem("noProfileImage", e.target.checked);
+    applyAppearanceSettings(); // Apply immediately!
+    showTemporaryNotification(
+      `Profile images ${e.target.checked ? "hidden" : "shown"}`
+    );
+  });
 
     document
       .getElementById("autoplay-toggle")
@@ -502,6 +523,14 @@ function loadSettings() {
   // Load toggles
   document.getElementById("no-thumbnail-toggle").checked =
     localStorage.getItem("noThumbnail") === "true";  
+
+
+
+  document.getElementById("no-profile-image-toggle").checked =
+    localStorage.getItem("noProfileImage") === "true";    
+
+
+    
   document.getElementById("autoplay-toggle").checked =
     localStorage.getItem("autoplay") === "true";
   document.getElementById("muted-autoplay").checked =
@@ -888,4 +917,44 @@ function setupCollapsibleSections() {
       }
     });
   });
+}
+
+
+////////
+function applyAppearanceSettings() {
+  const styleId = 'appearance-settings-style';
+  let styleElement = document.getElementById(styleId);
+  
+  // Get settings from localStorage
+  const hideProfileImages = localStorage.getItem("noProfileImage") === "true";
+  const hideThumbnails = localStorage.getItem("noThumbnail") === "true";
+  
+  // Build CSS rules
+  let cssRules = [];
+  
+  if (hideProfileImages) {
+    cssRules.push('#main nostr-picture { display: none; }');
+  }
+  
+  if (hideThumbnails) {
+    cssRules.push('.video-card .thumbnail-container { display: none; }');
+  }
+  
+  // Apply or remove styles
+  if (cssRules.length > 0) {
+    if (!styleElement) {
+      styleElement = document.createElement('style');
+      styleElement.id = styleId;
+      document.head.appendChild(styleElement);
+    }
+    styleElement.textContent = cssRules.join('\n');
+  } else {
+    // Remove style element if no rules needed
+    if (styleElement) {
+      styleElement.remove();
+    }
+  }
+}
+function initializeAppearanceSettings() {
+  applyAppearanceSettings();
 }

@@ -49,9 +49,6 @@ function createVideoCard(video) {
     return document.createElement("div"); // Empty div, won't be displayed
   }
 
-  // ===== CHECK THUMBNAIL SETTINGS =====
-  const noThumbnail = localStorage.getItem("noThumbnail") === "true";
-
   // Extract all data first
   let title = getValueFromTagsForVideoCard(video.tags, "title", "Untitled");
   let content = video.content?.trim() || "";
@@ -194,20 +191,16 @@ function createVideoCard(video) {
        ${bottomRightHTML}
         <span class="time"></span>
     </div>
-    ${
-      !noThumbnail
-        ? `<div class="thumbnail-container">
-      ${
-        shouldReplaceThumbnail
-          ? `<div class="content-warning-overlay">${contentWarnings
-              .map((w) => `⚠️ ${w}`)
-              .join(" • ")}</div>`
-          : ""
-      }
-      <img class="thumbnail" loading="lazy" />
-    </div>`
-        : ""
-    }
+<div class="thumbnail-container">
+  ${
+    shouldReplaceThumbnail
+      ? `<div class="content-warning-overlay">${contentWarnings
+          .map((w) => `⚠️ ${w}`)
+          .join(" • ")}</div>`
+      : ""
+  }
+  <img class="thumbnail" loading="lazy" />
+</div>
     <div class="video-info">
       <h3 class="title"></h3>
       <div class="creator">
@@ -226,7 +219,7 @@ function createVideoCard(video) {
   `;
 
   // Get references to elements that need dynamic content
-  let thumbnailImg = !noThumbnail ? card.querySelector(".thumbnail") : null;
+  let thumbnailImg = card.querySelector(".thumbnail");
   let titleElement = card.querySelector(".title");
   let creatorImageContainer = card.querySelector(".creator-image");
   let creatorNameContainer = card.querySelector(".creator-name");
@@ -238,7 +231,7 @@ function createVideoCard(video) {
 
 // Set dynamic content programmatically
 // Only set thumbnail if thumbnails are enabled
-if (!noThumbnail && thumbnailImg) {
+if (thumbnailImg) {
   // Set blurhash as initial thumbnail if available, then load actual image
   if (blurhashDataUrl && finalThumbnailSrc !== blurhashDataUrl) {
     // Show blurhash first
@@ -268,7 +261,7 @@ if (!noThumbnail && thumbnailImg) {
 
   timeElement.textContent = timeAgo;
 
-  if (formattedDuration && !noThumbnail) {
+ if (formattedDuration) {
     let durationSpan = document.createElement("span");
     durationSpan.className = "duration";
     durationSpan.textContent = formattedDuration;

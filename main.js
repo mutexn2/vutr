@@ -283,6 +283,7 @@ function initializeCoreComponents() {
   // Initialize UI components
   initializeSidebar();
   setupSidebarToggle();
+  initializeAppearanceSettings();
   initDrawer();
   initSearch();
   initNotifyMenuButton();

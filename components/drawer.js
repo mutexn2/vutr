@@ -280,8 +280,8 @@ function getDrawerSections() {
     {
       items: getSectionTwoItems(),
       id: "local-storage-section",
-      title: "Local",
-      tooltip: "Local storage is unrelated to logged in keys",
+      title: "Local Storage",  // Changed from "Local" to "Local Storage"
+
       isDynamic: false,
     },
     {
@@ -394,9 +394,9 @@ function generateStaticSectionHTML(section) {
 
   let titleHTML = "";
   if (section.title) {
-    if (section.tooltip) {
-      // Simple native tooltip using title attribute
-      titleHTML = `<div class="drawer-section-title" title="${section.tooltip}">${section.title}</div>`;
+    if (section.id === "local-storage-section") {
+      // Concise single line
+      titleHTML = `<div class="drawer-section-title">Local (device storage)</div>`;
     } else {
       titleHTML = `<div class="drawer-section-title">${section.title}</div>`;
     }
@@ -409,7 +409,6 @@ function generateStaticSectionHTML(section) {
     </div>
   `;
 }
-
 
 
 // Data functions - first two sections remain the same

@@ -977,7 +977,7 @@ function setupInfoTabs() {
 ////////////////////////////
 function extractHostname(url) {
   try {
-    // ADDED: Validate URL first
+    // Validate URL first
     const sanitizedUrl = sanitizeUrl(url);
     if (!sanitizedUrl) return null;
     

@@ -5,15 +5,16 @@ async function networkSettingsPageHandler() {
 
 <div class="network-container">
   <!-- Tab Navigation -->
-  <div class="network-tab-nav">
+<div class="network-tab-nav">
+  <div class="tab-scroll-container">
     <button class="network-tab-button active" data-tab="active-set">
       Content relay sets
     </button>
     <button class="network-tab-button" data-tab="placeholder-1">my relays</button>
     <button class="network-tab-button" data-tab="placeholder-2">blossom servers</button>
     <button class="network-tab-button" data-tab="allowed-servers">Allowed Servers</button>
-
   </div>
+</div>
 
 <!-- Active Set Tab -->
   <div class="network-tab-content active" id="active-set-tab">
@@ -32,7 +33,7 @@ async function networkSettingsPageHandler() {
     Import My Relay Sets
   </button>
     <button id="relay-set-discovery-btn" class="btn-primary">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path stroke-linecap="round" stroke-linejoin="round" d="M15.59 14.37a6 6 0 0 1-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 0 0 6.16-12.12A14.98 14.98 0 0 0 9.631 8.41m5.96 5.96a14.926 14.926 0 0 1-5.841 2.58m-.119-8.54a6 6 0 0 0-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 0 0-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 0 1-2.448-2.448 14.9 14.9 0 0 1 .06-.312m-2.24 2.39a4.493 4.493 0 0 0-1.757 4.306 4.493 4.493 0 0 0 4.306-1.758M16.5 9a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z" />
       </svg>
       Discover
@@ -224,7 +225,13 @@ async function networkSettingsPageHandler() {
       }
     }
 
-
+    setTimeout(() => {
+      const tabScrollContainer = document.querySelector(".network-tab-nav .tab-scroll-container");
+      if (tabScrollContainer) {
+        enableDragScroll(tabScrollContainer);
+        enableWheelScroll(tabScrollContainer);
+      }
+    }, 100);
 
   } catch (error) {
     console.error("Error rendering network page:", error);
@@ -296,6 +303,15 @@ function setupNetworkPageEventListeners() {
     button.addEventListener('click', (e) => {
       const targetTab = e.target.dataset.tab;
       switchTab(targetTab);
+
+      // Scroll the active button into view
+      button.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+        inline: 'center'
+      });
+
+
     });
   });
 
@@ -325,10 +341,10 @@ function setupNetworkPageEventListeners() {
     editSetMetadata(app.activeRelayList);
   });
 
-  // NEW: Create new set button (moved to actions bar)
+  // Create new set button (moved to actions bar)
   document.getElementById("createNewSetBtn").addEventListener("click", createNewEmptySet);
 
-  // NEW: Import my relay sets button
+  // Import my relay sets button
   document.getElementById("importMyRelaySetsBtn").addEventListener("click", importMyRelaySets);
 
   // Outbox relay controls
@@ -1040,8 +1056,8 @@ function updateDetailedStatusWithInfo(statusElement, relayInfo, techResult, rela
   container.className = 'status-detailed';
 
   // Create relay header
-  const header = createRelayHeader(relayInfo, relayUrl);
-  container.appendChild(header);
+//  const header = createRelayHeader(relayInfo, relayUrl);
+//  container.appendChild(header);
 
   // Create technical analysis
   const analysis = createTechnicalAnalysis(techResult);
@@ -1559,10 +1575,10 @@ function showImportMyRelaySetsModal(events, conflicts) {
       <div class="import-actions">
         <button class="btn-secondary" id="modalCancelBtn">Cancel</button>
         ${hasConflicts ? `
-          <button class="btn-secondary" id="modalImportUniqueBtn">Import New Only</button>
-          <button class="btn-primary" id="modalImportAllBtn">Import All (Overwrite)</button>
+          <button class="btn-secondary" id="modalImportUniqueBtn">Add New Only</button>
+          <button class="btn-primary" id="modalImportAllBtn">Add All (Overwrite duplicate)</button>
         ` : `
-          <button class="btn-primary" id="modalImportAllBtn">Import All</button>
+          <button class="btn-primary" id="modalImportAllBtn">Add All</button>
         `}
       </div>
     </div>
@@ -2500,10 +2516,10 @@ function showImportOutboxModal(publishedRelays) {
       <div class="import-actions">
         <button class="btn-secondary" id="modalCancelBtn">Cancel</button>
         ${hasConflicts ? `
-          <button class="btn-secondary" id="modalImportNewOnlyBtn">Import New Only</button>
-          <button class="btn-primary" id="modalImportAllBtn">Import All (Overwrite)</button>
+          <button class="btn-secondary" id="modalImportNewOnlyBtn">Add New Only</button>
+          <button class="btn-primary" id="modalImportAllBtn">Add All (Overwrite duplicate)</button>
         ` : newRelays.length > 0 ? `
-          <button class="btn-primary" id="modalImportAllBtn">Import New</button>
+          <button class="btn-primary" id="modalImportAllBtn">Add New</button>
         ` : ''}
       </div>
     </div>

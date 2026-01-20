@@ -47,43 +47,39 @@ async function homePageHandler() {
     const loadMoreStatus = document.getElementById("load-more-status");
 
     // Infinite scroll state
-    const scrollState = {
-      currentTimestamp: Math.floor(Date.now() / 1000),
-      isLoading: false,
-      hasMoreContent: true,
-      eventsPerPage: 40,
-      loadedEventsCount: 0,
-      existingEventIds: new Set(),
-      filterParams: filterParams,
-      // GLOBAL period management (shared across all relays)
-      emptyPeriodCount: 0,
-      maxEmptyPeriods: 3,
-      currentPeriodSize: 24 * 60 * 60, // Start with 1 day
-      periodSizes: [
-        1 * 24 * 60 * 60,    // 1 day
-        7 * 24 * 60 * 60,    // 1 week
-        30 * 24 * 60 * 60,   // 1 month
-        90 * 24 * 60 * 60,   // 3 months
-        180 * 24 * 60 * 60,  // 6 months
-        365 * 24 * 60 * 60,  // 1 year
-      ],
-      periodIndex: 0,
-      // Per-relay state tracking
-      relayStates: {},
-      // Final sweep state
-      finalSweepComplete: false,
-      bufferedEvents: [],
-      bufferedEventIndex: 0,
-    };
+  const scrollState = {
+    currentTimestamp: Math.floor(Date.now() / 1000),
+    isLoading: false,
+    hasMoreContent: true,
+    eventsPerPage: 20,
+    loadedEventsCount: 0,
+    existingEventIds: new Set(),
+    filterParams: filterParams,
+    
+    // Time-based pagination (only used after initial load)
+    minPeriod: 300,
+    maxPeriod: 31536000,
+    currentPeriodSize: 300,
+    
+    // Per-relay state tracking
+    relayStates: {},
+    finalSweepComplete: false,
+    bufferedEvents: [],
+    bufferedEventIndex: 0,
+    
+    // Track if this is the first load
+    isFirstLoad: true,
+  };
 
-    // Initialize per-relay state
-    app.relays.forEach(relay => {
-      scrollState.relayStates[relay] = {
-        oldestTimestamp: null,
-        hasMoreContent: true,
-        isActive: true,
-      };
-    });
+  // Initialize per-relay state
+  app.relays.forEach(relay => {
+    scrollState.relayStates[relay] = {
+      oldestTimestamp: null,
+      hasMoreContent: true,
+      isActive: true,
+      hadEventsInInitialLoad: false, // Track which relays have content
+    };
+  });
 
     // Initialize SimplePool
     app.homePool = new window.NostrTools.SimplePool();
@@ -136,6 +132,131 @@ async function homePageHandler() {
       }
       return false;
     }
+
+
+
+  // FAST initial load function - just ask for events with limit
+  async function fastInitialLoadFromRelay(relay) {
+    return new Promise((resolve) => {
+      const events = [];
+      let isComplete = false;
+
+      let filter = {
+        kinds: [21],
+        limit: 20,
+      };
+
+      // Add tags to filter if specified
+      if (scrollState.filterParams.tags.length > 0) {
+        filter["#t"] = scrollState.filterParams.tags;
+      }
+
+      // Add user's date filter if specified
+      if (scrollState.filterParams.dateFilter !== "any") {
+        const userSince = getDateFilterTimestamp(scrollState.filterParams.dateFilter);
+        if (userSince) {
+          filter.since = userSince;
+        }
+      }
+
+      const sub = app.homePool.subscribe(
+        [relay],
+        filter,
+        {
+          onevent(event) {
+            if (!scrollState.existingEventIds.has(event.id)) {
+              const sanitizedEvent = sanitizeNostrEvent(event);
+              if (sanitizedEvent) {
+                scrollState.existingEventIds.add(event.id);
+                events.push(sanitizedEvent);
+                
+                // Render immediately as events come in
+                renderEventImmediately(sanitizedEvent);
+              }
+            }
+          },
+          oneose() {
+            if (!isComplete) {
+              isComplete = true;
+              sub.close();
+              
+              // Track relay state based on results
+              const relayState = scrollState.relayStates[relay];
+              if (events.length >= 20) {
+                // This relay has plenty of content
+                relayState.hadEventsInInitialLoad = true;
+                relayState.hasMoreContent = true;
+              } else if (events.length > 0) {
+                // This relay has some content
+                relayState.hadEventsInInitialLoad = true;
+                relayState.hasMoreContent = true; // Maybe has more with time filtering
+              } else {
+                // This relay has no content (or very little)
+                relayState.hadEventsInInitialLoad = false;
+                relayState.hasMoreContent = true; // Still try with time filtering later
+              }
+              
+              // Update oldest timestamp if we got events
+              if (events.length > 0) {
+                const oldestEvent = events.reduce((oldest, event) =>
+                  event.created_at < oldest.created_at ? event : oldest
+                );
+                relayState.oldestTimestamp = oldestEvent.created_at;
+              }
+              
+              resolve(events);
+            }
+          },
+          onclose() {
+            if (!isComplete) {
+              isComplete = true;
+              resolve(events);
+            }
+          },
+        }
+      );
+
+      // Faster timeout for initial load
+      setTimeout(() => {
+        if (!isComplete) {
+          isComplete = true;
+          sub.close();
+          resolve(events);
+        }
+      }, 3000);
+    });
+  }
+
+  // Fast initial load from all relays
+  async function fastInitialLoad() {
+    console.log("Starting fast initial load...");
+    
+    // Fire all relay requests in parallel
+    const relayPromises = app.relays.map(relay => fastInitialLoadFromRelay(relay));
+    
+    // Wait for all to complete
+    await Promise.all(relayPromises);
+    
+    console.log(`Fast initial load complete. Loaded ${scrollState.loadedEventsCount} events`);
+    
+    // Mark first load as complete
+    scrollState.isFirstLoad = false;
+    
+    // If we got more than target, we're done for now
+    if (scrollState.loadedEventsCount >= scrollState.eventsPerPage) {
+      return;
+    }
+    
+    // If we didn't get enough, continue with time-based loading from relays that have content
+    console.log("Not enough events from initial load, continuing with time-based pagination...");
+  }
+
+
+
+
+
+
+
 
     // Function to load events from a SINGLE relay for a time period
     async function loadEventsForPeriodFromRelay(relay, since, until, renderImmediately = false) {
@@ -316,160 +437,157 @@ async function homePageHandler() {
     }
 
     // Function to load from a single relay continuously
-    async function loadFromSingleRelay(relay, targetEventCount) {
-      const relayState = scrollState.relayStates[relay];
+  async function loadFromSingleRelay(relay, targetEventCount) {
+    const relayState = scrollState.relayStates[relay];
 
-      if (!relayState.isActive || !relayState.hasMoreContent) {
-        return 0;
-      }
+    if (!relayState.isActive || !relayState.hasMoreContent) {
+      return 0;
+    }
 
-      const startCount = scrollState.loadedEventsCount;
-      let currentUntil = relayState.oldestTimestamp || scrollState.currentTimestamp;
-      let currentSince = currentUntil - scrollState.currentPeriodSize; // Use GLOBAL period size
+    // Skip relays that had no events in initial load (unless we're desperate)
+    if (!relayState.hadEventsInInitialLoad && scrollState.loadedEventsCount > 0) {
+      return 0;
+    }
 
-      // Keep loading from this relay until global target is reached or relay exhausted
-      while (scrollState.loadedEventsCount < targetEventCount && relayState.hasMoreContent && relayState.isActive) {
-        const periodEvents = await loadEventsForPeriodFromRelay(relay, currentSince, currentUntil, true);
+    const startCount = scrollState.loadedEventsCount;
+    let currentUntil = relayState.oldestTimestamp || scrollState.currentTimestamp;
+    let localPeriodSize = scrollState.currentPeriodSize;
 
-        if (periodEvents.length === 0) {
-          // Move to previous period with GLOBAL period size
-          currentUntil = currentSince;
-          currentSince = currentUntil - scrollState.currentPeriodSize;
+    while (scrollState.loadedEventsCount < targetEventCount && relayState.hasMoreContent && relayState.isActive) {
+      const currentSince = Math.max(0, currentUntil - localPeriodSize);
+      
+      const periodEvents = await loadEventsForPeriodFromRelay(relay, currentSince, currentUntil, true);
 
-          if (currentUntil < 0) {
-            relayState.hasMoreContent = false;
-            relayState.isActive = false;
-            break;
-          }
-
-          continue;
-        }
-
-        // Update relay's position
-        const oldestEvent = periodEvents.reduce((oldest, event) =>
-          event.created_at < oldest.created_at ? event : oldest
-        );
-        relayState.oldestTimestamp = oldestEvent.created_at;
-        currentUntil = oldestEvent.created_at;
-        currentSince = currentUntil - scrollState.currentPeriodSize; // Use GLOBAL period size
-
-        // Check if we've reached global target
-        if (scrollState.loadedEventsCount >= targetEventCount) {
+      if (periodEvents.length === 0) {
+        localPeriodSize = Math.min(localPeriodSize * 2, scrollState.maxPeriod);
+        currentUntil = currentSince;
+        
+        if (currentUntil <= 0) {
+          relayState.hasMoreContent = false;
+          relayState.isActive = false;
           break;
         }
+        
+        continue;
       }
 
-      return scrollState.loadedEventsCount - startCount;
+      // Found events! Reset to minimum period size
+      localPeriodSize = scrollState.minPeriod;
+      
+      const oldestEvent = periodEvents.reduce((oldest, event) =>
+        event.created_at < oldest.created_at ? event : oldest
+      );
+      relayState.oldestTimestamp = oldestEvent.created_at;
+      currentUntil = oldestEvent.created_at;
+
+      if (scrollState.loadedEventsCount >= targetEventCount) {
+        break;
+      }
     }
+
+    return scrollState.loadedEventsCount - startCount;
+  }
 
     // Main function to load events from all relays in parallel
-    async function loadMoreEvents() {
-      if (scrollState.isLoading || !scrollState.hasMoreContent) {
-        return;
-      }
+  async function loadMoreEvents() {
+    if (scrollState.isLoading || !scrollState.hasMoreContent) {
+      return;
+    }
 
-      scrollState.isLoading = true;
-      loadMoreBtn.style.display = 'none';
-      loadMoreStatus.textContent = 'Loading more videos...';
+    scrollState.isLoading = true;
+    loadMoreBtn.style.display = 'none';
+    loadMoreStatus.textContent = 'Loading more videos...';
+    loadMoreStatus.style.display = 'block';
+
+    const startLoadedCount = scrollState.loadedEventsCount;
+    const targetCount = startLoadedCount + scrollState.eventsPerPage;
+
+    // First load: use fast initial load
+    if (scrollState.isFirstLoad) {
+      await fastInitialLoad();
+      
+      // If still not enough after initial load, continue with time-based
+      if (scrollState.loadedEventsCount < targetCount && !scrollState.isFirstLoad) {
+        // Continue loading with time-based approach
+        await loadMoreWithTimePagination(targetCount);
+      }
+    } else {
+      // Subsequent loads: use time-based pagination
+      await loadMoreWithTimePagination(targetCount);
+    }
+
+    scrollState.isLoading = false;
+    loadMoreStatus.style.display = 'none';
+
+    const loadedThisBatch = scrollState.loadedEventsCount - startLoadedCount;
+
+    // Check if ANY relay still has content
+    const anyRelayHasContent = Object.values(scrollState.relayStates).some(
+      state => state.hasMoreContent && state.isActive
+    );
+
+    if (scrollState.finalSweepComplete) {
+      scrollState.hasMoreContent = scrollState.bufferedEventIndex < scrollState.bufferedEvents.length;
+    } else {
+      scrollState.hasMoreContent = anyRelayHasContent;
+    }
+
+    if (scrollState.hasMoreContent && loadedThisBatch > 0) {
+      loadMoreBtn.style.display = 'block';
+    } else if (!scrollState.hasMoreContent) {
+      loadMoreStatus.textContent = 'No more videos to load';
       loadMoreStatus.style.display = 'block';
+    } else if (loadedThisBatch === 0) {
+      loadMoreStatus.textContent = 'No more videos to load';
+      loadMoreStatus.style.display = 'block';
+      scrollState.hasMoreContent = false;
+    } else {
+      loadMoreBtn.style.display = 'block';
+    }
+  }
 
-      const startLoadedCount = scrollState.loadedEventsCount;
-      const targetCount = startLoadedCount + scrollState.eventsPerPage;
+  async function loadMoreWithTimePagination(targetCount) {
+    if (scrollState.finalSweepComplete) {
+      const neededCount = targetCount - scrollState.loadedEventsCount;
+      loadFromBuffer(neededCount);
 
-      // Check if we should do a final sweep
-      if (!scrollState.finalSweepComplete && scrollState.emptyPeriodCount >= 2) {
-        // Make final sweep request
-        await makeFinalSweepRequest();
+      if (scrollState.bufferedEventIndex >= scrollState.bufferedEvents.length) {
+        scrollState.hasMoreContent = false;
       }
+      return;
+    }
 
-      // Load from buffer if final sweep is complete
-      if (scrollState.finalSweepComplete) {
-        const neededCount = targetCount - scrollState.loadedEventsCount;
-        const loadedFromBuffer = loadFromBuffer(neededCount);
+    let emptyBatchCount = 0;
+    
+    while (scrollState.loadedEventsCount < targetCount && scrollState.hasMoreContent && emptyBatchCount < 3) {
+      const batchStartCount = scrollState.loadedEventsCount;
 
-        if (scrollState.bufferedEventIndex >= scrollState.bufferedEvents.length) {
-          scrollState.hasMoreContent = false;
-        }
-      } else {
-        // Keep loading until we get enough events or run out of content
-        while (scrollState.loadedEventsCount < targetCount && scrollState.hasMoreContent) {
-          const batchStartCount = scrollState.loadedEventsCount;
-
-          // Start all relays in parallel for this time period
-          const relayPromises = app.relays.map(relay =>
-            loadFromSingleRelay(relay, targetCount)
-          );
-
-          // Wait for all relays to complete this batch
-          await Promise.all(relayPromises);
-
-          const eventsInThisBatch = scrollState.loadedEventsCount - batchStartCount;
-
-          if (eventsInThisBatch === 0) {
-            // No events found in this period across ALL relays
-            scrollState.emptyPeriodCount++;
-
-            // Check if we should do final sweep
-            if (scrollState.emptyPeriodCount >= 2) {
-              // Trigger final sweep on next iteration
-              break;
-            }
-
-            // Check if we should increase period size
-            const increased = increasePeriodSize();
-            if (increased) {
-              scrollState.emptyPeriodCount = 0;
-              // Continue with new period size
-              continue;
-            } else {
-              // Already at max period size
-              if (scrollState.emptyPeriodCount >= scrollState.maxEmptyPeriods) {
-                scrollState.hasMoreContent = false;
-                break;
-              }
-            }
-          } else {
-            // Reset empty counter since we found events
-            scrollState.emptyPeriodCount = 0;
-          }
-
-          // If we got enough events, stop
-          if (scrollState.loadedEventsCount >= targetCount) {
-            break;
-          }
-        }
-      }
-
-      scrollState.isLoading = false;
-      loadMoreStatus.style.display = 'none';
-
-      const loadedThisBatch = scrollState.loadedEventsCount - startLoadedCount;
-
-      // Check if ANY relay still has content
-      const anyRelayHasContent = Object.values(scrollState.relayStates).some(
-        state => state.hasMoreContent && state.isActive
+      const relayPromises = app.relays.map(relay =>
+        loadFromSingleRelay(relay, targetCount)
       );
 
-      // Update hasMoreContent based on final sweep state or relay states
-      if (scrollState.finalSweepComplete) {
-        scrollState.hasMoreContent = scrollState.bufferedEventIndex < scrollState.bufferedEvents.length;
+      await Promise.all(relayPromises);
+
+      const eventsInThisBatch = scrollState.loadedEventsCount - batchStartCount;
+
+      if (eventsInThisBatch === 0) {
+        emptyBatchCount++;
+        
+        if (emptyBatchCount >= 2 && !scrollState.finalSweepComplete) {
+          await makeFinalSweepRequest();
+          break;
+        }
       } else {
-        scrollState.hasMoreContent = anyRelayHasContent;
+        emptyBatchCount = 0;
+        scrollState.currentPeriodSize = scrollState.minPeriod;
       }
 
-      if (scrollState.hasMoreContent && loadedThisBatch > 0) {
-        loadMoreBtn.style.display = 'block';
-      } else if (!scrollState.hasMoreContent) {
-        loadMoreStatus.textContent = 'No more videos to load';
-        loadMoreStatus.style.display = 'block';
-      } else if (loadedThisBatch === 0) {
-        loadMoreStatus.textContent = 'No more videos to load';
-        loadMoreStatus.style.display = 'block';
-        scrollState.hasMoreContent = false;
-      } else {
-        loadMoreBtn.style.display = 'block';
+      if (scrollState.loadedEventsCount >= targetCount) {
+        break;
       }
     }
+  }
+
 
     // ========== SET UP EVENT LISTENERS BEFORE LOADING DATA ==========
 

@@ -67,7 +67,7 @@ function renderWizardForm() {
           <!-- Step 1: Video Sources -->
           <div class="wizard-step active" data-step="1">
             <h2 class="step-title">Video Sources</h2>
-            <p class="step-description">Add one or more video URLs. (lower quality, fallback)</p>
+            <p class="step-description">Video URL(s). Include alternate qualities or fallbacks if available.</p>
             
             <div class="video-tabs">
               <button type="button" class="tab-button active" data-tab="url">Add URL</button>
@@ -87,14 +87,14 @@ function renderWizardForm() {
               <div class="upload-area">
                 <input type="file" id="video-upload" accept="video/*" style="display: none;">
                 <button type="button" id="upload-video" class="upload-button" style="display: none;">Choose Video File</button>
-                <p class="help-text">*Blossom servers management in development*</p>
-                <p class="help-text">the event needs a publicly exposed direct media URL, you can use any hosting service you know or self-host then add URL</p>
-                <p class="help-text">also check:</p>
-                <div class="external-upload-services">
-                  <a href="https://blossomservers.com/" target="_blank" class="upload-service-link">Blossom Servers</a>
-                  <a href="https://bouquet.slidestr.net/" target="_blank" class="upload-service-link">Bouquet</a>
-                  <a href="https://npub19sstws4x9t7nua2sh6cxkeez25y6lvvnq6fqpmyzwnthsjap5tqqkdsghg.nsite.lol/" target="_blank" class="upload-service-link">Cherry Tree</a>
-                </div>
+<p class="help-text">To publish an event you need any public, direct video URL — from your favorite host, cloud storage, or your own server.</p>
+<p class="help-text">Our integrated upload (Blossom Servers) is coming soon.</p>
+<p class="help-text">Quick suggestions:</p>
+<div class="external-upload-services">
+  <a href="https://blossomservers.com/" target="_blank" class="upload-service-link">Blossom Servers</a>
+  <a href="https://bouquet.slidestr.net/" target="_blank" class="upload-service-link">Bouquet</a>
+  <a href="https://npub19sstws4x9t7nua2sh6cxkeez25y6lvvnq6fqpmyzwnthsjap5tqqkdsghg.nwb.tf/" target="_blank" class="upload-service-link">Cherry Tree</a>
+</div>
               </div>
             </div>
 

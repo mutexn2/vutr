@@ -185,7 +185,6 @@ let routes = {
   "#blob": blobPageHandler,
   "#blossom": blossomPageHandler,
   "#nak": fafoPageHandler,
-  "#nak2": nakPageHandler,
   "#settings": settingsPageHandler,
   "#network": networkSettingsPageHandler,
   "#websockets": websocketsPageHandler,

@@ -85,8 +85,7 @@ async function processMediaUrl(url) {
       console.warn('HEAD request failed - likely CORS restricted');
     }
 
-    // Step 1.5: Check if it's Blossom URL
-    const isBlossom = isBlosomUrl(url);
+
 
     // Determine if this is video/audio
     const isVideo = contentType.startsWith('video/');
@@ -383,7 +382,8 @@ async function extractMetadataFromVideoElement(url) {
         duration: video.duration,
         width: video.videoWidth,
         height: video.videoHeight,
-        dimensions: `${video.videoWidth}x${video.videoHeight}`
+        dimensions: `${video.videoWidth}x${video.videoHeight}`,
+        aspectRatio: video.videoWidth / video.videoHeight
       });
     };
 
@@ -401,6 +401,7 @@ async function extractMetadataFromVideoElement(url) {
     video.src = url;
   });
 }
+
 
 // Helper function to extract metadata from audio element (CORS-restricted fallback)
 async function extractMetadataFromAudioElement(url) {
@@ -1161,5 +1162,27 @@ function saveBlobToDevice(blob, hash, mimeType = '') {
   } catch (error) {
     console.error('❌ Failed to save file:', error);
     return false;
+  }
+}
+
+//////////
+function validateHashAgainstUrl(url, blobHash) {
+  try {
+    const parsedUrl = new URL(url);
+    const filename = parsedUrl.pathname.split('/').pop();
+    const filenameWithoutExtension = filename.split('.').slice(0, -1).join('.');
+
+    return {
+      isValid: filenameWithoutExtension === blobHash,
+      urlHash: filenameWithoutExtension,
+      blobHash
+    };
+  } catch (error) {
+    return {
+      isValid: false,
+      urlHash: null,
+      blobHash,
+      error: error.message
+    };
   }
 }

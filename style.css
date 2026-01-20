@@ -2252,6 +2252,25 @@ main {
   bottom: unset;
 }
 
+.playlist-card.playlist-empty * {
+  opacity: 0.7;
+}
+
+
+
+/* Style for the duration text when count is 0 */
+.playlist-card .duration.empty-count {
+  color: #ff6b6b;
+  font-weight: bold;
+}
+
+/* You might also want to add a visual indicator */
+/* .playlist-card.playlist-empty .duration::after {
+  content: ' (Empty)';
+  opacity: 0.8;
+}
+ */
+
 /****in local playlists***/
 .playlist-author {
   display: flex;
@@ -4712,7 +4731,7 @@ main {
   padding: 2rem;
   border-radius: 12px;
   max-width: 900px;
-  margin: 8px auto;
+  margin: 8px;
 }
 
 .posting-title {
@@ -14090,7 +14109,8 @@ input[type="number"] {
 }
 
 .zap-details-summary {
-  display: grid;
+  /* display: grid; */
+  display: none;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 16px;
   padding: 16px;

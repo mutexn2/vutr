@@ -38,6 +38,12 @@ function createPlaylistCard(playlist, options = {}) {
   // Create the card
   let card = document.createElement('div');
   card.className = 'video-card playlist-card';
+  
+  // Add empty class if video count is 0
+  if (videoCount === 0) {
+    card.classList.add('playlist-empty');
+  }
+  
   card.dataset.playlistId = playlist.id;
   card.dataset.author = playlist.pubkey;
   card.dataset.dtag = dtag;
@@ -98,6 +104,12 @@ function createPlaylistCard(playlist, options = {}) {
     let videoCountSpan = document.createElement('span');
     videoCountSpan.className = 'duration';
     videoCountSpan.textContent = `${videoCount} items`;
+    
+    // Add empty class to the duration span if count is 0
+    if (videoCount === 0) {
+      videoCountSpan.classList.add('empty-count');
+    }
+    
     card.querySelector('.thumbnail-container').appendChild(videoCountSpan);
   }
 
@@ -142,6 +154,7 @@ function createPlaylistCard(playlist, options = {}) {
 
   return card;
 }
+
 
 // Helper function for delete confirmation
 function handleDeletePlaylist(playlist, title) {
@@ -612,17 +625,8 @@ function countVideoReferences(playlist) {
   if (!playlist.tags || !Array.isArray(playlist.tags)) {
     return 0;
   }
-  
-  // OLD: return playlist.tags.filter(tag => {
-  //   if (!Array.isArray(tag) || tag.length < 2 || tag[0] !== "a") return false;
-  //   const aTagValue = tag[1];
-  //   if (!aTagValue || typeof aTagValue !== "string" || 
-  //       (!aTagValue.startsWith("21:") && !aTagValue.startsWith("22:"))) return false;
-  //   const idPart = aTagValue.substring(3);
-  //   return idPart.length === 64 && /^[a-fA-F0-9]{64}$/.test(idPart);
-  // }).length;
-  
-  // NEW: Count e tags with valid video IDs
+    
+  // Count e tags with valid video IDs
   return playlist.tags.filter(tag => {
     if (!Array.isArray(tag) || tag.length < 2 || tag[0] !== "e") return false;
     const videoId = tag[1];

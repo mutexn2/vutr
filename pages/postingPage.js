@@ -336,7 +336,7 @@ function initializePostingPage() {
   initializeRelaySelection();
   initializeEventListeners();
   initializeWizardNavigation();
-  loadFormDataFromStorage();
+  loadFormDataFromStorage(); // Load first
   updateDisplay();
 
   // Auto-save form data
@@ -359,21 +359,21 @@ function initializePostingPage() {
       goToStep(currentStep - 1);
     });
 
-  function goToStep(stepNumber) {
-    if (stepNumber < 1 || stepNumber > totalSteps) return;
+    function goToStep(stepNumber) {
+      if (stepNumber < 1 || stepNumber > totalSteps) return;
 
-    // Hide all steps
-    document.querySelectorAll(".wizard-step").forEach(step => {
-      step.classList.remove("active");
-    });
+      // Hide all steps
+      document.querySelectorAll(".wizard-step").forEach(step => {
+        step.classList.remove("active");
+      });
 
-    // Show target step
-    document.querySelector(`.wizard-step[data-step="${stepNumber}"]`).classList.add("active");
+      // Show target step
+      document.querySelector(`.wizard-step[data-step="${stepNumber}"]`).classList.add("active");
 
-    // Initialize thumbnail picker when entering step 2
-    if (stepNumber === 2) {
-      initializeThumbnailPicker();
-    }
+      //  Initialize thumbnail picker when entering step 2
+      if (stepNumber === 2) {
+        initializeThumbnailPicker();
+      }
 
       // Update progress indicator
       document.querySelectorAll(".progress-step").forEach(step => {
@@ -400,40 +400,41 @@ function initializePostingPage() {
       forceScrollToTop();
     }
 
-  function validateCurrentStep() {
-    switch(currentStep) {
-      case 1: // Video Sources
-        if (window.videoMetadataList.length === 0) {
-          alert("Please add at least one video URL");
-          return false;
-        }
-        return true;
+    function validateCurrentStep() {
+      switch(currentStep) {
+        case 1: // Video Sources
+          //  Use actual array length, not stale data
+          if (window.videoMetadataList.length === 0) {
+            alert("Please add at least one video URL");
+            return false;
+          }
+          return true;
 
-      case 2: // Basic Information
-        const title = document.getElementById("title").value.trim();
-        const content = document.getElementById("content").value.trim();
-        const summary = document.getElementById("summary").value.trim();
-        
-        if (!title) {
-          alert("Please enter a title");
-          document.getElementById("title").focus();
-          return false;
-        }
-        if (!content) {
-          alert("Please enter a description");
-          document.getElementById("content").focus();
-          return false;
-        }
-        if (!summary) {
-          alert("Please enter a summary");
-          document.getElementById("summary").focus();
-          return false;
-        }
-        if (!selectedThumbnail) {
-          alert("Please select a thumbnail");
-          return false;
-        }
-        return true;
+        case 2: // Basic Information
+          const title = document.getElementById("title").value.trim();
+          const content = document.getElementById("content").value.trim();
+          const summary = document.getElementById("summary").value.trim();
+          
+          if (!title) {
+            alert("Please enter a title");
+            document.getElementById("title").focus();
+            return false;
+          }
+          if (!content) {
+            alert("Please enter a description");
+            document.getElementById("content").focus();
+            return false;
+          }
+          if (!summary) {
+            alert("Please enter a summary");
+            document.getElementById("summary").focus();
+            return false;
+          }
+          if (!selectedThumbnail) {
+            alert("Please select a thumbnail");
+            return false;
+          }
+          return true;
 
         case 3: // Metadata
           if (selectedTags.size === 0) {
@@ -458,6 +459,7 @@ function initializePostingPage() {
     }
   }
 
+  //  Complete rewrite of thumbnail picker initialization
   function initializeThumbnailPicker() {
     const thumbnailPicker = document.getElementById("thumbnail-picker");
     if (!thumbnailPicker) return;
@@ -469,35 +471,73 @@ function initializePostingPage() {
       return;
     }
 
+    // Track if we found the selected thumbnail
+    let foundSelected = false;
+
+    // Add thumbnails from video list
     window.videoMetadataList.forEach((video, index) => {
       const thumbOption = document.createElement("div");
       thumbOption.className = "thumbnail-option";
       thumbOption.dataset.url = video.thumbnail;
+      thumbOption.dataset.source = "video";
       
       thumbOption.innerHTML = `
         <img src="${video.thumbnail}" alt="Video ${index + 1} thumbnail">
         <span class="thumbnail-label">Video ${index + 1}</span>
       `;
 
-thumbOption.addEventListener("click", () => {
-  document.querySelectorAll(".thumbnail-option").forEach(opt => 
-    opt.classList.remove("selected")
-  );
-  thumbOption.classList.add("selected");
-  selectedThumbnail = video.thumbnail.trim();
-  saveFormDataToStorage();
-});
-
-      // Auto-select first thumbnail if none selected
-      if (index === 0 && !selectedThumbnail) {
+      thumbOption.addEventListener("click", () => {
+        document.querySelectorAll(".thumbnail-option").forEach(opt => 
+          opt.classList.remove("selected")
+        );
         thumbOption.classList.add("selected");
-        selectedThumbnail = video.thumbnail;
+        selectedThumbnail = video.thumbnail.trim();
+        saveFormDataToStorage();
+      });
+
+      // Check if this is the selected thumbnail
+      if (selectedThumbnail && video.thumbnail.trim() === selectedThumbnail.trim()) {
+        thumbOption.classList.add("selected");
+        foundSelected = true;
       }
 
       thumbnailPicker.appendChild(thumbOption);
     });
-  }
 
+    //  Re-add custom thumbnail if it exists and isn't from video list
+    if (selectedThumbnail && !foundSelected) {
+      const customThumbOption = document.createElement("div");
+      customThumbOption.className = "thumbnail-option selected";
+      customThumbOption.dataset.url = selectedThumbnail;
+      customThumbOption.dataset.source = "custom";
+      
+      customThumbOption.innerHTML = `
+        <img src="${selectedThumbnail}" alt="Custom thumbnail">
+        <span class="thumbnail-label">Custom</span>
+      `;
+
+      customThumbOption.addEventListener("click", () => {
+        document.querySelectorAll(".thumbnail-option").forEach(opt => 
+          opt.classList.remove("selected")
+        );
+        customThumbOption.classList.add("selected");
+        selectedThumbnail = selectedThumbnail;
+        saveFormDataToStorage();
+      });
+
+      thumbnailPicker.appendChild(customThumbOption);
+    }
+
+    // Auto-select first thumbnail if none selected
+    if (!selectedThumbnail && window.videoMetadataList.length > 0) {
+      const firstOption = thumbnailPicker.querySelector(".thumbnail-option");
+      if (firstOption) {
+        firstOption.classList.add("selected");
+        selectedThumbnail = window.videoMetadataList[0].thumbnail;
+        saveFormDataToStorage();
+      }
+    }
+  }
 
   function updateReviewStep() {
     const summary = document.getElementById("event-summary");
@@ -714,53 +754,36 @@ thumbOption.addEventListener("click", () => {
       if (value && !selectedTags.has(value)) {
         selectedTags.add(value);
         updateSelectedTagsDisplay();
+        saveFormDataToStorage(); // ADDED: Save immediately
         select.value = "";
       }
     });
 
-  document.getElementById("add-custom-thumbnail")?.addEventListener("click", async () => {
-    const input = document.getElementById("custom-thumbnail-url");
-    const url = input.value.trim();
-    
-    if (!url) {
-      alert("Please enter a thumbnail URL");
-      return;
-    }
-
-    try {
-      await validateImageUrl(url);
+    //  Custom thumbnail handler
+    document.getElementById("add-custom-thumbnail")?.addEventListener("click", async () => {
+      const input = document.getElementById("custom-thumbnail-url");
+      const url = input.value.trim();
       
-      const thumbnailPicker = document.getElementById("thumbnail-picker");
-      const thumbOption = document.createElement("div");
-      thumbOption.className = "thumbnail-option selected";
-      thumbOption.dataset.url = url;
-      
-      thumbOption.innerHTML = `
-        <img src="${url}" alt="Custom thumbnail">
-        <span class="thumbnail-label">Custom</span>
-      `;
+      if (!url) {
+        alert("Please enter a thumbnail URL");
+        return;
+      }
 
-      thumbOption.addEventListener("click", () => {
-        document.querySelectorAll(".thumbnail-option").forEach(opt => 
-          opt.classList.remove("selected")
-        );
-        thumbOption.classList.add("selected");
+      try {
+        await validateImageUrl(url);
+        
+        // Set as selected thumbnail
         selectedThumbnail = url;
+        
+        // Re-initialize the picker to show the custom thumbnail
+        initializeThumbnailPicker();
+        
+        input.value = "";
         saveFormDataToStorage();
-      });
-
-      document.querySelectorAll(".thumbnail-option").forEach(opt => 
-        opt.classList.remove("selected")
-      );
-      
-      thumbnailPicker.appendChild(thumbOption);
-      selectedThumbnail = url;
-      input.value = "";
-      saveFormDataToStorage();
-    } catch {
-      alert("Invalid image URL");
-    }
-  });
+      } catch {
+        alert("Invalid image URL");
+      }
+    });
 
 
     document.getElementById("add-custom-tag").addEventListener("click", () => {
@@ -807,12 +830,30 @@ thumbOption.addEventListener("click", () => {
     if (target.classList.contains("remove-video")) {
       const item = target.closest(".video-item");
       const index = parseInt(item.dataset.index);
+      
+      //  Properly filter and update
+      const removedVideo = window.videoMetadataList.find(v => v.index === index);
       window.videoMetadataList = window.videoMetadataList.filter(
         (video) => video.index !== index
       );
+      
+      //  If removed video was selected thumbnail, clear selection
+      if (removedVideo && selectedThumbnail === removedVideo.thumbnail) {
+        selectedThumbnail = null;
+        // Auto-select first remaining thumbnail if any
+        if (window.videoMetadataList.length > 0) {
+          selectedThumbnail = window.videoMetadataList[0].thumbnail;
+        }
+      }
+      
       item.remove();
       updateVideoCounter();
       saveFormDataToStorage();
+      
+      //  Re-initialize thumbnail picker if on step 2
+      if (currentStep === 2) {
+        initializeThumbnailPicker();
+      }
     }
 
     if (target.classList.contains("update-thumbnail")) {
@@ -874,10 +915,7 @@ async function handleAddVideo() {
   try {
     showVideoProgress("Checking media accessibility...");
     
-    // Step 1: Quick check if URL looks like a Blossom URL
-    const isBlossom = isBlosomUrl(url);
-    
-    // Step 2: Try HEAD request
+    // Try HEAD request
     const headResponse = await fetch(url, { method: "HEAD" }).catch(() => null);
     
     let contentType = '';
@@ -887,13 +925,13 @@ async function handleAddVideo() {
       contentType = detectContentType(headResponse, url);
       canFetch = true;
     } else {
-      // HEAD failed
+      // HEAD failed - likely CORS
       const extension = getFileExtensionFromUrl(url);
       contentType = getMimeTypeFromExtension(extension) || 'video/mp4';
       console.warn('HEAD request failed - likely CORS restricted');
     }
     
-    // Step 3: Try full Blossom validation if we can
+    // Step 3: Initialize metadata object
     let metadata = {
       url,
       type: contentType,
@@ -901,10 +939,10 @@ async function handleAddVideo() {
       index: metadataIndex++,
     };
     
+    // Step 4: Try full download and validation if we can fetch
     if (canFetch) {
-      // Try full validation with download
       try {
-        showVideoProgress("Validating Blossom and extracting metadata...");
+        showVideoProgress("Downloading media...");
         
         const result = await fetchVideoWithProgress(url, (progress) => {
           if (progress.indeterminate) {
@@ -939,7 +977,6 @@ async function handleAddVideo() {
             height: 0,
             dimensions: 'Unknown',
             aspectRatio: 0,
-            bitrate: 0
           };
         }
         
@@ -949,13 +986,13 @@ async function handleAddVideo() {
           bitrate = Math.round((actualSize * 8) / fullMetadata.duration);
         }
         
-        // Generate thumbnail
+        // Generate thumbnail from blob
         showVideoProgress("Generating thumbnail...");
         let thumbnail;
         try {
-          thumbnail = await extractThumbnail(url);
+          thumbnail = await extractThumbnailFromBlob(mediaBlob);
         } catch (thumbError) {
-          console.warn('Could not generate thumbnail:', thumbError);
+          console.warn('Could not generate thumbnail from blob:', thumbError);
           thumbnail = await generatePlaceholderThumbnail();
         }
         
@@ -971,70 +1008,45 @@ async function handleAddVideo() {
           thumbnail: thumbnail
         };
         
-        console.log('✅ Full Blossom validation complete');
+        console.log('✅ Full validation complete');
         
       } catch (fetchError) {
-        // Fetch failed even though HEAD worked - probably CORS on GET
-        console.warn('❌ Cannot download file (CORS on GET):', fetchError.message);
+        console.warn('❌ Download failed (CORS on GET):', fetchError.message);
         canFetch = false;
       }
     }
     
-// Step 4: Fallback to video element if fetch failed
-if (!canFetch || !metadata.blossomValidated) {
-  console.log('⚠️ Falling back to video element method (CORS restricted)');
-  
-  // Check if video is at least playable
-  showVideoProgress("Checking if video is playable...");
-  let videoElementMetadata;
-  try {
-    videoElementMetadata = await extractMetadataDirectly(url);
-  } catch (videoError) {
-    throw new Error(`Video cannot be loaded or played. ${videoError.message}\n\nThis URL may be completely blocked or invalid.`);
-  }
-  
-  // Video is playable but we can't validate Blossom
-  // User decision point: warn them about reduced functionality
-  const userConsent = confirm(
-    `⚠️ CORS Restriction Detected\n\n` +
-    `This video URL blocks direct access (no CORS headers).\n\n` +
-    `Available metadata:\n` +
-    `✅ Video will play\n` +
-    `✅ Dimensions: ${videoElementMetadata.dimensions}\n` +
-    `✅ Duration: ${videoElementMetadata.duration.toFixed(2)}s\n\n` +
-    `NOT available:\n` +
-    `❌ Blossom hash validation\n` +
-    `❌ File size\n` +
-    `❌ Actual bitrate\n\n` +
-    (isBlossom ? 
-      `Note: This LOOKS like a Blossom URL but we cannot verify it.\n\n` :
-      `Note: This doesn't appear to be a Blossom URL.\n\n`) +
-    `Do you want to add it anyway with limited metadata?`
-  );
-  
-  if (!userConsent) {
-    throw new Error('User cancelled - CORS restricted URL');
-  }
-  
-  // For CORS-restricted videos, just use placeholder thumbnail
-  // Don't try to extract - it will likely fail or hang
-  showVideoProgress("Using placeholder thumbnail...");
-  const thumbnail = await generatePlaceholderThumbnail();
-  
-  metadata = {
-    ...metadata,
-    size: 0,
-    hash: '', // No hash available
-    isHashValid: false,
-    blossomValidated: false,
-    corsRestricted: true,
-    ...videoElementMetadata,
-    bitrate: 0,
-    thumbnail: thumbnail
-  };
-  
-  console.log('⚠️ Added with limited metadata (CORS restricted)');
-}
+    // Step 5: Fallback to video element if fetch failed
+    if (!canFetch || !metadata.blossomValidated) {
+      console.log('⚠️ Using video element method (CORS restricted)');
+      
+      showVideoProgress("Checking if video is playable...");
+      let videoElementMetadata;
+      try {
+        videoElementMetadata = await extractMetadataFromVideoElement(url);
+      } catch (videoError) {
+        throw new Error(`Video cannot be loaded or played: ${videoError.message}`);
+      }
+      
+      // Video is playable - use placeholder thumbnail for CORS-restricted videos
+      // Don't try to extract from URL as it will likely fail
+      showVideoProgress("Using placeholder thumbnail...");
+      const thumbnail = await generatePlaceholderThumbnail();
+      
+      metadata = {
+        ...metadata,
+        size: 0,
+        hash: '',
+        isHashValid: false,
+        blossomValidated: false,
+        corsRestricted: true,
+        ...videoElementMetadata,
+        bitrate: 0,
+        thumbnail: thumbnail
+      };
+      
+      console.log('⚠️ Added with limited metadata (CORS restricted)');
+    }
 
     window.videoMetadataList.push(metadata);
     addVideoToUI(metadata);
@@ -1051,6 +1063,79 @@ if (!canFetch || !metadata.blossomValidated) {
     setButtonLoading(button, false, "Add Video");
   }
 }
+
+async function extractThumbnailFromBlob(blob) {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement("video");
+    const blobUrl = URL.createObjectURL(blob);
+    video.muted = true;
+    video.preload = "metadata";
+
+    video.onloadedmetadata = () => {
+      video.currentTime = Math.min(1, video.duration * 0.1); // 10% into video or 1s
+    };
+
+    video.onseeked = () => {
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+
+      const thumbnailWidth = 240;
+      const thumbnailHeight = 135;
+
+      canvas.width = thumbnailWidth;
+      canvas.height = thumbnailHeight;
+
+      ctx.fillStyle = "#000000";
+      ctx.fillRect(0, 0, thumbnailWidth, thumbnailHeight);
+
+      const videoWidth = video.videoWidth;
+      const videoHeight = video.videoHeight;
+      const videoAspectRatio = videoWidth / videoHeight;
+      const containerAspectRatio = thumbnailWidth / thumbnailHeight;
+
+      let drawWidth, drawHeight, offsetX, offsetY;
+
+      if (videoAspectRatio > containerAspectRatio) {
+        drawWidth = thumbnailWidth;
+        drawHeight = thumbnailWidth / videoAspectRatio;
+        offsetX = 0;
+        offsetY = (thumbnailHeight - drawHeight) / 2;
+      } else {
+        drawHeight = thumbnailHeight;
+        drawWidth = thumbnailHeight * videoAspectRatio;
+        offsetX = (thumbnailWidth - drawWidth) / 2;
+        offsetY = 0;
+      }
+
+      ctx.drawImage(video, offsetX, offsetY, drawWidth, drawHeight);
+
+      URL.revokeObjectURL(blobUrl);
+
+      canvas.toBlob(
+        (blob) => {
+          if (blob) {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(new Error('Failed to read thumbnail blob'));
+            reader.readAsDataURL(blob);
+          } else {
+            resolve(canvas.toDataURL("image/jpeg", 0.7));
+          }
+        },
+        "image/webp",
+        0.8
+      );
+    };
+
+    video.onerror = (e) => {
+      URL.revokeObjectURL(blobUrl);
+      reject(new Error('Failed to load video for thumbnail'));
+    };
+
+    video.src = blobUrl;
+  });
+}
+
 
 async function extractCompleteVideoMetadata(blob, mimeType, fileSize) {
   return new Promise((resolve, reject) => {
@@ -1217,11 +1302,6 @@ console.log("upload", file);
   }
 
 
-
-
-
-
-
   function validateImageUrl(url) {
     return new Promise((resolve, reject) => {
       const img = new Image();
@@ -1247,7 +1327,7 @@ function addVideoToUI(video) {
         <p><strong>Dimensions:</strong> <span class="video-dimensions">${video.dimensions}</span></p>
         <p><strong>Duration:</strong> <span class="video-duration">${video.duration?.toFixed(2)}s</span></p>
         <p><strong>Bitrate:</strong> <span class="video-bitrate">${video.bitrate?.toFixed(0)}</span></p>
-        <p><strong>Hash <span class="hash-status">${video.isLightweight ? "(random)" : (video.isHashValid ? "(blossom)" : "(not blossom)")}</span>:</strong> <span class="video-hash">${video.hash}</span></p>
+        <p><strong>Hash "x" <span class="hash-status">${video.isHashValid ? "(🌸)" : ""}</span>:</strong> <span class="video-hash">${video.hash}</span></p>
       </div>
     </div>
     <div class="posting-video-controls">
@@ -1422,36 +1502,41 @@ function buildK21EventData() {
     updateVideoCounter();
   }
 
+  //  Improved save function with validation
   function saveFormDataToStorage() {
-    const formData = {
-      title: document.getElementById("title").value,
-      content: document.getElementById("content").value,
-      summary: document.getElementById("summary").value,
-      language: document.getElementById("language").value,
-      license: document.getElementById("license").value,
-      customLicense: document.getElementById("custom-license").value,
-      contentWarnings: Array.from(document.querySelectorAll('input[name="content-warning"]:checked'))
-        .map(cb => cb.value),
-      selectedTags: Array.from(selectedTags),
-      selectedThumbnail: selectedThumbnail,
-      videoMetadataList: window.videoMetadataList,
-      customFields: Array.from(document.querySelectorAll(".custom-field")).map(
-        (field) => ({
-          name: field.querySelector(".field-name").value.trim(),
-          value: field.querySelector(".field-value").value.trim(),
-        })
-      ),
-      selectedRelaySets: Array.from(selectedRelaySets),
-      excludedRelays: Array.from(excludedRelays),
-      eventRelays: Array.from(eventRelays),
-      currentStep: currentStep,
-      timestamp: Date.now(),
-    };
+    try {
+      const formData = {
+        title: document.getElementById("title")?.value || "",
+        content: document.getElementById("content")?.value || "",
+        summary: document.getElementById("summary")?.value || "",
+        language: document.getElementById("language")?.value || "",
+        license: document.getElementById("license")?.value || "",
+        customLicense: document.getElementById("custom-license")?.value || "",
+        contentWarnings: Array.from(document.querySelectorAll('input[name="content-warning"]:checked'))
+          .map(cb => cb.value),
+        selectedTags: Array.from(selectedTags),
+        selectedThumbnail: selectedThumbnail,
+        videoMetadataList: window.videoMetadataList,
+        customFields: Array.from(document.querySelectorAll(".custom-field")).map(
+          (field) => ({
+            name: field.querySelector(".field-name")?.value?.trim() || "",
+            value: field.querySelector(".field-value")?.value?.trim() || "",
+          })
+        ),
+        selectedRelaySets: Array.from(selectedRelaySets),
+        excludedRelays: Array.from(excludedRelays),
+        eventRelays: Array.from(eventRelays),
+        currentStep: currentStep,
+        timestamp: Date.now(),
+      };
 
-    localStorage.setItem("draftVideoEvent", JSON.stringify(formData));
+      localStorage.setItem("draftVideoEvent", JSON.stringify(formData));
+    } catch (error) {
+      console.error("Error saving form data:", error);
+    }
   }
 
-
+  //  Improved load function with better state restoration
   function loadFormDataFromStorage() {
     try {
       const saved = localStorage.getItem("draftVideoEvent");
@@ -1459,6 +1544,7 @@ function buildK21EventData() {
 
       const formData = JSON.parse(saved);
 
+      // Restore form fields
       document.getElementById("title").value = formData.title || "";
       document.getElementById("content").value = formData.content || "";
       document.getElementById("summary").value = formData.summary || "";
@@ -1474,21 +1560,31 @@ function buildK21EventData() {
         });
       }
 
+      //  Restore thumbnail selection BEFORE loading videos
       if (formData.selectedThumbnail) {
         selectedThumbnail = formData.selectedThumbnail;
-      }      
+      }
 
+      // Restore tags
       if (formData.selectedTags) {
         selectedTags = new Set(formData.selectedTags);
         updateSelectedTagsDisplay();
       }
 
-      if (formData.videoMetadataList) {
+      //  Restore videos with proper index tracking
+      if (formData.videoMetadataList && formData.videoMetadataList.length > 0) {
         window.videoMetadataList = formData.videoMetadataList;
+        
+        // Update metadataIndex to be higher than any existing index
+        const maxIndex = Math.max(...formData.videoMetadataList.map(v => v.index), -1);
+        metadataIndex = maxIndex + 1;
+        
+        // Add videos to UI
         formData.videoMetadataList.forEach((video) => addVideoToUI(video));
         updateVideoCounter();
       }
 
+      // Restore custom fields
       if (formData.customFields) {
         formData.customFields.forEach((field) => {
           if (field.name && field.value) {
@@ -1496,12 +1592,15 @@ function buildK21EventData() {
             const lastField = document.querySelector(
               "#field-container .custom-field:last-child"
             );
-            lastField.querySelector(".field-name").value = field.name;
-            lastField.querySelector(".field-value").value = field.value;
+            if (lastField) {
+              lastField.querySelector(".field-name").value = field.name;
+              lastField.querySelector(".field-value").value = field.value;
+            }
           }
         });
       }
 
+      // Restore relay selections
       if (formData.selectedRelaySets) {
         selectedRelaySets = new Set(formData.selectedRelaySets);
         document
@@ -1520,8 +1619,15 @@ function buildK21EventData() {
       }
 
       updateRelayPreview();
+      
+      //  If we're on step 2, initialize thumbnail picker after loading
+      if (currentStep === 2) {
+        initializeThumbnailPicker();
+      }
+      
     } catch (error) {
       console.error("Error loading draft data:", error);
+      // Don't throw - just log and continue with fresh state
     }
   }
 

@@ -92,6 +92,7 @@ function renderWizardForm() {
 <p class="help-text">Quick suggestions:</p>
 <div class="external-upload-services">
   <a href="https://blossomservers.com/" target="_blank" class="upload-service-link">Blossom Servers</a>
+  <a href="https://bloomapp.me/" target="_blank" class="upload-service-link">Bloom</a>
   <a href="https://bouquet.slidestr.net/" target="_blank" class="upload-service-link">Bouquet</a>
   <a href="https://npub19sstws4x9t7nua2sh6cxkeez25y6lvvnq6fqpmyzwnthsjap5tqqkdsghg.nwb.tf/" target="_blank" class="upload-service-link">Cherry Tree</a>
 </div>

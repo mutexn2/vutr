@@ -8627,6 +8627,9 @@ noscript {
 .btn-danger,
 .btn-info,
 .btn-small {
+  display: flex;
+  justify-content: center;
+  align-items: center;
   padding: 8px 16px;
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -8656,14 +8659,6 @@ noscript {
   border: 1px solid var(--primary);
 }
 
-.btn-danger {
-  background-color: #dc3545;
-  color: white;
-}
-
-.btn-danger:hover {
-  background-color: #c82333;
-}
 
 .btn-info {
   background-color: var(--background);
@@ -8679,6 +8674,19 @@ noscript {
   padding: 8px 8px;
   font-size: 12px;
 }
+
+
+.btn-danger {
+  background: var(--background);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.btn-danger:hover {
+  background: darkred;
+}
+
+
 
 .modal.hidden {
   display: none;
@@ -9507,7 +9515,7 @@ noscript {
   .relay-actions .btn,
   .outbox-relay-actions .btn,
   .blossom-server-actions .btn {
-   
+    align-items: center;
     justify-content: center;
   }
 
@@ -10156,44 +10164,7 @@ noscript {
   margin-bottom: 1rem;
 }
 
-.btn-primary,
-.btn-secondary,
-.btn-danger {
-  padding: 0.5rem 1rem;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: all 0.2s ease;
-}
 
-.btn-primary {
-  background: var(--background);
-  color: var(--text);
-}
-
-.btn-primary:hover {
-  background: var(--surface);
-}
-
-.btn-secondary {
-  background: var(--background);
-  color: var(--text);
-}
-
-.btn-secondary:hover {
-  background: var(--surface);
-}
-
-.btn-danger {
-  background: var(--background);
-  color: var(--text);
-  border-color: var(--border);
-}
-
-.btn-danger:hover {
-  background: darkred;
-}
 /*****************************************/
 /* Playlists Grid */
 .playlists-header {
@@ -12287,6 +12258,10 @@ noscript {
 
 .relays-discovery-page .show-json-btn,
 .relays-discovery-page .import-relay-set-btn {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 2px;
   background: var(--background);
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -12440,7 +12415,7 @@ noscript {
 
 .relays-discovery-page .relay-urls .relay-item .relay-main-info {
   display: flex;
-  align-items: center;
+  align-items: start;
   justify-content: space-between;
   width: 100%;
   gap: 12px;

@@ -396,7 +396,7 @@ function generateStaticSectionHTML(section) {
   if (section.title) {
     if (section.id === "local-storage-section") {
       // Concise single line
-      titleHTML = `<div class="drawer-section-title">Local (device storage)</div>`;
+      titleHTML = `<div class="drawer-section-title">Local (separate from keys)</div>`;
     } else {
       titleHTML = `<div class="drawer-section-title">${section.title}</div>`;
     }

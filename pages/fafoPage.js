@@ -708,39 +708,3 @@ function fafoPageLoaded(requestType, params) {
 
 
 
-
-/* // this is the template - code pattern- of the ideal page/component file (.js)
-
-// preferrably all code is contained in a single empty function called by the router
-async function homePageHandler() {
-
-  // innerHTML for a static skeleton
-  mainContent.innerHTML = `
-    <h1>Discovering Videos</h1>
-    <div class="loading-indicator">
-        <p>Searching for video events...</p>
-    </div>
-  `;
-  try {
-
-    // check and handle query params if found
-    // use nostr-tools to query or start a subscription
-    let something = queryRelaysForStuff(urlParam, relays);
-
-    // programmatic rendering of dynamic elements (create - append)
-    // add event listeners
-
-    // click event delegation - on the main html element's first child (wrapper element)
-    // (the main html element is for the router only, all page logic is on internal elements)
-
-  } catch (error) {
-    console.error("Error rendering fafo page:", error);
-    mainContent.innerHTML = `
-      <h1>404</h1>
-      <div class="loading-indicator">
-          <p>Error rendering fafo page</p>
-      </div>
-    `;
-  }
-}
- */

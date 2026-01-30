@@ -6,9 +6,7 @@ async function followsFeedPageHandler() {
   const currentHash = window.location.hash;
   const urlParams = new URLSearchParams(currentHash.split("?")[1] || "");
   const relaySource = urlParams.get("relays") || "active";
-  
-  // Always use local subscriptions - removed pubkeySource parameter
-  const pubkeySource = "local";
+  const pubkeySource = urlParams.get("source") || "local";
   
   // Active set has no shorts, Extended has shorts
   const includeShorts = relaySource === "extended" ? "yes" : "no";
@@ -18,6 +16,19 @@ async function followsFeedPageHandler() {
     <div class="follows-feed-header">
       <div class="follows-feed-header-header">
         <h2 class="loading-indicator">Loading...</h2>
+      </div>
+
+      <div class="source-tabs">
+        <button class="tab-button ${
+          pubkeySource === "local" ? "active" : ""
+        }" data-source="local">
+          Local
+        </button>
+        <button class="tab-button ${
+          pubkeySource === "kind3" ? "active" : ""
+        }" data-source="kind3">
+          Kind:3
+        </button>
       </div>
 
       <div class="relay-tabs">
@@ -42,9 +53,32 @@ async function followsFeedPageHandler() {
   const grid = document.querySelector(".videos-grid");
   const loadMoreContainer = document.querySelector(".load-more-container");
 
+  // Setup source tab event handlers
+  const sourceTabButtons = document.querySelectorAll(".source-tabs .tab-button");
+  sourceTabButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      const newSource = button.dataset.source;
+      const baseHash = "#followsfeed";
+
+      const params = new URLSearchParams();
+      const newShorts = relaySource === "extended" ? "yes" : "no";
+
+      // Add source parameter if not local
+      if (newSource !== "local") params.set("source", newSource);
+      if (relaySource !== "active") params.set("relays", relaySource);
+      if (newShorts !== "no") params.set("shorts", newShorts);
+
+      const paramString = params.toString();
+      const newUrl = paramString
+        ? `${baseHash}/params?${paramString}`
+        : baseHash;
+      window.location.hash = newUrl;
+    });
+  });
+
   // Setup relay mode tab event handlers
-  const tabButtons = document.querySelectorAll(".tab-button");
-  tabButtons.forEach((button) => {
+  const relayTabButtons = document.querySelectorAll(".relay-tabs .tab-button");
+  relayTabButtons.forEach((button) => {
     button.addEventListener("click", () => {
       const newRelaySource = button.dataset.relay;
       const baseHash = "#followsfeed";
@@ -52,7 +86,8 @@ async function followsFeedPageHandler() {
       const params = new URLSearchParams();
       const newShorts = newRelaySource === "extended" ? "yes" : "no";
 
-      // Always use local subscriptions, so no source parameter needed
+      // Preserve source parameter
+      if (pubkeySource !== "local") params.set("source", pubkeySource);
       if (newRelaySource !== "active") params.set("relays", newRelaySource);
       if (newShorts !== "no") params.set("shorts", newShorts);
 
@@ -65,17 +100,59 @@ async function followsFeedPageHandler() {
   });
 
   try {
-    // Get local follows - always use local subscriptions
-    const followedPubkeys = getFollowedPubkeys();
-    const sourceLabel = "Subscriptions (local)";
+    let followedPubkeys;
+    let sourceLabel;
 
-    // Check if we have any local follows
-    if (!followedPubkeys || followedPubkeys.length === 0) {
+    // Get pubkeys based on source
+    if (pubkeySource === "kind3") {
+      // Get kind:3 follows
       headerElement.innerHTML = `
+        <h2 class="loading-indicator">Loading kind:3 follows...</h2>
+      `;
+
+      const kind3Events = await getKind3Events(app.myPk);
+      
+      if (!kind3Events || kind3Events.length === 0) {
+        headerElement.innerHTML = `
+          <h2>No Kind:3 Event Found</h2>
+          <p>Could not find your kind:3 follow list. Try using a kind:1 client to create one.</p>
+        `;
+        return;
+      }
+
+      // Get the most recent kind:3 event
+      const latestEvent = kind3Events.reduce((latest, current) =>
+        current.created_at > latest.created_at ? current : latest
+      );
+
+      // Extract pubkeys from p tags
+      followedPubkeys = latestEvent.tags
+        .filter(tag => tag[0] === 'p' && tag[1])
+        .map(tag => tag[1]);
+
+      sourceLabel = "Kind:3 Follows";
+
+      if (followedPubkeys.length === 0) {
+        headerElement.innerHTML = `
+          <h2>Empty Kind:3 List</h2>
+          <p>Your kind:3 event exists but has no followed pubkeys.</p>
+        `;
+        return;
+      }
+
+    } else {
+      // Use local subscriptions (default)
+      followedPubkeys = getFollowedPubkeys();
+      sourceLabel = "Local Subscriptions";
+
+      // Check if we have any local follows
+      if (!followedPubkeys || followedPubkeys.length === 0) {
+        headerElement.innerHTML = `
           <h2>No Local Subscriptions</h2>
           <p>You haven't subscribed to any users locally. Browse around and click the follow button on users to add them to your subscriptions.</p>
         `;
-      return;
+        return;
+      }
     }
 
     console.log(
@@ -614,10 +691,7 @@ function cancelActiveQueries() {
   }
 }
 
-
-
-
-
+// Function to get kind:3 events (keep this as is from your code)
 async function getKind3Events(pubkey) {
   try {
     // Use your active relays for the query

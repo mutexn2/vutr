@@ -227,30 +227,17 @@ async function showLoginPrompt() {
       loadingOverlay.remove();
     }
 
-    const hasExtension =
-      typeof window.nostr !== "undefined" && window.nostr !== null;
-
     const content = `
-      <p>${
-        hasExtension ? "We detected a Nostr browser extension. " : ""
-      }Choose your login method:</p>
       <div class="login-buttons">
-        ${
-          hasExtension
-            ? `
-          <button id="use-extension-btn" class="btn-primary">
-            🔐 Use Browser Extension
-          </button>
-        `
-            : ""
-        }
+        <button id="use-extension-btn" class="btn-primary">
+          🔐 Use Browser Extension
+        </button>
         <button id="use-bunker-btn" class="btn-primary">
           🔗 Use Remote Signer (Bunker)
         </button>
         <button id="use-guest-btn" class="btn-secondary">
           👤 Use Guest Account
         </button>
-        <!-- Add a skip button for cases where login fails completely -->
         <button id="skip-login-btn" class="btn-secondary" style="margin-top: 10px;">
           ⏭️ Skip & Continue to App
         </button>
@@ -263,64 +250,57 @@ async function showLoginPrompt() {
     modal.querySelector("#skip-login-btn").addEventListener("click", () => {
       console.log("%c[Login]%c User chose to skip login", "color: orange; font-weight: bold", "");
       removePersistentLoginOverlay();
-      resolve(false); // Resolve with false to indicate skipped login
+      resolve(false);
     });
 
-    if (hasExtension) {
-      modal
-        .querySelector("#use-extension-btn")
-        .addEventListener("click", async () => {
-          localStorage.setItem("preferredLoginMethod", "extension");
-          showLoginSpinner("Connecting to extension...");
-          try {
-            await attemptExtensionLogin();
-            console.log(
-              "%c[Extension]%c Login successful",
-              "color: green; font-weight: bold",
-              ""
-            );
-            removePersistentLoginOverlay();
-            renderNavLinks();
-            updateSidebar();
-            updateDrawerContent();
-            resolve(true); // Resolve with true to indicate successful login
-          } catch (error) {
-            console.error("%c[Extension]%c Login failed", "color: red; font-weight: bold", "", error);
-            await handleLoginFailure("Extension login failed", error);
-            // Don't resolve here - handleLoginFailure will call showLoginPrompt again
-          }
-        });
-    }
+    // Extension button handler - always available
+    modal.querySelector("#use-extension-btn").addEventListener("click", async () => {
+      localStorage.setItem("preferredLoginMethod", "extension");
+      showLoginSpinner("Connecting to extension...");
+      try {
+        await attemptExtensionLogin();
+        console.log(
+          "%c[Extension]%c Login successful",
+          "color: green; font-weight: bold",
+          ""
+        );
+        removePersistentLoginOverlay();
+        renderNavLinks();
+        updateSidebar();
+        updateDrawerContent();
+        resolve(true);
+      } catch (error) {
+        console.error("%c[Extension]%c Login failed", "color: red; font-weight: bold", "", error);
+        await handleLoginFailure("Extension login failed", error);
+      }
+    });
 
-    modal
-      .querySelector("#use-bunker-btn")
-      .addEventListener("click", async () => {
-        await showBunkerLoginFlow(resolve);
-      });
+    // Bunker button handler
+    modal.querySelector("#use-bunker-btn").addEventListener("click", async () => {
+      await showBunkerLoginFlow(resolve);
+    });
 
-    modal
-      .querySelector("#use-guest-btn")
-      .addEventListener("click", async () => {
-        localStorage.setItem("preferredLoginMethod", "guest");
-        showLoginSpinner("Creating guest account...");
-        try {
-          await handleGuestLogin();
-          console.log(
-            "%c[Guest]%c Login successful",
-            "color: green; font-weight: bold",
-            ""
-          );
-          removePersistentLoginOverlay();
-          renderNavLinks();
-          updateSidebar();
-          updateDrawerContent();
-          resolve(true);
-        } catch (error) {
-          console.error("%c[Guest]%c Login failed", "color: red; font-weight: bold", "", error);
-          await handleLoginFailure("Guest login failed", error);
-          // Don't resolve here - handleLoginFailure will call showLoginPrompt again
-        }
-      });
+    // Guest button handler
+    modal.querySelector("#use-guest-btn").addEventListener("click", async () => {
+      localStorage.setItem("preferredLoginMethod", "guest");
+      showLoginSpinner("Creating guest account...");
+      try {
+        await handleGuestLogin();
+        console.log(
+          "%c[Guest]%c Login successful",
+          "color: green; font-weight: bold",
+          ""
+        );
+        removePersistentLoginOverlay();
+        renderNavLinks();
+        updateSidebar();
+        updateDrawerContent();
+        resolve(true);
+      } catch (error) {
+        console.error("%c[Guest]%c Login failed", "color: red; font-weight: bold", "", error);
+        await handleLoginFailure("Guest login failed", error);
+      }
+    });
   });
 }
 

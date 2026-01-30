@@ -16,15 +16,17 @@ async function relaySetsDiscoveryPageHandler() {
 
   mainContent.innerHTML = `
     <div class="relays-discovery-page">
-      <div class="pubkey-source-tabs">
-        <button class="source-tab-button ${pubkeySource === 'latest' ? 'active' : ''}" data-source="latest">
-          Latest Sets
-        </button>
-        <button class="source-tab-button ${pubkeySource === 'local' ? 'active' : ''}" data-source="local">
-          Subscriptions
-        </button>
-
-      </div>
+  <div class="pubkey-source-tabs">
+    <button class="source-tab-button ${pubkeySource === 'latest' ? 'active' : ''}" data-source="latest">
+      Latest Sets
+    </button>
+    <button class="source-tab-button ${pubkeySource === 'local' ? 'active' : ''}" data-source="local">
+      Subscriptions
+    </button>
+    <button class="source-tab-button ${pubkeySource === 'kind3' ? 'active' : ''}" data-source="kind3">
+      Kind:3
+    </button>
+  </div>
       
       <div class="discovery-tabs">
         <button class="tab-button active" data-tab="sets">Relay Sets</button>
@@ -54,12 +56,12 @@ async function relaySetsDiscoveryPageHandler() {
   `;
 
   // Setup pubkey source tab event handlers
-  const sourceTabButtons = document.querySelectorAll('.source-tab-button');
+const sourceTabButtons = document.querySelectorAll('.source-tab-button');
 sourceTabButtons.forEach(button => {
   button.addEventListener('click', () => {
     const newSource = button.dataset.source;
-    // Only allow 'latest' and 'local'
-    if (newSource !== 'latest' && newSource !== 'local') {
+    // Allow 'latest', 'local', and 'kind3'
+    if (newSource !== 'latest' && newSource !== 'local' && newSource !== 'kind3') {
       return; // Skip if it's not a valid source
     }
     const baseHash = '#relaysetsdiscover';
@@ -70,6 +72,7 @@ sourceTabButtons.forEach(button => {
     window.location.hash = newUrl;
   });
 });
+
 
   // Get the appropriate pubkeys based on source
   let followedPubkeys = null;
@@ -82,7 +85,44 @@ sourceTabButtons.forEach(button => {
       return;
     }
     sourceLabel = 'Subscriptions';
+  } else if (pubkeySource === 'kind3') {
+    // Handle kind:3 source
+    const loadingIndicator = document.querySelector('.loading-indicator');
+    if (loadingIndicator) {
+      loadingIndicator.innerHTML = '<p>Loading kind:3 follows...</p>';
+    }
+
+    const kind3Events = await getKind3Events(app.myPk);
+    
+    if (!kind3Events || kind3Events.length === 0) {
+      showTabContentMessage(
+        'No Kind:3 Event Found',
+        'Could not find your kind:3 follow list. Try using a kind:1 client to create one.'
+      );
+      return;
+    }
+
+    // Get the most recent kind:3 event
+    const latestEvent = kind3Events.reduce((latest, current) =>
+      current.created_at > latest.created_at ? current : latest
+    );
+
+    // Extract pubkeys from p tags
+    followedPubkeys = latestEvent.tags
+      .filter(tag => tag[0] === 'p' && tag[1])
+      .map(tag => tag[1]);
+
+    if (followedPubkeys.length === 0) {
+      showTabContentMessage(
+        'Empty Kind:3 List',
+        'Your kind:3 event exists but has no followed pubkeys.'
+      );
+      return;
+    }
+
+    sourceLabel = 'Kind:3 Follows';
   }
+
 
   const rSets = document.querySelector('.videos-listview');
   let receivedEvents = new Map();

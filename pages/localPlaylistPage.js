@@ -550,11 +550,11 @@ if (playAllBtn) {
       }
       
       // Check for non-whitelisted domains
-      const nonWhitelistedDomains = await checkPlaylistDomains(videoEvents);
+/*       const nonWhitelistedDomains = await checkPlaylistDomains(videoEvents);
       
       if (nonWhitelistedDomains.length > 0) {
         await promptWhitelistDomains(nonWhitelistedDomains);
-      }
+      } */
       
       const videoId = firstVideo.dataset.videoId;
       const pubkey = isLocal ? 'local' : playlist.pubkey;
@@ -588,11 +588,11 @@ document.querySelectorAll('.playlist-video-item').forEach(item => {
     }
     
     // Check for non-whitelisted domains
-    const nonWhitelistedDomains = await checkPlaylistDomains(videoEvents);
+/*     const nonWhitelistedDomains = await checkPlaylistDomains(videoEvents);
     
     if (nonWhitelistedDomains.length > 0) {
       await promptWhitelistDomains(nonWhitelistedDomains);
-    }
+    } */
     
     const videoId = item.dataset.videoId;
     const pubkey = isLocal ? 'local' : playlist.pubkey;

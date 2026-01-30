@@ -12,7 +12,7 @@ async function networkSettingsPageHandler() {
     </button>
     <button class="network-tab-button" data-tab="placeholder-1">my relays</button>
     <button class="network-tab-button" data-tab="placeholder-2">blossom servers</button>
-    <button class="network-tab-button" data-tab="allowed-servers">Allowed Servers</button>
+    <button class="network-tab-button" data-tab="allowed-servers" style="display: none;">Allowed Servers</button>
   </div>
 </div>
 

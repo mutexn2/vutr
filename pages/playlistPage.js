@@ -709,12 +709,12 @@ if (playAllBtn) {
       }
       
       // Check for non-whitelisted domains
-      const nonWhitelistedDomains = await checkPlaylistDomains(videoEvents);
+/*       const nonWhitelistedDomains = await checkPlaylistDomains(videoEvents);
       
       if (nonWhitelistedDomains.length > 0) {
         await promptWhitelistDomains(nonWhitelistedDomains);
       }
-      
+       */
       const videoId = firstVideo.dataset.videoId;
       
       // Get relay hint for the first video
@@ -758,11 +758,11 @@ document.querySelectorAll('.network-playlist-video').forEach(item => {
     }
     
     // Check for non-whitelisted domains
-    const nonWhitelistedDomains = await checkPlaylistDomains(videoEvents);
+/*     const nonWhitelistedDomains = await checkPlaylistDomains(videoEvents);
     
     if (nonWhitelistedDomains.length > 0) {
       await promptWhitelistDomains(nonWhitelistedDomains);
-    }
+    } */
     
     const videoId = item.dataset.videoId;
     

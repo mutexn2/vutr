@@ -998,15 +998,18 @@ function handleVideoPlayback(videoContainer, url, videoId, video, pageHash, shou
   }
   
   // Check if server is in whitelist
-  const isWhitelisted = app.mediaServerWhitelist.includes(hostname);
+//  const isWhitelisted = app.mediaServerWhitelist.includes(hostname);
   
-  if (isWhitelisted) {
+
+    VideoPlayer.render(videoContainer, url, videoId, video, pageHash, shouldAutoplay);
+
+/*   if (isWhitelisted) {
     // Server is whitelisted, play video directly
     VideoPlayer.render(videoContainer, url, videoId, video, pageHash, shouldAutoplay);
   } else {
     // Server is not whitelisted, show prompt
     renderWhitelistPrompt(videoContainer, hostname, url, videoId, video, pageHash, shouldAutoplay);
-  }
+  } */
 }
 
 // Render the whitelist prompt
